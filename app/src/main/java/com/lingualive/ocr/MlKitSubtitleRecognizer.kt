@@ -15,13 +15,10 @@ class MlKitSubtitleRecognizer {
         suspendCancellableCoroutine { continuation ->
             recognizer.process(InputImage.fromBitmap(bitmap, 0))
                 .addOnSuccessListener { result ->
-                    continuation.resume(
-                        OcrResult(
-                            text = OcrTextNormalizer.normalize(result.text),
-                            confidence = 1f,
-                            timestampMs = timestampMs
-                        )
-                    )
+                    val useful = result.textBlocks.flatMap { it.lines }.map { it.text }.filter { OcrTextNormalizer.isUseful(it) }
+                    val merged = OcrTextNormalizer.normalize(useful.joinToString(" "))
+                    val bounds = result.textBlocks.firstOrNull()?.boundingBox?.let { Rect(it.left, it.top, it.right, it.bottom) }
+                    continuation.resume(OcrResult(merged, 1f, timestampMs, bounds))
                 }
                 .addOnFailureListener { continuation.resumeWithException(it) }
         }

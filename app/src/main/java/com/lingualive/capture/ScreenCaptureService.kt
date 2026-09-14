@@ -9,7 +9,6 @@ import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.IBinder
-import com.lingualive.ocr.SubtitleRegion
 
 class ScreenCaptureService : Service() {
     companion object {
@@ -26,10 +25,12 @@ class ScreenCaptureService : Service() {
 
     private var adapter: ImageReaderAdapter? = null
     private var projection: MediaProjection? = null
+    private var ocrBridge: CaptureOcrBridge? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        ocrBridge = CaptureOcrBridge()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -42,21 +43,17 @@ class ScreenCaptureService : Service() {
 
     private fun startCapture(intent: Intent) {
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
-        val data = intent.parcelableIntent(EXTRA_PROJECTION_DATA) ?: run {
-            stopSelf(); return
-        }
+        val data = intent.parcelableIntent(EXTRA_PROJECTION_DATA) ?: run { stopSelf(); return }
         val width = intent.getIntExtra(EXTRA_WIDTH, 1080)
         val height = intent.getIntExtra(EXTRA_HEIGHT, 1920)
         val dpi = intent.getIntExtra(EXTRA_DPI, resources.displayMetrics.densityDpi)
 
         startForegroundCompat()
         stopCaptureResources()
-
         projection = MediaProjectionController(this).obtainProjection(resultCode, data)
         val config = CaptureConfig(width = width, height = height, dpi = dpi)
         adapter = ImageReaderAdapter(projection!!, config) { bitmap ->
-            // The OCR pipeline will be attached here. Keeping the callback local
-            // makes the capture layer independent from any OCR/translation vendor.
+            ocrBridge?.onFrame(bitmap)
             bitmap.recycle()
         }.also { it.start() }
     }
@@ -80,13 +77,8 @@ class ScreenCaptureService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true)
             .build()
-
         if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            )
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -94,19 +86,16 @@ class ScreenCaptureService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    NOTIFICATION_CHANNEL,
-                    "实时字幕采集",
-                    NotificationManager.IMPORTANCE_LOW
-                )
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(NOTIFICATION_CHANNEL, "实时字幕采集", NotificationManager.IMPORTANCE_LOW)
             )
         }
     }
 
     override fun onDestroy() {
         stopCaptureResources()
+        ocrBridge?.close()
+        ocrBridge = null
         super.onDestroy()
     }
 
@@ -115,8 +104,4 @@ class ScreenCaptureService : Service() {
 
 @Suppress("DEPRECATION")
 private fun Intent.parcelableIntent(key: String): Intent? =
-    if (Build.VERSION.SDK_INT >= 33) {
-        getParcelableExtra(key, Intent::class.java)
-    } else {
-        getParcelableExtra(key)
-    }
+    if (Build.VERSION.SDK_INT >= 33) getParcelableExtra(key, Intent::class.java) else getParcelableExtra(key)

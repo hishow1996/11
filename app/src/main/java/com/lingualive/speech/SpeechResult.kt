@@ -1,11 +1,11 @@
 package com.lingualive.speech
 
-/**
- * Result produced by speech recognition engines.
- */
 data class SpeechResult(
     val text: String,
     val language: String = "auto",
     val confidence: Float = 0f,
-    val timestamp: Long = System.currentTimeMillis()
+    val startTimeMs: Long = 0L,
+    val endTimeMs: Long = 0L,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isFinal: Boolean = true
 )

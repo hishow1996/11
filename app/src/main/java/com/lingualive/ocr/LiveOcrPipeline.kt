@@ -4,12 +4,16 @@ import android.graphics.Bitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class LiveOcrPipeline(
     private val recognizer: MlKitSubtitleRecognizer = MlKitSubtitleRecognizer(),
     private val deduplicator: OcrDeduplicator = OcrDeduplicator()
 ) {
+    private val _latest = MutableStateFlow<OcrResult?>(null)
+    val latest: StateFlow<OcrResult?> = _latest
     private val scope = CoroutineScope(Dispatchers.Default)
     private val lock = Any()
     private var job: Job? = null
@@ -40,28 +44,23 @@ class LiveOcrPipeline(
                         val next = pending
                         pending = null
                         next
-                    } ?: break
+                    }
+
+                    if (snapshot == null) {
+                        synchronized(lock) { job = null }
+                        return@launch
+                    }
 
                     try {
                         val result = recognizer.recognize(snapshot)
-                        if (deduplicator.accept(result.text)) {
-                            // Only publish completed recognition; intermediate frames are replaceable.
-                            _latest.value = result
-                        }
+                        if (deduplicator.accept(result.text)) _latest.value = result
                     } finally {
                         snapshot.recycle()
                     }
                 }
-                synchronized(lock) {
-                    job = null
-                    if (!closed && pending != null) startWorker()
-                }
             }
         }
     }
-
-    private val _latest = kotlinx.coroutines.flow.MutableStateFlow<OcrResult?>(null)
-    val latest: kotlinx.coroutines.flow.StateFlow<OcrResult?> = _latest
 
     fun close() {
         val pendingToRecycle = synchronized(lock) {

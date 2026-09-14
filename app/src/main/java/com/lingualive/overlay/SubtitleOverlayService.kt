@@ -13,6 +13,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.graphics.Typeface
 
 class SubtitleOverlayService : Service() {
     companion object {
@@ -22,7 +23,7 @@ class SubtitleOverlayService : Service() {
         const val EXTRA_TRANSLATED = "translated"
     }
 
-    private var windowManager: WindowManager? = null
+    private var wm: WindowManager? = null
     private var root: LinearLayout? = null
     private var params: WindowManager.LayoutParams? = null
 
@@ -37,51 +38,60 @@ class SubtitleOverlayService : Service() {
     private fun show(original: String, translated: String) {
         if (!Settings.canDrawOverlays(this)) return
         if (root == null) createWindow()
-        root?.findViewWithTag<TextView>("original")?.text = original
-        root?.findViewWithTag<TextView>("translated")?.text = translated
+        root?.findViewWithTag<TextView>("original")?.apply { text = original; visibility = if (original.isBlank()) View.GONE else View.VISIBLE }
+        root?.findViewWithTag<TextView>("translated")?.text = translated.ifBlank { "翻译暂不可用" }
         root?.visibility = View.VISIBLE
     }
 
     private fun createWindow() {
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(28, 16, 28, 16)
-            setBackgroundColor(Color.argb(220, 20, 20, 24))
-            alpha = 0.92f
+            setPadding(24, 13, 24, 14)
+            setBackgroundColor(Color.argb(232, 18, 20, 19))
+            elevation = 12f
         }
-        val original = TextView(this).apply { tag = "original"; setTextColor(Color.WHITE); textSize = 15f; gravity = Gravity.CENTER }
-        val translated = TextView(this).apply { tag = "translated"; setTextColor(Color.WHITE); textSize = 20f; gravity = Gravity.CENTER; setTypeface(typeface, android.graphics.Typeface.BOLD) }
+        val original = TextView(this).apply {
+            tag = "original"
+            setTextColor(Color.argb(190, 255, 255, 255))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            maxLines = 2
+        }
+        val translated = TextView(this).apply {
+            tag = "translated"
+            setTextColor(Color.WHITE)
+            textSize = 20f
+            gravity = Gravity.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            maxLines = 3
+        }
         container.addView(original, LinearLayout.LayoutParams(-1, -2))
         container.addView(translated, LinearLayout.LayoutParams(-1, -2))
         container.setOnTouchListener(DragTouchListener())
         val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
         val p = WindowManager.LayoutParams(-1, -2, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = 96
+            y = 88
         }
-        windowManager?.addView(container, p)
+        wm?.addView(container, p)
         root = container
         params = p
     }
 
     private inner class DragTouchListener : View.OnTouchListener {
-        private var downX = 0f
-        private var downY = 0f
-        private var startX = 0
-        private var startY = 0
+        private var downX = 0f; private var downY = 0f; private var startX = 0; private var startY = 0
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             val p = params ?: return false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> { downX = event.rawX; downY = event.rawY; startX = p.x; startY = p.y; return true }
-                MotionEvent.ACTION_MOVE -> { p.x = startX + (event.rawX - downX).toInt(); p.y = startY - (event.rawY - downY).toInt(); windowManager?.updateViewLayout(root, p); return true }
+                MotionEvent.ACTION_MOVE -> { p.x = startX + (event.rawX - downX).toInt(); p.y = startY - (event.rawY - downY).toInt(); wm?.updateViewLayout(root, p); return true }
             }
             return true
         }
     }
 
     private fun hide() { root?.visibility = View.GONE }
-
-    override fun onDestroy() { root?.let { windowManager?.removeView(it) }; root = null; windowManager = null; super.onDestroy() }
+    override fun onDestroy() { root?.let { wm?.removeView(it) }; root = null; wm = null; super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
 }

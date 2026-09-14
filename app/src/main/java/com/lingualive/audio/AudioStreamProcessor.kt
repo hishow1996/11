@@ -1,23 +1,28 @@
 package com.lingualive.audio
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 /**
  * Converts captured PCM audio frames into ASR input.
+ * Filters silent frames before forwarding them.
  */
-class AudioStreamProcessor {
+class AudioStreamProcessor(
+    private val detector: VoiceActivityDetector = VoiceActivityDetector()
+) {
 
-    private var listener: ((AudioFrame) -> Unit)? = null
-
-    fun setListener(callback: (AudioFrame) -> Unit) {
-        listener = callback
-    }
+    private val _frames = MutableSharedFlow<AudioFrame>(extraBufferCapacity = 32)
+    val frames = _frames.asSharedFlow()
 
     fun process(samples: ShortArray, sampleRate: Int) {
-        listener?.invoke(
-            AudioFrame(
-                samples = samples,
-                sampleRate = sampleRate,
-                timestamp = System.currentTimeMillis()
-            )
+        val frame = AudioFrame(
+            samples = samples,
+            sampleRate = sampleRate,
+            timestamp = System.currentTimeMillis()
         )
+
+        if (detector.isVoice(frame)) {
+            _frames.tryEmit(frame)
+        }
     }
 }

@@ -35,6 +35,10 @@ object DefaultTranslationEngine {
         TranslationProviderId.DEEPSEEK to DeepSeekTranslationProvider(),
         TranslationProviderId.DEEPL to DeepLTranslationProvider(),
         TranslationProviderId.GOOGLE to GoogleTranslationProvider(),
+        TranslationProviderId.MICROSOFT to MicrosoftTranslationProvider(),
+        TranslationProviderId.BAIDU to BaiduTranslationProvider(),
+        TranslationProviderId.TENCENT to TencentTranslationProvider(),
+        TranslationProviderId.MODERNMT to ModernMtTranslationProvider(),
         TranslationProviderId.LOCAL to LocalTranslationProvider()
     ))
 }

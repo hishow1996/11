@@ -1,0 +1,2 @@
+package com.lingualive.audio
+object VadSegmentPadding{fun pad(segment:VadAudioSegment,prefix:Int,suffix:Int):VadAudioSegment{val p=prefix.coerceAtLeast(0);val s=suffix.coerceAtLeast(0);val out=FloatArray(p+segment.samples.size+s);segment.samples.copyInto(out,p);return VadAudioSegment(out,segment.startSample-p,segment.endSample+s)}}

@@ -4,7 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.provider.Settings
+import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,49 +24,39 @@ import androidx.compose.ui.unit.dp
 import com.lingualive.capture.ScreenCaptureService
 
 class MainActivity : ComponentActivity() {
-    private val projectionManager by lazy {
-        getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-    }
+    private val projectionManager by lazy { getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme { Surface(modifier = Modifier.fillMaxSize()) { Home(::requestCapture) } }
-        }
+        setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { Home(::requestCapture, ::openOverlaySettings) } } }
     }
 
-    private fun requestCapture() {
-        startActivityForResult(projectionManager.createScreenCaptureIntent(), REQUEST_CAPTURE)
-    }
+    private fun requestCapture() = captureLauncher.launch(projectionManager.createScreenCaptureIntent())
 
-    @Deprecated("Activity Result API migration will be done with the full capture UI batch")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQUEST_CAPTURE || resultCode != Activity.RESULT_OK || data == null) return
+    private val captureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK || result.data == null) return@registerForActivityResult
         val metrics = resources.displayMetrics
-        startService(
-            Intent(this, ScreenCaptureService::class.java).apply {
-                action = ScreenCaptureService.ACTION_START
-                putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
-                putExtra(ScreenCaptureService.EXTRA_PROJECTION_DATA, data)
-                putExtra(ScreenCaptureService.EXTRA_WIDTH, metrics.widthPixels)
-                putExtra(ScreenCaptureService.EXTRA_HEIGHT, metrics.heightPixels)
-                putExtra(ScreenCaptureService.EXTRA_DPI, metrics.densityDpi)
-            }
-        )
+        startService(Intent(this, ScreenCaptureService::class.java).apply {
+            action = ScreenCaptureService.ACTION_START
+            putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+            putExtra(ScreenCaptureService.EXTRA_PROJECTION_DATA, result.data)
+            putExtra(ScreenCaptureService.EXTRA_WIDTH, metrics.widthPixels)
+            putExtra(ScreenCaptureService.EXTRA_HEIGHT, metrics.heightPixels)
+            putExtra(ScreenCaptureService.EXTRA_DPI, metrics.densityDpi)
+        })
     }
 
-    companion object { private const val REQUEST_CAPTURE = 7001 }
+    private fun openOverlaySettings() {
+        if (!Settings.canDrawOverlays(this)) startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+    }
 }
 
 @Composable
-private fun Home(onStart: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
+private fun Home(onStart: () -> Unit, onOverlay: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.Center) {
         Text("LinguaLive", style = MaterialTheme.typography.headlineLarge)
-        Text("实时字幕翻译", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+        Text("实时直播翻译 · OCR + 多引擎", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
         Button(onClick = onStart, modifier = Modifier.padding(top = 24.dp)) { Text("开始屏幕字幕识别") }
+        Button(onClick = onOverlay, modifier = Modifier.padding(top = 12.dp)) { Text("开启悬浮字幕权限") }
     }
 }

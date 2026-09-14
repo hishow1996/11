@@ -1,9 +1,11 @@
 package com.lingualive.ocr
 
+import android.graphics.Bitmap
+
 /**
  * Crops a frame to the configured subtitle region.
- * Kept bitmap-library agnostic so the capture implementation can supply its
- * preferred Android bitmap type.
+ * The returned frame owns the cropped bitmap; the input frame remains owned by
+ * the caller and is never recycled here.
  */
 class FrameCropper {
     fun crop(frame: OcrFrame, region: Rect?, width: Int, height: Int): OcrFrame {
@@ -16,7 +18,15 @@ class FrameCropper {
             region.bottom.coerceIn(0, height)
         )
         if (bounded.left >= bounded.right || bounded.top >= bounded.bottom) return frame
-        // The platform OCR adapter performs the actual Bitmap crop.
-        return frame
+
+        val bitmap = frame.bitmap as? Bitmap ?: return frame
+        val crop = Bitmap.createBitmap(
+            bitmap,
+            bounded.left,
+            bounded.top,
+            bounded.right - bounded.left,
+            bounded.bottom - bounded.top
+        )
+        return OcrFrame(crop, frame.timestampMs)
     }
 }

@@ -21,9 +21,3 @@ abstract class ChatTranslationProvider(
 
 class OpenAiTranslationProvider : ChatTranslationProvider(TranslationProviderId.OPENAI, "https://api.openai.com/v1", "gpt-4o-mini")
 class DeepSeekTranslationProvider : ChatTranslationProvider(TranslationProviderId.DEEPSEEK, "https://api.deepseek.com/v1", "deepseek-chat")
-
-class LocalTranslationProvider : TranslationProvider {
-    override val id = TranslationProviderId.LOCAL
-    override suspend fun translate(request: TranslationRequest, config: ProviderConfig): String =
-        throw TranslationException("Local translation engine is not installed yet")
-}

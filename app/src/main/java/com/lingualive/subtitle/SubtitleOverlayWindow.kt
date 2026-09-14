@@ -17,27 +17,25 @@ class SubtitleOverlayWindow(private val context: Context) {
                 setPadding(24, 12, 24, 12)
                 gravity = Gravity.CENTER
             }
-            val type = if (Build.VERSION.SDK_INT >= 26)
+            val type = if (Build.VERSION.SDK_INT >= 26) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
+            } else {
                 WindowManager.LayoutParams.TYPE_PHONE
-            windowManager.addView(
-                view,
-                WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    type,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                    PixelFormat.TRANSLUCENT
-                ).apply {
-                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                    y = 80
-                }
+            }
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
             )
+            params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            params.y = 80
+            windowManager.addView(view, params)
         }
         view?.apply {
-            text = text
+            this.text = text
             textSize = style.fontSizeSp
             alpha = 1f
         }

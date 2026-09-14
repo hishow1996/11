@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
@@ -43,7 +44,6 @@ class AudioCaptureService : Service() {
         createChannel()
         startForeground(NOTIFICATION_ID, notification())
         running = true
-        // Actual MediaProjection instance is supplied by the screen-capture owner in the next integration step.
     }
 
     fun attachRecorder(audioRecord: AudioRecord, consumer: (PcmChunk) -> Unit) {

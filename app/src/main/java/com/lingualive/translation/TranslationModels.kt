@@ -2,7 +2,9 @@ package com.lingualive.translation
 
 import java.util.Locale
 
-enum class TranslationProviderId { OPENAI, DEEPSEEK, DEEPL, GOOGLE, LOCAL }
+enum class TranslationProviderId {
+    OPENAI, DEEPSEEK, DEEPL, GOOGLE, MICROSOFT, BAIDU, TENCENT, MODERNMT, LOCAL
+}
 
 data class TranslationRequest(
     val text: String,

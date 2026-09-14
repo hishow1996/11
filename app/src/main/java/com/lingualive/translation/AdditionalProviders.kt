@@ -11,8 +11,12 @@ class MicrosoftTranslationProvider : TranslationProvider {
         require(config.apiKey.isNotBlank()) { "Microsoft Translator key is not configured" }
         val endpoint = config.baseUrl.ifBlank { "https://api.cognitive.microsofttranslator.com/translate" }
         val target = request.targetLanguage.substringBefore('-')
-        val url = endpoint + "?api-version=3.0&to=${HttpTranslation.formEncode(target)}"
-        val connection = URL(url).openConnection() as HttpURLConnection
+        val source = request.sourceLanguage.takeIf { it.isNotBlank() && !it.equals("auto", true) }?.substringBefore('-')
+        val query = buildString {
+            append("api-version=3.0&to=").append(HttpTranslation.formEncode(target))
+            source?.let { append("&from=").append(HttpTranslation.formEncode(it)) }
+        }
+        val connection = URL("$endpoint?$query").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
             connection.connectTimeout = 8_000
@@ -20,9 +24,6 @@ class MicrosoftTranslationProvider : TranslationProvider {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Ocp-Apim-Subscription-Key", config.apiKey)
-            request.sourceLanguage.takeIf { it.isNotBlank() && !it.equals("auto", true) }?.let {
-                connection.setRequestProperty("X-Source-Language", it.substringBefore('-'))
-            }
             connection.outputStream.use { it.write(JSONArray().put(JSONObject().put("Text", request.text)).toString().toByteArray()) }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
@@ -55,8 +56,7 @@ class BaiduTranslationProvider : TranslationProvider {
     }
 
     private fun md5(value: String): String = java.security.MessageDigest.getInstance("MD5")
-        .digest(value.toByteArray())
-        .joinToString("") { "%02x".format(it) }
+        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
 class ModernMtTranslationProvider : TranslationProvider {
@@ -64,8 +64,7 @@ class ModernMtTranslationProvider : TranslationProvider {
     override suspend fun translate(request: TranslationRequest, config: ProviderConfig): String {
         require(config.apiKey.isNotBlank()) { "ModernMT API key is not configured" }
         val endpoint = config.baseUrl.ifBlank { "https://api.modernmt.com/translate" }
-        val body = JSONObject()
-            .put("q", request.text)
+        val body = JSONObject().put("q", request.text)
             .put("source", request.sourceLanguage.takeIf { !it.equals("auto", true) } ?: "auto")
             .put("target", request.targetLanguage.substringBefore('-'))
         val json = HttpTranslation.postJson(endpoint, config.apiKey, body)

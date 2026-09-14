@@ -8,11 +8,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/** Buffers short playback-capture chunks into usable ASR windows instead of cancelling every request. */
+/** Buffers playback-capture chunks into bounded ASR windows and flushes short utterances on VAD endpoint. */
 class AsrPipeline(
     private val engine: AsrEngine,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
-    private val windowMs: Long = 3_000
+    private val windowMs: Long = 3_000,
+    private val minUtteranceMs: Long = 800
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _latest = MutableStateFlow<AsrResult?>(null)
@@ -25,19 +26,32 @@ class AsrPipeline(
     fun submit(chunk: PcmChunk) {
         if (chunk.samples.isEmpty()) return
         sampleRate = chunk.sampleRate
-        if (!vad.hasVoice(chunk.samples)) return
+        val hasVoice = vad.hasVoice(chunk.samples, sampleRate)
 
-        append(chunk.samples)
-        val targetSamples = (sampleRate * windowMs / 1000L).toInt()
-        if (bufferedSamples < targetSamples || job?.isActive == true) return
+        if (hasVoice) {
+            append(chunk.samples)
+            val targetSamples = (sampleRate * windowMs / 1000L).toInt()
+            if (bufferedSamples >= targetSamples) transcribe(targetSamples)
+        } else if (bufferedSamples >= (sampleRate * minUtteranceMs / 1000L).toInt()) {
+            transcribe(bufferedSamples)
+        }
+    }
 
-        val audio = buffered.copyOf(targetSamples)
-        val remaining = buffered.copyOfRange(targetSamples, bufferedSamples)
+    private fun transcribe(sampleCount: Int) {
+        if (sampleCount <= 0 || job?.isActive == true) return
+        val audio = buffered.copyOf(sampleCount.coerceAtMost(bufferedSamples))
+        val remainingCount = bufferedSamples - audio.size
+        val remaining = if (remainingCount > 0) {
+            buffered.copyOfRange(audio.size, bufferedSamples)
+        } else {
+            ShortArray(0)
+        }
         buffered = remaining
         bufferedSamples = remaining.size
+        val rate = sampleRate
 
         job = scope.launch {
-            runCatching { engine.transcribe(audio, sampleRate) }
+            runCatching { engine.transcribe(audio, rate) }
                 .getOrNull()
                 ?.takeIf { it.text.isNotBlank() }
                 ?.let { _latest.value = it }

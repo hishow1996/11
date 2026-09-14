@@ -1,6 +1,6 @@
 package com.lingualive.audio
 
-import android.annotation.RequiresApi
+import androidx.annotation.RequiresApi
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration

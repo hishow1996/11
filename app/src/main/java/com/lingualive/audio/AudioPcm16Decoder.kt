@@ -1,0 +1,2 @@
+package com.lingualive.audio
+object AudioPcm16Decoder{fun decode(input:ByteArray):FloatArray{val n=input.size/2;val out=FloatArray(n);for(i in 0 until n){val lo=input[i*2].toInt() and 255;val hi=input[i*2+1].toInt();out[i]=((hi shl 8) or lo)/32768f};return out}}

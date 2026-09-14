@@ -1,10 +1,10 @@
 package com.lingualive.audio
 
 /**
- * Stable local-ASR boundary. The concrete Sherpa-ONNX implementation is
- * loaded only when its native/model assets are available, so Android 9
- * installs are not made dependent on a native runtime.
+ * Safe local-ASR boundary. The Sherpa-ONNX implementation can be supplied
+ * when its native library and model files are present.
  */
 class LocalAsrPlaceholder : AsrEngine {
-    override suspend fun transcribe(chunk: PcmChunk): String? = null
+    override val id: String = "local-placeholder"
+    override suspend fun transcribe(audio: ShortArray, sampleRate: Int): AsrResult? = null
 }

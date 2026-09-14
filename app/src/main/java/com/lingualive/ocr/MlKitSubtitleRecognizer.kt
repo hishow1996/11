@@ -3,6 +3,10 @@ package com.lingualive.ocr
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -10,8 +14,22 @@ import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.max
 
-class MlKitSubtitleRecognizer {
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+enum class OcrScript {
+    LATIN,
+    CHINESE,
+    JAPANESE,
+    KOREAN
+}
+
+class MlKitSubtitleRecognizer(
+    script: OcrScript = OcrScript.LATIN
+) {
+    private val recognizer: TextRecognizer = when (script) {
+        OcrScript.LATIN -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        OcrScript.CHINESE -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        OcrScript.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+        OcrScript.KOREAN -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+    }
 
     suspend fun recognize(bitmap: Bitmap, timestampMs: Long = System.currentTimeMillis()): OcrResult =
         suspendCancellableCoroutine { continuation ->

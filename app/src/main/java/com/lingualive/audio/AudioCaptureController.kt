@@ -3,6 +3,7 @@ package com.lingualive.audio
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,6 +21,8 @@ class AudioCaptureController(
 
     fun start(scope: CoroutineScope) {
         if (job != null) return
+        // 音频回捕（AudioPlaybackCaptureConfiguration）是 Android 10+ 独占 API，低版本静默降级
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val captureConfig = AudioPlaybackCapture().createConfiguration(projection)
         val minBuffer = AudioRecord.getMinBufferSize(
             config.sampleRate,

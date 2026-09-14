@@ -1,12 +1,15 @@
 package com.lingualive.audio
 
+import android.annotation.RequiresApi
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.os.Build
 
-/** Android 10+ system playback capture factory. */
+/** Android 10+ system playback capture factory. Android 9 及以下系统不支持，调用方需做版本守卫降级。 */
+@RequiresApi(Build.VERSION_CODES.Q)
 class AudioPlaybackCapture {
     fun createConfiguration(projection: MediaProjection): AudioPlaybackCaptureConfiguration =
         AudioPlaybackCaptureConfiguration.Builder(projection)

@@ -1,0 +1,2 @@
+package com.lingualive.audio
+object VadFrameValidator{fun valid(frame:VadFrameModel,sampleRate:Int=16000)=frame.samples.isNotEmpty()&&frame.startSample>=0&&frame.endSample>frame.startSample&&sampleRate>0}

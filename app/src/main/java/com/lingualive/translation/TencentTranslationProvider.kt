@@ -10,7 +10,6 @@ import java.time.format.DateTimeFormatter
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-/** Tencent Cloud TextTranslate using the official TC3-HMAC-SHA256 signing scheme. */
 class TencentTranslationProvider : TranslationProvider {
     override val id = TranslationProviderId.TENCENT
 
@@ -19,12 +18,11 @@ class TencentTranslationProvider : TranslationProvider {
         val credentials = config.apiKey.split(':', limit = 2)
         val secretId = credentials[0]
         val secretKey = credentials[1]
-        val endpoint = config.baseUrl.ifBlank { "https://tmt.tencentcloudapi.com" }
+        val endpoint = config.baseUrl.ifBlank { "https://mps.tencentcloudapi.com" }
         val host = URL(endpoint).host
-        val service = "tmt"
-        val action = "TextTranslate"
-        val version = "2018-03-21"
-        val region = "ap-singapore"
+        val service = "mps"
+        val action = "TextTranslation"
+        val version = "2019-06-12"
         val now = Instant.now()
         val timestamp = now.epochSecond
         val date = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC).format(now)
@@ -32,13 +30,11 @@ class TencentTranslationProvider : TranslationProvider {
             .put("SourceText", request.text)
             .put("Source", request.sourceLanguage.takeIf { !it.equals("auto", true) }?.substringBefore('-') ?: "auto")
             .put("Target", request.targetLanguage.substringBefore('-'))
-            .put("ProjectId", 0)
             .toString()
         val contentType = "application/json; charset=utf-8"
         val canonicalHeaders = "content-type:$contentType\nhost:$host\n"
         val signedHeaders = "content-type;host"
-        val hashedPayload = sha256(body)
-        val canonicalRequest = "POST\n/\n\n$canonicalHeaders\n$signedHeaders\n$hashedPayload"
+        val canonicalRequest = "POST\n/\n\n$canonicalHeaders\n$signedHeaders\n${sha256(body)}"
         val credentialScope = "$date/$service/tc3_request"
         val stringToSign = "TC3-HMAC-SHA256\n$timestamp\n$credentialScope\n${sha256(canonicalRequest)}"
         val secretDate = hmac("TC3$secretKey", date)
@@ -57,7 +53,6 @@ class TencentTranslationProvider : TranslationProvider {
             connection.setRequestProperty("Host", host)
             connection.setRequestProperty("X-TC-Action", action)
             connection.setRequestProperty("X-TC-Version", version)
-            connection.setRequestProperty("X-TC-Region", region)
             connection.setRequestProperty("X-TC-Timestamp", timestamp.toString())
             connection.setRequestProperty("Authorization", authorization)
             connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
@@ -65,9 +60,8 @@ class TencentTranslationProvider : TranslationProvider {
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream.bufferedReader().use { it.readText() }
             if (code !in 200..299) throw TranslationException("Tencent HTTP $code")
-            val text = JSONObject(response).optJSONObject("Response")?.optString("TargetText")?.trim().orEmpty()
-            if (text.isEmpty()) throw TranslationException("Tencent returned empty translation")
-            return text
+            return JSONObject(response).optJSONObject("Response")?.optString("TargetText")?.trim()
+                .orEmpty().ifEmpty { throw TranslationException("Tencent returned empty translation") }
         } finally { connection.disconnect() }
     }
 
@@ -78,6 +72,5 @@ class TencentTranslationProvider : TranslationProvider {
         return mac.doFinal(data.toByteArray(StandardCharsets.UTF_8))
     }
     private fun sha256(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray(StandardCharsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
+        .digest(value.toByteArray(StandardCharsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }

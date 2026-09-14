@@ -9,6 +9,7 @@ import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.IBinder
+import com.lingualive.translation.LiveTranslationRuntime
 
 class ScreenCaptureService : Service() {
     companion object {
@@ -30,7 +31,6 @@ class ScreenCaptureService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        ocrBridge = CaptureOcrBridge()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -52,10 +52,18 @@ class ScreenCaptureService : Service() {
         stopCaptureResources()
         projection = MediaProjectionController(this).obtainProjection(resultCode, data)
         val config = CaptureConfig(width = width, height = height, dpi = dpi)
-        adapter = ImageReaderAdapter(projection!!, config) { bitmap ->
-            ocrBridge?.onFrame(bitmap)
-            bitmap.recycle()
-        }.also { it.start() }
+        ocrBridge = CaptureOcrBridge(config).also { bridge ->
+            adapter = ImageReaderAdapter(projection!!, config) { bitmap ->
+                bridge.onFrame(bitmap)
+                bitmap.recycle()
+            }.also { it.start() }
+            bridge.latest
+        }
+        // Forward every accepted OCR result into the shared translation/overlay pipeline.
+        val bridge = ocrBridge ?: return
+        bridge.latest.collectInService(this) { result ->
+            if (result != null) LiveTranslationRuntime.get(this).submitOcr(result)
+        }
     }
 
     private fun stopCapture() {
@@ -68,6 +76,8 @@ class ScreenCaptureService : Service() {
         adapter = null
         projection?.stop()
         projection = null
+        ocrBridge?.close()
+        ocrBridge = null
     }
 
     private fun startForegroundCompat() {
@@ -94,8 +104,7 @@ class ScreenCaptureService : Service() {
 
     override fun onDestroy() {
         stopCaptureResources()
-        ocrBridge?.close()
-        ocrBridge = null
+        LiveTranslationRuntime.reset()
         super.onDestroy()
     }
 
@@ -105,3 +114,12 @@ class ScreenCaptureService : Service() {
 @Suppress("DEPRECATION")
 private fun Intent.parcelableIntent(key: String): Intent? =
     if (Build.VERSION.SDK_INT >= 33) getParcelableExtra(key, Intent::class.java) else getParcelableExtra(key)
+
+private fun kotlinx.coroutines.flow.StateFlow<com.lingualive.ocr.OcrResult?>.collectInService(
+    service: Service,
+    onValue: (com.lingualive.ocr.OcrResult?) -> Unit
+) {
+    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+        collect { onValue(it) }
+    }
+}

@@ -38,7 +38,6 @@ object DefaultTranslationEngine {
         TranslationProviderId.MICROSOFT to MicrosoftTranslationProvider(),
         TranslationProviderId.BAIDU to BaiduTranslationProvider(),
         TranslationProviderId.TENCENT to TencentTranslationProvider(),
-        TranslationProviderId.MODERNMT to ModernMtTranslationProvider(),
-        TranslationProviderId.LOCAL to LocalTranslationProvider()
+        TranslationProviderId.MODERNMT to ModernMtTranslationProvider()
     ))
 }

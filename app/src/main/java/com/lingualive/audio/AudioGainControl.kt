@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class AudioGainControl(private val targetRms:Float=0.08f,private val maxGain:Float=8f){fun apply(input:FloatArray):FloatArray{if(input.isEmpty())return input;var sum=0.0;for(v in input)sum+=(v*v).toDouble();val rms=kotlin.math.sqrt(sum/input.size).toFloat();if(rms<1e-5f)return input.copyOf();val gain=(targetRms/rms).coerceIn(0.25f,maxGain);return FloatArray(input.size){(input[it]*gain).coerceIn(-1f,1f)}}}

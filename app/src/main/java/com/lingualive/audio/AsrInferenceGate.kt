@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class AsrInferenceGate { @Volatile private var running=false; @Synchronized fun tryEnter():Boolean { if(running)return false; running=true; return true }; @Synchronized fun leave(){running=false} }

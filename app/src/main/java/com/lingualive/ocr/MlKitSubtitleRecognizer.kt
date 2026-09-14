@@ -11,15 +11,20 @@ import kotlin.coroutines.resumeWithException
 class MlKitSubtitleRecognizer {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    suspend fun recognize(bitmap: Bitmap): OcrResult = suspendCancellableCoroutine { continuation ->
-        val image = InputImage.fromBitmap(bitmap, 0)
-        recognizer.process(image)
-            .addOnSuccessListener { result ->
-                val text = OcrTextNormalizer.normalize(result.text)
-                continuation.resume(OcrResult(text = text, blocks = result.textBlocks.size))
-            }
-            .addOnFailureListener { error -> continuation.resumeWithException(error) }
-    }
+    suspend fun recognize(bitmap: Bitmap, timestampMs: Long = System.currentTimeMillis()): OcrResult =
+        suspendCancellableCoroutine { continuation ->
+            recognizer.process(InputImage.fromBitmap(bitmap, 0))
+                .addOnSuccessListener { result ->
+                    continuation.resume(
+                        OcrResult(
+                            text = OcrTextNormalizer.normalize(result.text),
+                            confidence = 1f,
+                            timestampMs = timestampMs
+                        )
+                    )
+                }
+                .addOnFailureListener { continuation.resumeWithException(it) }
+        }
 
     fun close() = recognizer.close()
 }

@@ -23,15 +23,15 @@ class MlKitSubtitleRecognizer {
                             val text = line.text.trim()
                             if (!OcrTextNormalizer.isUseful(text)) return@mapNotNull null
                             val box = line.boundingBox?.let { Rect(it.left, it.top, it.right, it.bottom) }
-                            OcrLine(text, box)
+                            OcrLine(OcrTextNormalizer.normalize(text), box)
                         }
                         .sortedWith(compareBy<OcrLine> { it.bounds?.top ?: Int.MAX_VALUE }
                             .thenBy { it.bounds?.left ?: Int.MAX_VALUE })
 
                     val grouped = groupLines(detected)
-                    val merged = OcrTextNormalizer.normalize(grouped.joinToString("\n") { row ->
+                    val merged = grouped.joinToString("\n") { row ->
                         row.joinToString(" ") { it.text }
-                    })
+                    }.trim()
                     val bounds = detected.mapNotNull { it.bounds }.reduceOrNull(::union)
                     continuation.resume(OcrResult(merged, 1f, timestampMs, bounds, detected))
                 }
@@ -41,7 +41,8 @@ class MlKitSubtitleRecognizer {
     private fun groupLines(lines: List<OcrLine>): List<List<OcrLine>> {
         if (lines.isEmpty()) return emptyList()
         val heights = lines.mapNotNull { it.bounds?.let { b -> (b.bottom - b.top).coerceAtLeast(1) } }
-        val tolerance = (heights.sorted().getOrNull(heights.size / 2)?.times(0.7f) ?: 12f).coerceAtLeast(8f)
+        val medianHeight = heights.sorted().getOrNull(heights.size / 2) ?: 12
+        val tolerance = (medianHeight * 0.7f).coerceAtLeast(8f)
         val rows = mutableListOf<MutableList<OcrLine>>()
         val centers = mutableListOf<Float>()
 

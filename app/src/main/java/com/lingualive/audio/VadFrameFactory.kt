@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class VadFrameFactory(private val frameSamples:Int=512){private var cursor=0L;fun create(samples:FloatArray)=VadFrameModel(samples,cursor,cursor+samples.size).also{cursor+=samples.size};fun reset(){cursor=0}}

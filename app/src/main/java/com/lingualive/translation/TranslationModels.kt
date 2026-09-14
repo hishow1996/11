@@ -3,7 +3,7 @@ package com.lingualive.translation
 import java.util.Locale
 
 enum class TranslationProviderId {
-    OPENAI, DEEPSEEK, DEEPL, GOOGLE, MICROSOFT, BAIDU, TENCENT, MODERNMT, LOCAL
+    OPENAI, DEEPSEEK, DEEPL, GOOGLE, MICROSOFT, BAIDU, TENCENT, MODERNMT
 }
 
 data class TranslationRequest(

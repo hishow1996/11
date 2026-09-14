@@ -4,7 +4,7 @@ import android.content.Context
 import com.lingualive.subtitle.SubtitleRepository
 
 object LiveTranslationRuntime {
-    private var coordinator: LiveTranslationCoordinator? = null
+    @Volatile private var coordinator: LiveTranslationCoordinator? = null
 
     @Synchronized
     fun get(context: Context): LiveTranslationCoordinator {

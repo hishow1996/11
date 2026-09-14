@@ -10,11 +10,9 @@ android {
 
     defaultConfig {
         applicationId = "com.lingualive"
-        // Android 9 = API 28. The previous minSdk=29 made the APK
-        // non-installable on Android 9 devices.
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "0.1.2"
     }
 
@@ -23,15 +21,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 
     buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
-        }
+        release { signingConfig = signingConfigs.getByName("debug") }
     }
 }
 
@@ -45,11 +39,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 
-    // sherpa-onnx Kotlin API + Android native runtime.
-    // The application code still guards runtime/model availability so an
-    // Android 9 device can install and use the cloud/OCR path when local
-    // model assets are not installed.
-    implementation("com.github.k2-fsa:sherpa-onnx:1.13.4")
+    // Android AAR containing the sherpa-onnx Kotlin API and JNI/native runtime.
+    implementation("com.xdcobra.sherpa:sherpa-onnx:1.13.2-1")
+    implementation("com.xdcobra.sherpa:onnxruntime:1.24.2-qnn2.43.1.260218@aar")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")

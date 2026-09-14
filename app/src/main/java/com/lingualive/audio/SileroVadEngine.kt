@@ -2,15 +2,24 @@ package com.lingualive.audio
 
 import java.io.File
 
-/**
- * VAD adapter. It validates the official sherpa-onnx runtime/model before
- * the native object is constructed.
- */
-class SileroVadEngine(private val model: File, private val parameters: VadParameters) {
-    fun isReady(): Boolean =
-        SherpaOnnxRuntimeGuard.isAvailable() && model.isFile && model.length() > 0L
+class SileroVadEngine(
+    private val model: File?,
+    private val parameters: VadParameters,
+    private val inference: SileroVadInferencePort? = null
+) {
+    constructor(inference: SileroVadInferencePort) : this(null, VadParameters(), inference)
+
+    fun isReady(): Boolean = inference != null || (
+        model != null &&
+            SherpaOnnxRuntimeGuard.isAvailable() &&
+            model.isFile &&
+            model.length() > 0L
+        )
+
+    fun probability(samples: FloatArray): Float =
+        inference?.probability(samples)?.coerceIn(0f, 1f) ?: 0f
 
     fun reset() {
-        // Native Vad reset is invoked by the concrete runtime adapter.
+        inference?.reset()
     }
 }

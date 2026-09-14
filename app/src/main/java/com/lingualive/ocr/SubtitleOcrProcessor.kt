@@ -15,8 +15,9 @@ class SubtitleOcrProcessor(
         val text = results.asSequence()
             .map { it.text.trim() }
             .filter { it.isNotBlank() }
-            .joinToString(" ")
-            .replace(Regex("\\s+"), " ")
+            .joinToString("\n")
+            .replace(Regex("[ \\t]+"), " ")
+            .replace(Regex("\\n{3,}"), "\n\n")
             .trim()
 
         if (text.isBlank() || normalize(text) == normalize(lastText)) return

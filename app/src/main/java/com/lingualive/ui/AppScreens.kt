@@ -21,7 +21,6 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
     var ocr by remember { mutableStateOf(store.getBoolean("ocr", true)) }
     var audio by remember { mutableStateOf(store.getBoolean("audio", true)) }
     var original by remember { mutableStateOf(store.getBoolean("show_original", true)) }
-    var key by remember { mutableStateOf(store.providerConfig(TranslationProviderId.OPENAI).apiKey) }
 
     Column(Modifier.fillMaxSize().padding(22.dp)) {
         TextButton(onClick = onBack) { Text("‹  返回") }
@@ -45,17 +44,15 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 }
             }
             item {
-                SectionCard("OpenAI") {
-                    Text("API Key 只保存在本机密钥库", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                    OutlinedTextField(
-                        value = key,
-                        onValueChange = {
-                            key = it
-                            store.saveProvider(TranslationProviderId.OPENAI, ProviderConfig(it, "", "gpt-4o-mini"))
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                SectionCard("API 密钥") {
+                    Text("密钥使用 Android Keystore 加密后保存在本机。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    ApiKeyField(store, TranslationProviderId.OPENAI, "OpenAI API Key", "gpt-4o-mini")
+                }
+            }
+            item {
+                SectionCard("其他引擎") {
+                    Text("已接入的 API：DeepSeek、DeepL、Google、Microsoft、百度、腾讯、ModernMT。", style = MaterialTheme.typography.bodySmall)
+                    Text("各服务可使用自己的凭据格式；自动模式会按顺序尝试已配置的服务。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 6.dp))
                 }
             }
             item {
@@ -69,32 +66,30 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
 }
 
 @Composable
+private fun ApiKeyField(store: SettingsStore, id: TranslationProviderId, label: String, model: String) {
+    var key by remember(id) { mutableStateOf(store.providerConfig(id).apiKey) }
+    Spacer(Modifier.height(10.dp))
+    OutlinedTextField(value = key, onValueChange = { key = it; store.saveProvider(id, ProviderConfig(it, "", model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
+}
+
+@Composable
 private fun Field(v: String, c: (String) -> Unit) = OutlinedTextField(v, c, modifier = Modifier.fillMaxWidth(), singleLine = true)
 
 @Composable
 private fun ProviderChoice(v: String, c: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (v == "auto") "自动（推荐）" else v)
-        }
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(if (v == "auto") "自动（推荐）" else v) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            listOf("auto", "OPENAI", "DEEPSEEK", "DEEPL", "GOOGLE").forEach { id ->
-                DropdownMenuItem(
-                    text = { Text(id) },
-                    onClick = { c(id); expanded = false }
-                )
+            (listOf("auto") + TranslationProviderId.entries.map { it.name }).forEach { id ->
+                DropdownMenuItem(text = { Text(if (id == "auto") "自动（推荐）" else id) }, onClick = { c(id); expanded = false })
             }
         }
     }
 }
 
 @Composable
-private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit) =
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label)
-        Switch(checked = value, onCheckedChange = onChange)
-    }
+private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit) = Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(label); Switch(checked = value, onCheckedChange = onChange) }
 
 @Composable
 fun StyleScreen(store: SettingsStore, onBack: () -> Unit) {
@@ -104,40 +99,21 @@ fun StyleScreen(store: SettingsStore, onBack: () -> Unit) {
         TextButton(onClick = onBack) { Text("‹  返回") }
         Text("字幕样式", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(20.dp))
-        SectionCard("预览") {
-            Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.inverseSurface) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("I don't think we're in Kansas anymore.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .7f))
-                    Text("看来我们已经不在堪萨斯了。", fontSize = size.sp, color = MaterialTheme.colorScheme.inverseOnSurface)
-                }
-            }
-        }
+        SectionCard("预览") { Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.inverseSurface) { Column(Modifier.padding(18.dp)) { Text("I don't think we're in Kansas anymore.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = .7f)); Text("看来我们已经不在堪萨斯了。", fontSize = size.sp, color = MaterialTheme.colorScheme.inverseOnSurface) } } }
         Spacer(Modifier.height(20.dp))
         Text("字号 ${size.toInt()}sp")
-        Slider(value = size, onValueChange = { size = it; store.setFloat("overlay_font_size", it) }, valueRange = 14f..32f)
+        Slider(value = size, onValueChange = { value -> size = value; store.setFloat("overlay_font_size", value) }, valueRange = 14f..32f)
         Text("透明度 ${(opacity * 100).toInt()}%")
-        Slider(value = opacity, onValueChange = { opacity = it; store.setFloat("overlay_opacity", it) }, valueRange = .55f..1f)
+        Slider(value = opacity, onValueChange = { value -> opacity = value; store.setFloat("overlay_opacity", value) }, valueRange = .55f..1f)
     }
 }
 
 @Composable
 fun HistoryScreen(lines: List<SubtitleLine>, onClear: () -> Unit, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(22.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = onBack) { Text("‹  返回") }
-            TextButton(onClick = onClear) { Text("清空") }
-        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { TextButton(onClick = onBack) { Text("‹  返回") }; TextButton(onClick = onClear) { Text("清空") } }
         Text("最近字幕", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(14.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(lines.reversed()) { line ->
-                SectionCard(if (line.source.name == "OCR") "屏幕" else "音频") {
-                    Text(line.original)
-                    if (line.translated.isNotBlank()) {
-                        Text(line.translated, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 5.dp))
-                    }
-                }
-            }
-        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(lines.reversed()) { line -> SectionCard(if (line.source.name == "OCR") "屏幕" else "音频") { Text(line.original); if (line.translated.isNotBlank()) Text(line.translated, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 5.dp)) } } }
     }
 }

@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class AudioDcBlocker(private val r:Float=0.995f){private var x1=0f;private var y1=0f;fun process(input:FloatArray):FloatArray{val out=FloatArray(input.size);for(i in input.indices){val x=input[i];val y=x-x1+r*y1;out[i]=y;x1=x;y1=y};return out}fun reset(){x1=0f;y1=0f}}

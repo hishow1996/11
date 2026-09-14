@@ -18,10 +18,15 @@ class LiveOcrPipeline(
     private var job: Job? = null
 
     fun submit(bitmap: Bitmap) {
+        val snapshot = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         job?.cancel()
         job = scope.launch {
-            val result = recognizer.recognize(bitmap)
-            if (deduplicator.accept(result.text)) _latest.value = result
+            try {
+                val result = recognizer.recognize(snapshot)
+                if (deduplicator.accept(result.text)) _latest.value = result
+            } finally {
+                snapshot.recycle()
+            }
         }
     }
 

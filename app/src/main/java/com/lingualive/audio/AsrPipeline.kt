@@ -8,19 +8,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class AsrPipeline(private val engine: AsrEngine) {
+class AsrPipeline(private val engine: AsrEngine, private val vad: VoiceActivityDetector = VoiceActivityDetector()) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _latest = MutableStateFlow<AsrResult?>(null)
     val latest: StateFlow<AsrResult?> = _latest
     private var job: Job? = null
 
     fun submit(chunk: PcmChunk) {
-        if (chunk.samples.isEmpty()) return
+        if (chunk.samples.isEmpty() || !vad.hasVoice(chunk.samples)) return
+        val samples = chunk.samples.copyOf()
         job?.cancel()
         job = scope.launch {
-            engine.transcribe(chunk.samples, chunk.sampleRate)?.let { _latest.value = it }
+            engine.transcribe(samples, chunk.sampleRate)?.let { result ->
+                if (result.text.isNotBlank()) _latest.value = result
+            }
         }
     }
 
-    fun close() { job?.cancel(); scope.coroutineContext[Job]?.cancel() }
+    fun close() { job?.cancel(); vad.reset(); scope.coroutineContext[Job]?.cancel() }
 }

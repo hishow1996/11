@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class VadSegmentDurationPolicy(private val minMs:Long=250,private val maxMs:Long=8000,private val sampleRate:Int=16000){fun accepted(s:VadAudioSegment):Boolean{val ms=(s.endSample-s.startSample)*1000L/sampleRate;return ms in minMs..maxMs}}

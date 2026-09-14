@@ -15,7 +15,7 @@ android {
         minSdk = 28
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.1"
+        versionName = "0.1.2"
     }
 
     buildFeatures { compose = true }
@@ -44,9 +44,13 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
-    // Optional local ASR runtime: place the official sherpa-onnx AAR in app/libs/.
-    // Keeping it optional preserves Android 9 installation when local ASR is not installed.
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+
+    // sherpa-onnx Kotlin API + Android native runtime.
+    // The application code still guards runtime/model availability so an
+    // Android 9 device can install and use the cloud/OCR path when local
+    // model assets are not installed.
+    implementation("com.github.k2-fsa:sherpa-onnx:1.13.4")
+
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")

@@ -38,21 +38,25 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 }
             }
             item {
+                SectionCard("当前引擎凭据") {
+                    val selected = runCatching { TranslationProviderId.valueOf(provider) }.getOrNull()
+                    if (selected == null || selected == TranslationProviderId.LOCAL) {
+                        Text("自动模式会依次尝试已配置的 API 引擎。请选择一个具体引擎来编辑它的凭据。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    } else {
+                        ApiKeyField(store, selected)
+                    }
+                }
+            }
+            item {
                 SectionCard("输入") {
                     ToggleRow("屏幕 OCR", ocr) { ocr = it; store.setBoolean("ocr", it) }
                     ToggleRow("媒体音频", audio) { audio = it; store.setBoolean("audio", it) }
                 }
             }
             item {
-                SectionCard("API 密钥") {
-                    Text("密钥使用 Android Keystore 加密后保存在本机。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                    ApiKeyField(store, TranslationProviderId.OPENAI, "OpenAI API Key", "gpt-4o-mini")
-                }
-            }
-            item {
-                SectionCard("其他引擎") {
-                    Text("已接入的 API：DeepSeek、DeepL、Google、Microsoft、百度、腾讯、ModernMT。", style = MaterialTheme.typography.bodySmall)
-                    Text("各服务可使用自己的凭据格式；自动模式会按顺序尝试已配置的服务。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 6.dp))
+                SectionCard("API 引擎") {
+                    Text("OpenAI、DeepSeek、DeepL、Google、Microsoft、百度、腾讯、ModernMT 均可单独配置。", style = MaterialTheme.typography.bodySmall)
+                    Text("自动模式会跳过未配置或请求失败的服务，继续尝试下一个。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 6.dp))
                 }
             }
             item {
@@ -66,10 +70,31 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ApiKeyField(store: SettingsStore, id: TranslationProviderId, label: String, model: String) {
-    var key by remember(id) { mutableStateOf(store.providerConfig(id).apiKey) }
-    Spacer(Modifier.height(10.dp))
-    OutlinedTextField(value = key, onValueChange = { key = it; store.saveProvider(id, ProviderConfig(it, "", model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
+private fun ApiKeyField(store: SettingsStore, id: TranslationProviderId) {
+    val current = store.providerConfig(id)
+    var key by remember(id) { mutableStateOf(current.apiKey) }
+    var baseUrl by remember(id) { mutableStateOf(current.baseUrl) }
+    var model by remember(id) { mutableStateOf(current.model) }
+    val label = when (id) {
+        TranslationProviderId.OPENAI -> "OpenAI API Key"
+        TranslationProviderId.DEEPSEEK -> "DeepSeek API Key"
+        TranslationProviderId.DEEPL -> "DeepL API Key"
+        TranslationProviderId.GOOGLE -> "Google Cloud API Key"
+        TranslationProviderId.MICROSOFT -> "Microsoft Translator Key"
+        TranslationProviderId.BAIDU -> "百度凭据（appId:secretKey）"
+        TranslationProviderId.TENCENT -> "腾讯凭据（secretId:secretKey）"
+        TranslationProviderId.MODERNMT -> "ModernMT API Key"
+        TranslationProviderId.LOCAL -> "本地"
+    }
+    OutlinedTextField(value = key, onValueChange = { key = it; store.saveProvider(id, ProviderConfig(key, baseUrl, model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
+    if (id == TranslationProviderId.OPENAI || id == TranslationProviderId.DEEPSEEK || id == TranslationProviderId.MICROSOFT || id == TranslationProviderId.MODERNMT) {
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(value = baseUrl, onValueChange = { baseUrl = it; store.saveProvider(id, ProviderConfig(key, baseUrl, model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Base URL（可选）") })
+    }
+    if (id == TranslationProviderId.OPENAI || id == TranslationProviderId.DEEPSEEK) {
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(value = model, onValueChange = { model = it; store.saveProvider(id, ProviderConfig(key, baseUrl, model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Model") })
+    }
 }
 
 @Composable

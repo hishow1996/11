@@ -23,9 +23,12 @@ data class ProviderConfig(
     val baseUrl: String = "",
     val model: String = ""
 ) {
-    fun isConfigured(): Boolean = apiKey.trim().let { key ->
-        key.isNotEmpty() && when {
-            key.contains(':') -> key.substringBefore(':').isNotBlank() && key.substringAfter(':').isNotBlank()
+    fun isConfigured(provider: TranslationProviderId): Boolean {
+        val key = apiKey.trim()
+        if (key.isEmpty()) return false
+        return when (provider) {
+            TranslationProviderId.BAIDU,
+            TranslationProviderId.TENCENT -> key.substringBefore(':').isNotBlank() && key.substringAfter(':').isNotBlank()
             else -> true
         }
     }

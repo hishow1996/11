@@ -1,0 +1,9 @@
+package com.lingualive.audio
+
+enum class AsrFallbackReason {
+    LOCAL_RUNTIME_UNAVAILABLE,
+    LOCAL_MODEL_UNAVAILABLE,
+    LOCAL_INITIALIZATION_FAILED,
+    LOCAL_INFERENCE_FAILED,
+    NETWORK_UNAVAILABLE
+}

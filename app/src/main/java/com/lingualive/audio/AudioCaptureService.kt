@@ -5,31 +5,31 @@ import android.content.Intent
 import android.os.IBinder
 
 /**
- * Foreground audio capture service foundation.
- *
- * Planned pipeline:
+ * Foreground service entry for long running live translation capture.
+ * Pipeline:
  * MediaProjection -> AudioPlaybackCapture -> AudioRecord -> ASR
  */
 class AudioCaptureService : Service() {
 
-    private var capturing = false
+    private var running = false
 
     override fun onCreate() {
         super.onCreate()
+        running = true
     }
 
     fun startCapture() {
-        capturing = true
+        running = true
     }
 
     fun stopCapture() {
-        capturing = false
+        running = false
     }
 
-    fun isCapturing(): Boolean = capturing
+    fun isRunning(): Boolean = running
 
     override fun onDestroy() {
-        capturing = false
+        running = false
         super.onDestroy()
     }
 

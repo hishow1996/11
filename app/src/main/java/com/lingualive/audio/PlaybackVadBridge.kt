@@ -1,0 +1,2 @@
+package com.lingualive.audio
+class PlaybackVadBridge(private val preprocessor:AudioPreprocessor,private val frameFactory:VadFrameFactory,private val onFrame:suspend(VadFrameModel)->Unit){suspend fun submit(input:FloatArray){val p=preprocessor.process(input);if(p.isEmpty())return;onFrame(frameFactory.create(p))}fun reset(){preprocessor.reset();frameFactory.reset()}}

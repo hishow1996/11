@@ -1,0 +1,2 @@
+package com.lingualive.audio
+object AudioPcm16Encoder{fun encode(input:FloatArray):ShortArray{val out=ShortArray(input.size);for(i in input.indices){val v=(input[i].coerceIn(-1f,1f)*32767f).toInt();out[i]=v.toShort()};return out}}

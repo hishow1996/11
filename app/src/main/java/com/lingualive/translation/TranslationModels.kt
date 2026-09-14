@@ -22,6 +22,13 @@ data class ProviderConfig(
     val apiKey: String = "",
     val baseUrl: String = "",
     val model: String = ""
-)
+) {
+    fun isConfigured(): Boolean = apiKey.trim().let { key ->
+        key.isNotEmpty() && when {
+            key.contains(':') -> key.substringBefore(':').isNotBlank() && key.substringAfter(':').isNotBlank()
+            else -> true
+        }
+    }
+}
 
 fun normalizeLanguage(value: String): String = value.trim().replace('_', '-').ifEmpty { Locale.getDefault().language }

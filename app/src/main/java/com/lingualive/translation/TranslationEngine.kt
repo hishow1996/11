@@ -17,7 +17,7 @@ class TranslationEngine(private val providers: Map<TranslationProviderId, Transl
             try {
                 val provider = providers[id] ?: continue
                 val config = configs[id] ?: ProviderConfig()
-                if (!config.isConfigured()) continue
+                if (!config.isConfigured(id)) continue
                 val result = provider.translate(request.copy(text = text), config).trim()
                 if (result.isNotEmpty()) {
                     val response = TranslationResponse(result, id)

@@ -6,6 +6,7 @@ import android.content.pm.ServiceInfo
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
 import com.lingualive.audio.*
 import com.lingualive.ocr.OcrResult

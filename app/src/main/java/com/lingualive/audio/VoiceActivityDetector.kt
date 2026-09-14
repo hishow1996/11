@@ -1,21 +1,27 @@
 package com.lingualive.audio
 
-/**
- * Simple VAD layer to remove silence before ASR processing.
- */
+import kotlin.math.sqrt
+
+/** Lightweight RMS-based VAD with silence hysteresis for live ASR. */
 class VoiceActivityDetector(
-    private val threshold: Double = 500.0
+    private val silenceThreshold: Double = 0.012,
+    private val silenceDurationMs: Long = 650
 ) {
+    private var silentMs = 0L
 
-    fun hasVoice(samples: ShortArray): Boolean {
+    fun hasVoice(samples: ShortArray, sampleRate: Int = 16_000): Boolean {
         if (samples.isEmpty()) return false
-
         var sum = 0.0
-        samples.forEach {
-            sum += kotlin.math.abs(it.toInt())
+        for (sample in samples) {
+            val normalized = sample / 32768.0
+            sum += normalized * normalized
         }
-
-        val average = sum / samples.size
-        return average > threshold
+        val rms = sqrt(sum / samples.size)
+        val speech = rms >= silenceThreshold
+        val duration = samples.size * 1000L / sampleRate
+        if (speech) silentMs = 0L else silentMs += duration
+        return speech || silentMs < silenceDurationMs
     }
+
+    fun reset() { silentMs = 0L }
 }

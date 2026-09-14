@@ -9,7 +9,10 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import com.lingualive.audio.*
+import com.lingualive.ocr.MlKitSubtitleRecognizer
+import com.lingualive.ocr.OcrScript
 import com.lingualive.ocr.OcrResult
+import com.lingualive.ocr.LiveOcrPipeline
 import com.lingualive.settings.SettingsStore
 import com.lingualive.translation.LiveTranslationRuntime
 import kotlinx.coroutines.*
@@ -22,8 +25,16 @@ class ScreenCaptureService:Service(){
  override fun onCreate(){super.onCreate();channel()}
  override fun onStartCommand(i:Intent?,f:Int,id:Int):Int{when(i?.action){ACTION_STOP->stopCapture();ACTION_START->startCapture(i)};return START_NOT_STICKY}
  private fun startCapture(i:Intent){val code=i.getIntExtra(EXTRA_RESULT_CODE,-1);val data=i.parcelableIntent(EXTRA_PROJECTION_DATA)?:run{stopSelf();return};val w=i.getIntExtra(EXTRA_WIDTH,1080);val h=i.getIntExtra(EXTRA_HEIGHT,1920);val dpi=i.getIntExtra(EXTRA_DPI,resources.displayMetrics.densityDpi);startForegroundCompat();stopResources();projection=MediaProjectionController(this).obtainProjection(code,data);projection?.registerCallback(projectionCallback,Handler(mainLooper))
-  val c=CaptureConfig(width=w,height=h,dpi=dpi);bridge=CaptureOcrBridge(c);ocrJob=scope.launch{bridge!!.latest.collectLatest{r:OcrResult?->if(r!=null)LiveTranslationRuntime.get(this@ScreenCaptureService).submitOcr(r)}};adapter=ImageReaderAdapter(projection!!,c){b->bridge?.onFrame(b);b.recycle()}.also{it.start()}
-  val settings=SettingsStore(this);if(settings.getBoolean("audio",true)&&settings.providerConfig(com.lingualive.translation.TranslationProviderId.OPENAI).apiKey.isNotBlank())startAudio()
+  val settings=SettingsStore(this)
+  val c=CaptureConfig(width=w,height=h,dpi=dpi)
+  val script=when(settings.getString("source_language","auto").lowercase().substringBefore('-').substringBefore('_')){
+   "zh" -> OcrScript.CHINESE
+   "ja" -> OcrScript.JAPANESE
+   "ko" -> OcrScript.KOREAN
+   else -> OcrScript.LATIN
+  }
+  bridge=CaptureOcrBridge(c,LiveOcrPipeline(MlKitSubtitleRecognizer(script)));ocrJob=scope.launch{bridge!!.latest.collectLatest{r:OcrResult?->if(r!=null)LiveTranslationRuntime.get(this@ScreenCaptureService).submitOcr(r)}};adapter=ImageReaderAdapter(projection!!,c){b->bridge?.onFrame(b);b.recycle()}.also{it.start()}
+  if(settings.getBoolean("audio",true)&&settings.providerConfig(com.lingualive.translation.TranslationProviderId.OPENAI).apiKey.isNotBlank())startAudio()
  }
  private fun startAudio(){val p=projection?:return;record=runCatching{AudioPlaybackCapture().createRecord(p,AudioCaptureConfig())}.getOrNull()?:return;asr=AsrPipeline(OpenAiWhisperEngine(SettingsStore(this)));val pipeline=asr!!;asrJob=scope.launch{pipeline.latest.collectLatest{r->if(r!=null)LiveTranslationRuntime.get(this@ScreenCaptureService).submitSpeech(r.text,r.timestampMs)}};audioJob=scope.launch(Dispatchers.IO){val r=record?:return@launch;runCatching{r.startRecording();val buf=ShortArray(8000);while(isActive){val n=r.read(buf,0,buf.size);if(n>0)pipeline.submit(PcmChunk(buf.copyOf(n),16000,System.currentTimeMillis()))}}}}
  private fun stopCapture(){stopResources();stopSelf()}

@@ -1,0 +1,2 @@
+package com.lingualive.audio
+object VadSegmentTrim{fun trim(segment:VadAudioSegment,leading:Int=0,trailing:Int=0):VadAudioSegment{val a=leading.coerceIn(0,segment.samples.size);val b=(segment.samples.size-trailing.coerceAtLeast(0)).coerceAtLeast(a);return VadAudioSegment(segment.samples.copyOfRange(a,b),segment.startSample+a,segment.startSample+b)}}

@@ -9,7 +9,14 @@ import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.IBinder
+import com.lingualive.ocr.OcrResult
 import com.lingualive.translation.LiveTranslationRuntime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class ScreenCaptureService : Service() {
     companion object {
@@ -24,6 +31,8 @@ class ScreenCaptureService : Service() {
         const val NOTIFICATION_ID = 2001
     }
 
+    private val serviceScope = CoroutineScope(Dispatchers.Default)
+    private var ocrJob: Job? = null
     private var adapter: ImageReaderAdapter? = null
     private var projection: MediaProjection? = null
     private var ocrBridge: CaptureOcrBridge? = null
@@ -52,18 +61,17 @@ class ScreenCaptureService : Service() {
         stopCaptureResources()
         projection = MediaProjectionController(this).obtainProjection(resultCode, data)
         val config = CaptureConfig(width = width, height = height, dpi = dpi)
-        ocrBridge = CaptureOcrBridge(config).also { bridge ->
-            adapter = ImageReaderAdapter(projection!!, config) { bitmap ->
-                bridge.onFrame(bitmap)
-                bitmap.recycle()
-            }.also { it.start() }
-            bridge.latest
+        val bridge = CaptureOcrBridge(config)
+        ocrBridge = bridge
+        ocrJob = serviceScope.launch {
+            bridge.latest.collectLatest { result: OcrResult? ->
+                if (result != null) LiveTranslationRuntime.get(this@ScreenCaptureService).submitOcr(result)
+            }
         }
-        // Forward every accepted OCR result into the shared translation/overlay pipeline.
-        val bridge = ocrBridge ?: return
-        bridge.latest.collectInService(this) { result ->
-            if (result != null) LiveTranslationRuntime.get(this).submitOcr(result)
-        }
+        adapter = ImageReaderAdapter(projection!!, config) { bitmap ->
+            bridge.onFrame(bitmap)
+            bitmap.recycle()
+        }.also { it.start() }
     }
 
     private fun stopCapture() {
@@ -72,6 +80,8 @@ class ScreenCaptureService : Service() {
     }
 
     private fun stopCaptureResources() {
+        ocrJob?.cancel()
+        ocrJob = null
         adapter?.close()
         adapter = null
         projection?.stop()
@@ -105,6 +115,7 @@ class ScreenCaptureService : Service() {
     override fun onDestroy() {
         stopCaptureResources()
         LiveTranslationRuntime.reset()
+        serviceScope.cancel()
         super.onDestroy()
     }
 
@@ -114,12 +125,3 @@ class ScreenCaptureService : Service() {
 @Suppress("DEPRECATION")
 private fun Intent.parcelableIntent(key: String): Intent? =
     if (Build.VERSION.SDK_INT >= 33) getParcelableExtra(key, Intent::class.java) else getParcelableExtra(key)
-
-private fun kotlinx.coroutines.flow.StateFlow<com.lingualive.ocr.OcrResult?>.collectInService(
-    service: Service,
-    onValue: (com.lingualive.ocr.OcrResult?) -> Unit
-) {
-    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-        collect { onValue(it) }
-    }
-}

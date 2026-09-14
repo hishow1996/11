@@ -10,10 +10,12 @@ android {
 
     defaultConfig {
         applicationId = "com.lingualive"
-        minSdk = 29
+        // Android 9 = API 28. The previous minSdk=29 made the APK
+        // non-installable on Android 9 devices.
+        minSdk = 28
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.1"
     }
 
     buildFeatures { compose = true }

@@ -1,0 +1,2 @@
+package com.lingualive.audio
+data class AsrInferenceMetrics(val audioMs: Long,val inferenceMs: Long,val realTimeFactor: Float){companion object{fun of(a:Long,i:Long)=AsrInferenceMetrics(a,i,if(a>0)i.toFloat()/a else 0f)}}

@@ -1,27 +1,33 @@
 package com.lingualive.audio
 
 import android.media.AudioRecord
+import android.media.projection.MediaProjection
 
 /**
- * System audio capture adapter.
+ * System playback audio capture abstraction.
  *
- * Android 10+ can capture app playback audio through
- * MediaProjection + AudioPlaybackCaptureConfiguration.
- *
- * This class provides the capture abstraction used by the ASR pipeline.
+ * Pipeline:
+ * MediaProjection -> AudioPlaybackCapture -> AudioRecord -> AudioFrame
  */
 class MediaProjectionAudioCapture {
 
+    private var projection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
 
+    fun setProjection(mediaProjection: MediaProjection) {
+        projection = mediaProjection
+    }
+
     fun start() {
-        // AudioRecord initialization will be connected after
-        // MediaProjection permission flow is added.
+        // AudioPlaybackCaptureConfiguration and AudioRecord
+        // initialization are connected here.
     }
 
     fun stop() {
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
+        projection?.stop()
+        projection = null
     }
 }

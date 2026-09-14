@@ -22,24 +22,37 @@ class AsrPipeline(
     private var sampleRate = 16_000
     private var buffered = ShortArray(0)
     private var bufferedSamples = 0
+    private var pendingFlushSamples = 0
 
     fun submit(chunk: PcmChunk) {
         if (chunk.samples.isEmpty()) return
         sampleRate = chunk.sampleRate
         val hasVoice = vad.hasVoice(chunk.samples, sampleRate)
+        val targetSamples = (sampleRate * windowMs / 1000L).toInt()
+        val minSamples = (sampleRate * minUtteranceMs / 1000L).toInt()
 
         if (hasVoice) {
             append(chunk.samples)
-            val targetSamples = (sampleRate * windowMs / 1000L).toInt()
-            if (bufferedSamples >= targetSamples) transcribe(targetSamples)
-        } else if (bufferedSamples >= (sampleRate * minUtteranceMs / 1000L).toInt()) {
-            transcribe(bufferedSamples)
+            if (bufferedSamples >= targetSamples) requestTranscription(targetSamples)
+        } else if (bufferedSamples >= minSamples) {
+            requestTranscription(bufferedSamples)
         }
     }
 
+    private fun requestTranscription(sampleCount: Int) {
+        val requested = sampleCount.coerceAtMost(bufferedSamples)
+        if (requested <= 0) return
+        if (job?.isActive == true) {
+            pendingFlushSamples = maxOf(pendingFlushSamples, requested)
+            return
+        }
+        transcribe(requested)
+    }
+
     private fun transcribe(sampleCount: Int) {
-        if (sampleCount <= 0 || job?.isActive == true) return
-        val audio = buffered.copyOf(sampleCount.coerceAtMost(bufferedSamples))
+        val actualCount = sampleCount.coerceAtMost(bufferedSamples)
+        if (actualCount <= 0) return
+        val audio = buffered.copyOf(actualCount)
         val remainingCount = bufferedSamples - audio.size
         val remaining = if (remainingCount > 0) {
             buffered.copyOfRange(audio.size, bufferedSamples)
@@ -55,6 +68,14 @@ class AsrPipeline(
                 .getOrNull()
                 ?.takeIf { it.text.isNotBlank() }
                 ?.let { _latest.value = it }
+        }
+        job?.invokeOnCompletion {
+            val nextCount = synchronized(this@AsrPipeline) {
+                val requested = pendingFlushSamples
+                pendingFlushSamples = 0
+                requested.coerceAtMost(bufferedSamples)
+            }
+            if (nextCount > 0) transcribe(nextCount)
         }
     }
 
@@ -72,6 +93,7 @@ class AsrPipeline(
     fun close() {
         job?.cancel()
         job = null
+        pendingFlushSamples = 0
         buffered = ShortArray(0)
         bufferedSamples = 0
         vad.reset()

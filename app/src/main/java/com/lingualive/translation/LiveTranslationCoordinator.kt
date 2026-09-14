@@ -76,8 +76,7 @@ class LiveTranslationCoordinator(
                 TranslationProviderId.MICROSOFT,
                 TranslationProviderId.BAIDU,
                 TranslationProviderId.TENCENT,
-                TranslationProviderId.MODERNMT,
-                TranslationProviderId.LOCAL
+                TranslationProviderId.MODERNMT
             )
         } else {
             runCatching { listOf(TranslationProviderId.valueOf(selected)) }.getOrDefault(emptyList())

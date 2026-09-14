@@ -40,7 +40,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
             item {
                 SectionCard("当前引擎凭据") {
                     val selected = runCatching { TranslationProviderId.valueOf(provider) }.getOrNull()
-                    if (selected == null || selected == TranslationProviderId.LOCAL) {
+                    if (selected == null) {
                         Text("自动模式会依次尝试已配置的 API 引擎。请选择一个具体引擎来编辑它的凭据。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     } else {
                         ApiKeyField(store, selected)
@@ -84,7 +84,6 @@ private fun ApiKeyField(store: SettingsStore, id: TranslationProviderId) {
         TranslationProviderId.BAIDU -> "百度凭据（appId:secretKey）"
         TranslationProviderId.TENCENT -> "腾讯凭据（secretId:secretKey）"
         TranslationProviderId.MODERNMT -> "ModernMT API Key"
-        TranslationProviderId.LOCAL -> "本地"
     }
     OutlinedTextField(value = key, onValueChange = { key = it; store.saveProvider(id, ProviderConfig(key, baseUrl, model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) })
     if (id == TranslationProviderId.OPENAI || id == TranslationProviderId.DEEPSEEK || id == TranslationProviderId.MICROSOFT || id == TranslationProviderId.MODERNMT) {

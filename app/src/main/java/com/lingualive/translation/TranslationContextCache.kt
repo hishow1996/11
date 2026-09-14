@@ -2,7 +2,6 @@ package com.lingualive.translation
 
 import java.util.ArrayDeque
 
-/** Small bounded context window for more coherent consecutive subtitle translations. */
 class TranslationContextCache(private val maxItems: Int = 8) {
     private val items = ArrayDeque<Pair<String,String>>()
     @Synchronized fun add(source: String, target: String) {
@@ -11,7 +10,7 @@ class TranslationContextCache(private val maxItems: Int = 8) {
         while (items.size > maxItems) items.removeFirst()
     }
     @Synchronized fun recentSource(maxChars: Int = 1200): String =
-        items.map { it.first }.joinToString("
-").takeLast(maxChars)
+        items.joinToString("
+") { it.first }.takeLast(maxChars)
     @Synchronized fun clear() = items.clear()
 }

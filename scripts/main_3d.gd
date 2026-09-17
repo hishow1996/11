@@ -38,6 +38,15 @@ var current_scene := "乡村公路"
 var current_weather := "clear"
 var weather_intensity := 0.0
 var thunder_cooldown := 18.0
+var game_hour := 8.0
+var day_length_seconds := 420.0
+var world_environment: WorldEnvironment
+var environment: Environment
+var sun: DirectionalLight3D
+var moon: DirectionalLight3D
+var rain_particles: GPUParticles3D
+var snow_particles: GPUParticles3D
+var lightning_light: OmniLight3D
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -53,6 +62,7 @@ const SKY := Color("#86d6e8")
 
 func _ready() -> void:
 	_build_environment()
+	_build_weather_effects()
 	_build_world()
 	_build_truck()
 	_build_traffic()
@@ -114,22 +124,74 @@ func _cylinder(parent: Node3D, radius: float, height: float, pos: Vector3, color
 	return node
 
 func _build_environment() -> void:
-	var world_env := WorldEnvironment.new()
-	var environment := Environment.new()
+	world_environment = WorldEnvironment.new()
+	environment = Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = SKY
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#d8edff")
 	environment.ambient_light_energy = 0.72
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	world_env.environment = environment
-	add_child(world_env)
-	var sun := DirectionalLight3D.new()
+	environment.fog_enabled = true
+	environment.fog_light_color = Color("#bcd3dc")
+	environment.fog_light_energy = 0.45
+	environment.fog_density = 0.008
+	environment.fog_height = 3.0
+	environment.fog_height_density = 0.04
+	world_environment.environment = environment
+	add_child(world_environment)
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -28, 0)
 	sun.light_color = Color("#fff1ca")
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
 	add_child(sun)
+	moon = DirectionalLight3D.new()
+	moon.light_color = Color("#8fa7d8")
+	moon.light_energy = 0.0
+	moon.shadow_enabled = false
+	add_child(moon)
+
+func _build_weather_effects() -> void:
+	rain_particles = _weather_particles("RainParticles", Color("#a8d8ff"), 420, 0.75, 28.0)
+	snow_particles = _weather_particles("SnowParticles", Color("#fff7df"), 260, 4.5, 2.2)
+	lightning_light = OmniLight3D.new()
+	lightning_light.name = "LightningFlash"
+	lightning_light.light_color = Color("#e8f4ff")
+	lightning_light.light_energy = 0.0
+	lightning_light.omni_range = 55.0
+	lightning_light.position = Vector3(0, 12, -20)
+	add_child(lightning_light)
+
+func _weather_particles(name: String, color: Color, amount: int, lifetime: float, velocity: float) -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = name
+	particles.amount = amount
+	particles.lifetime = lifetime
+	particles.local_coords = true
+	particles.emitting = false
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3(0, -1, 0)
+	process_material.initial_velocity_min = velocity * 0.72
+	process_material.initial_velocity_max = velocity
+	process_material.gravity = Vector3(0, -2.0 if name == "RainParticles" else -0.45, 0)
+	process_material.scale_min = 0.045 if name == "RainParticles" else 0.10
+	process_material.scale_max = 0.075 if name == "RainParticles" else 0.18
+	process_material.color = color
+	particles.process_material = process_material
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.045, 0.28) if name == "RainParticles" else Vector2(0.16, 0.16)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	quad.material = material
+	particles.draw_pass_1 = quad
+	particles.position = Vector3(0, 10, 0)
+	particles.visibility_aabb = AABB(Vector3(-18, -2, -24), Vector3(36, 22, 48))
+	add_child(particles)
+	return particles
 
 func _build_world() -> void:
 	var ground := _box(self, Vector3(180, 0.4, ROAD_LENGTH), Vector3(0, -0.35, -ROAD_LENGTH * 0.25), Color("#9bb07f"), "Grass")
@@ -371,6 +433,7 @@ func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
 func _process(delta: float) -> void:
 	if paused:
 		return
+	game_hour = fmod(game_hour + 24.0 * delta / day_length_seconds, 24.0)
 	var keyboard_throttle := Input.get_action_strength("accelerate")
 	var keyboard_brake := Input.get_action_strength("brake")
 	var keyboard_steer := Input.get_action_strength("steer_right") - Input.get_action_strength("steer_left")
@@ -405,8 +468,62 @@ func _process(delta: float) -> void:
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
 	_update_scene_name()
+	_update_day_night()
+	_update_weather_visuals()
 	_update_weather_audio(delta)
 	_update_ui()
+
+func _update_day_night() -> void:
+	var sun_angle := (game_hour - 6.0) / 24.0 * 360.0
+	var daylight := clamp(sin((game_hour - 6.0) / 12.0 * PI), 0.0, 1.0)
+	sun.rotation_degrees = Vector3(sun_angle - 90.0, -28.0, 0.0)
+	sun.light_energy = lerp(0.04, 1.25, daylight)
+	sun.light_color = Color(1.0, lerp(0.52, 0.95, daylight), lerp(0.40, 0.82, daylight))
+	sun.shadow_enabled = daylight > 0.12
+	moon.rotation_degrees = Vector3(sun_angle + 180.0, 150.0, 0.0)
+	moon.light_energy = lerp(0.24, 0.0, daylight)
+	var night := 1.0 - daylight
+	environment.ambient_light_energy = lerp(0.16, 0.82, daylight)
+	if game_hour >= 5.0 and game_hour < 8.0:
+		environment.background_color = Color("#e1a77f").lerp(Color("#86d6e8"), (game_hour - 5.0) / 3.0)
+	elif game_hour >= 17.0 and game_hour < 20.0:
+		environment.background_color = Color("#86d6e8").lerp(Color("#e38769"), (game_hour - 17.0) / 3.0)
+	elif daylight <= 0.02:
+		environment.background_color = Color("#111b39")
+	else:
+		environment.background_color = Color("#86d6e8")
+	# Snow reflects more moonlight; forest remains intentionally darker at night.
+	if current_scene == "山区雪岭":
+		environment.ambient_light_energy += night * 0.12
+	elif current_scene == "深山老林":
+		environment.ambient_light_energy -= night * 0.08
+
+func _update_weather_visuals() -> void:
+	var rain_strength := weather_intensity if current_weather == "rain" else 0.0
+	var snow_strength := weather_intensity if current_weather == "snow" else 0.0
+	rain_particles.emitting = rain_strength > 0.02
+	snow_particles.emitting = snow_strength > 0.02
+	rain_particles.amount_ratio = rain_strength
+	snow_particles.amount_ratio = snow_strength
+	var base_fog := 0.008
+	if current_scene == "深山老林":
+		base_fog = 0.038
+	elif current_scene == "山区雪岭":
+		base_fog = 0.022
+	elif current_scene == "动漫城市":
+		base_fog = 0.010
+	if current_weather == "rain":
+		base_fog += weather_intensity * 0.012
+	elif current_weather == "snow":
+		base_fog += weather_intensity * 0.018
+	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
+	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
+		lightning_light.light_energy = 6.0
+		var flash := create_tween()
+		flash.tween_property(lightning_light, "light_energy", 0.0, 0.16)
+
+func _format_clock() -> String:
+	return "%02d:%02d" % [int(game_hour), int((game_hour - int(game_hour)) * 60.0)]
 
 func _update_weather_audio(delta: float) -> void:
 	# Weather is biome-driven for the prototype; later it can be replaced by a forecast manager.
@@ -469,5 +586,6 @@ func _update_ui() -> void:
 	var cargo := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
 	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s" % [current_scene, cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
-	ui_stats.text = "ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [distance, route_goal, int(fuel), int(damage), money]
+	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
+	ui_stats.text = "TIME %s   •   %s   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""

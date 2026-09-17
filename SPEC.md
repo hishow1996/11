@@ -18,6 +18,8 @@ HUD 使用 CanvasLayer 和 Button 控件。左下角按钮绑定 `steer_left` �
 6. 路线、燃油、损伤、金钱和货运合同会更新。
 7. 发动机音频在启动时播放，刹车时播放气刹音效。
 8. 卡车沿连续路线依次经过城市、乡村、深山老林、山区雪岭和开阔平原，HUD 显示当前场景名称。
+9. 游戏时间循环经过清晨、白天、黄昏和夜晚，太阳/月亮、天空色、环境光与阴影随时间变化。
+10. 雨天显示雨粒子、雨雾、闪电和相应音效；雪山显示雪粒子、冷色雾和压雪轮胎音效。
 
 ## Commands
 - Godot editor: import `/home/ubuntu/truck-anime-godot/project.godot` and run.

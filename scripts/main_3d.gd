@@ -202,6 +202,10 @@ func _build_world() -> void:
 		_box(self, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.01, z), CREAM, "LaneMarker")
 		_box(self, Vector3(0.18, 0.35, 12.0), Vector3(-6.35, 0.1, z), INK, "RoadEdge")
 		_box(self, Vector3(0.18, 0.35, 12.0), Vector3(6.35, 0.1, z), INK, "RoadEdge")
+		_add_guardrail(Vector3(-7.0, 0, z), -1.0)
+		_add_guardrail(Vector3(7.0, 0, z), 1.0)
+		_add_reflector(Vector3(-6.75, 0.32, z + 4.0))
+		_add_reflector(Vector3(6.75, 0.32, z + 4.0))
 	for z in range(-115, 100, 18):
 		_add_mountain_cluster(Vector3(-19, 0, z), 1.0 + float(abs(z % 4)) * 0.08)
 		_add_mountain_cluster(Vector3(19, 0, z - 8), 0.8 + float(abs(z % 3)) * 0.09)
@@ -218,6 +222,40 @@ func _build_world() -> void:
 		_add_mountain_pass(float(z))
 	for z in range(74, 112, 12):
 		_add_plain_field(float(z))
+	_add_direction_sign(Vector3(-7.4, 0, -86), "CITY")
+	_add_direction_sign(Vector3(7.4, 0, 42), "PASS")
+
+func _add_guardrail(pos: Vector3, side: float) -> void:
+	var rail := Node3D.new()
+	rail.position = pos
+	add_child(rail)
+	_box(rail, Vector3(0.12, 0.75, 11.5), Vector3.ZERO, Color("#aeb8c5"), "Guardrail")
+	for post_z in [-4.5, 0.0, 4.5]:
+		_box(rail, Vector3(0.16, 0.9, 0.16), Vector3(0, -0.35, post_z), INK, "GuardPost")
+
+func _add_reflector(pos: Vector3) -> void:
+	var reflector := _box(self, Vector3(0.10, 0.22, 0.06), pos, Color("#ffe28a"), "RoadReflector")
+	var material := reflector.material_override as StandardMaterial3D
+	material.emission_enabled = true
+	material.emission = Color("#ffb84d")
+	material.emission_energy_multiplier = 1.8
+
+func _add_direction_sign(pos: Vector3, text_hint: String) -> void:
+	var sign_root := Node3D.new()
+	sign_root.position = pos
+	add_child(sign_root)
+	_box(sign_root, Vector3(0.18, 3.0, 0.18), Vector3(0, 1.5, 0), INK, "SignPost")
+	_box(sign_root, Vector3(2.6, 1.0, 0.12), Vector3(0, 3.15, 0), Color("#3478a8"), "DirectionSign")
+	_box(sign_root, Vector3(1.6, 0.12, 0.05), Vector3(0, 3.15, -0.08), CREAM, "SignStripe")
+
+func _add_city_lamp(parent: Node3D, pos: Vector3) -> void:
+	_box(parent, Vector3(0.16, 4.4, 0.16), pos + Vector3(0, 2.2, 0), INK, "StreetLamp")
+	_box(parent, Vector3(1.0, 0.16, 0.16), pos + Vector3(0.35, 4.35, 0), INK, "LampArm")
+	var glow := _box(parent, Vector3(0.34, 0.18, 0.34), pos + Vector3(0.78, 4.25, 0), Color("#ffd166"), "LampGlow")
+	var glow_material := glow.material_override as StandardMaterial3D
+	glow_material.emission_enabled = true
+	glow_material.emission = Color("#ff9a42")
+	glow_material.emission_energy_multiplier = 2.5
 
 func _register_scenery(root: Node3D) -> void:
 	scenery.append(root)
@@ -229,7 +267,15 @@ func _add_city_block(z: float) -> void:
 		add_child(block)
 		_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
 		_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
-		_box(block, Vector3(3.6, 2.0, 0.18), Vector3(0, 2.0, -3.55), Color("#9fe3ff"), "CityWindow")
+		for window_y in [1.2, 3.0, 4.8]:
+			for window_x in [-2.0, 0.0, 2.0]:
+				var window := _box(block, Vector3(1.1, 0.65, 0.18), Vector3(window_x, window_y, -3.55), Color("#9fe3ff"), "CityWindow")
+				if int(abs(z) + window_y + window_x) % 3 == 0:
+					var window_material := window.material_override as StandardMaterial3D
+					window_material.emission_enabled = true
+					window_material.emission = Color("#ffd166")
+					window_material.emission_energy_multiplier = 1.8
+		_add_city_lamp(block, Vector3(0, 0, -5.0))
 		_register_scenery(block)
 
 func _add_village_farm(z: float) -> void:
@@ -306,6 +352,9 @@ func _build_truck() -> void:
 	_box(truck, Vector3(0.55, 0.5, 0.22), Vector3(1.5, 2.72, -3.55), CORAL, "RoofLamp")
 	_box(truck, Vector3(1.8, 0.8, 0.16), Vector3(0, 1.45, 4.52), Color("#ffcf5c"), "AnimeCargoBadge")
 	_box(truck, Vector3(0.22, 1.4, 0.22), Vector3(-1.25, 3.1, -3.45), INK, "Antenna")
+	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(-2.25, 1.85, -3.72), INK, "MirrorArm")
+	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(2.25, 1.85, -3.72), INK, "MirrorArm")
+	_box(truck, Vector3(1.8, 0.38, 0.16), Vector3(0, 0.86, -4.76), Color("#66728b"), "FrontGrille")
 	for x in [-2.1, 2.1]:
 		var front_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, -2.8), INK, "FrontWheel")
 		front_wheel.rotation_degrees.z = 90.0
@@ -316,8 +365,12 @@ func _build_truck() -> void:
 		front_hub.rotation_degrees.z = 90.0
 		var rear_hub := _cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, 2.5), Color("#ffce68"), "Hub")
 		rear_hub.rotation_degrees.z = 90.0
-	_box(truck, Vector3(0.3, 0.3, 0.2), Vector3(-1.6, 1.8, -4.65), Color("#fff0a7"), "Lamp")
-	_box(truck, Vector3(0.3, 0.3, 0.2), Vector3(1.6, 1.8, -4.65), Color("#fff0a7"), "Lamp")
+	for lamp_x in [-1.6, 1.6]:
+		var lamp := _box(truck, Vector3(0.3, 0.3, 0.2), Vector3(lamp_x, 1.8, -4.65), Color("#fff0a7"), "Lamp")
+		var lamp_material := lamp.material_override as StandardMaterial3D
+		lamp_material.emission_enabled = true
+		lamp_material.emission = Color("#fff0a7")
+		lamp_material.emission_energy_multiplier = 3.0
 
 func _build_traffic() -> void:
 	for i in 3:

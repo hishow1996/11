@@ -949,6 +949,7 @@ func _process(delta: float) -> void:
 	var steering_grip := 1.0 + float(tire_level) * 0.08
 	var road_center := _road_center_at(truck.position.z)
 	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
+	truck.position.y = 0.65 + _road_height_at(truck.position.z)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
 	for lamp in brake_lamps:
 		var brake_material := lamp.material_override as StandardMaterial3D
@@ -1276,14 +1277,26 @@ func _road_center_at(world_z: float) -> float:
 	var long_curve := sin(world_z * 0.00072 + 2.1) * 2.4
 	return clamp(macro + long_curve, -5.0, 5.0)
 
+func _road_height_at(world_z: float) -> float:
+	var macro_region := int(floor(max(0.0, -world_z - 120.0) / 50000.0)) % 5
+	var rolling := sin((world_z - 95.0) * 0.0018) * 2.2 + sin((world_z - 95.0) * 0.00043) * 1.5
+	if macro_region == 3:
+		return rolling + sin((world_z - 95.0) * 0.0008) * 8.0
+	if macro_region == 1 or macro_region == 4:
+		return rolling * 0.45
+	return rolling
+
 func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: RandomNumberGenerator) -> void:
 	var world_z := root.position.z + local_z
 	var center := _road_center_at(world_z)
 	var ahead := _road_center_at(world_z + 8.0)
+	var height := _road_height_at(world_z)
+	var ahead_height := _road_height_at(world_z + 8.0)
 	var segment := Node3D.new()
 	segment.name = "CurvedRoadSegment"
-	segment.position = Vector3(center, 0, local_z)
+	segment.position = Vector3(center, height, local_z)
 	segment.rotation.y = atan2(ahead - center, 8.0)
+	segment.rotation.x = -atan2(ahead_height - height, 8.0)
 	root.add_child(segment)
 	var road_width := 12.0
 	if biome == 0 and rng.randf() > 0.7:

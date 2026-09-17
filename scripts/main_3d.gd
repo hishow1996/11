@@ -1270,6 +1270,12 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_plain_gate(root, rng)
 	_add_chunk_event_landmark(root, biome, rng)
 	_add_chunk_mileage_marker(root, chunk_index, rng)
+	if biome == 0 and chunk_index % 3 == 0:
+		_add_chunk_branch(root, -220.0, 1.0, 0.32, "CityRamp")
+	elif biome == 1 and chunk_index % 4 == 1:
+		_add_chunk_branch(root, 180.0, -1.0, 0.48, "FarmSideRoad")
+	elif biome == 3 and chunk_index % 5 == 2:
+		_add_chunk_branch(root, -80.0, 1.0, 0.62, "MountainViewRoad")
 	if chunk_index % 4 == 0:
 		_add_chunk_rest_area(root, rng)
 	stream_chunks[chunk_index] = root
@@ -1455,3 +1461,18 @@ func _add_chunk_rest_area(root: Node3D, rng: RandomNumberGenerator) -> void:
 	_box(root, Vector3(7.5, 0.25, 4.3), Vector3(rest_x, 2.95, rest_z - 8.0), Color("#ffd166"), "RestAreaRoof")
 	for parking in [-5.0, 0.0, 5.0]:
 		_box(root, Vector3(3.6, 0.04, 7.0), Vector3(rest_x + side * 3.0, 0.08, rest_z + parking), CREAM, "RestParkingBay")
+
+func _add_chunk_branch(root: Node3D, local_z: float, side: float, angle: float, branch_name: String) -> void:
+	var world_z := root.position.z + local_z
+	var center := _road_center_at(world_z)
+	var height := _road_height_at(world_z)
+	var branch := Node3D.new()
+	branch.name = branch_name
+	branch.position = Vector3(center + side * 5.0, height + 0.04, local_z)
+	branch.rotation.y = side * angle
+	root.add_child(branch)
+	_box(branch, Vector3(5.0, 0.16, 82.0), Vector3.ZERO, ASPHALT, branch_name + "Surface")
+	_box(branch, Vector3(0.16, 0.3, 82.0), Vector3(-2.35, 0.16, 0), INK, branch_name + "Edge")
+	_box(branch, Vector3(0.16, 0.3, 82.0), Vector3(2.35, 0.16, 0), INK, branch_name + "Edge")
+	_box(branch, Vector3(0.18, 2.0, 0.18), Vector3(side * 2.8, 1.0, -34.0), INK, branch_name + "SignPost")
+	_box(branch, Vector3(1.8, 0.7, 0.12), Vector3(side * 2.8, 2.05, -34.0), Color("#3478a8"), branch_name + "Sign")

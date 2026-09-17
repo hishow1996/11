@@ -61,6 +61,12 @@ var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
 var station_positions: Array[Vector3] = []
 var refueling := false
+var engine_level := 0
+var tire_level := 0
+var tank_level := 0
+var armor_level := 0
+var garage_panel: Panel
+var garage_label: Label
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -637,7 +643,64 @@ func _build_ui() -> void:
 	camera_button.add_theme_font_size_override("font_size", 16)
 	camera_button.pressed.connect(_toggle_camera_mode)
 	layer.add_child(camera_button)
+	var garage_button := Button.new()
+	garage_button.text = "车库"
+	garage_button.position = Vector2(1035, 18)
+	garage_button.size = Vector2(72, 52)
+	garage_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	garage_button.add_theme_font_size_override("font_size", 16)
+	garage_button.pressed.connect(_toggle_garage)
+	layer.add_child(garage_button)
+	_build_garage_panel(layer)
 	_update_ui()
+
+func _build_garage_panel(layer: CanvasLayer) -> void:
+	garage_panel = Panel.new()
+	garage_panel.position = Vector2(850, 112)
+	garage_panel.size = Vector2(390, 300)
+	garage_panel.visible = false
+	garage_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	layer.add_child(garage_panel)
+	garage_label = Label.new()
+	garage_label.position = Vector2(20, 16)
+	garage_label.size = Vector2(350, 42)
+	garage_label.add_theme_font_size_override("font_size", 18)
+	garage_label.add_theme_color_override("font_color", INK)
+	garage_panel.add_child(garage_label)
+	var upgrades := ["发动机", "轮胎", "油箱", "装甲"]
+	for i in upgrades.size():
+		var button := Button.new()
+		button.text = upgrades[i] + "升级  €" + str(500 + i * 150)
+		button.position = Vector2(18, 68 + i * 50)
+		button.size = Vector2(350, 40)
+		button.add_theme_font_size_override("font_size", 16)
+		var upgrade_id := ["engine", "tire", "tank", "armor"][i]
+		button.pressed.connect(func(): _buy_upgrade(upgrade_id))
+		garage_panel.add_child(button)
+	_update_garage_label()
+
+func _toggle_garage() -> void:
+	garage_panel.visible = not garage_panel.visible
+	_update_garage_label()
+
+func _update_garage_label() -> void:
+	if garage_label:
+		garage_label.text = "车库升级   € %d\n发动机 %d   轮胎 %d   油箱 %d   装甲 %d" % [money, engine_level, tire_level, tank_level, armor_level]
+
+func _buy_upgrade(upgrade_id: String) -> void:
+	var price := {"engine": 500, "tire": 650, "tank": 800, "armor": 950}.get(upgrade_id, 9999)
+	if money < price:
+		toast = "运费不足"
+	else:
+		money -= price
+		match upgrade_id:
+			"engine": engine_level += 1
+			"tire": tire_level += 1
+			"tank": tank_level += 1
+			"armor": armor_level += 1
+		toast = "升级完成：" + upgrade_id
+		toast_time = 2.0
+	_update_garage_label()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
 	var label := Label.new()
@@ -707,9 +770,11 @@ func _process(delta: float) -> void:
 	var braking := max(keyboard_brake, touch_brake)
 	var steer_input := touch_steer if abs(touch_steer) > 0.01 else keyboard_steer
 	steer = lerp(steer, steer_input, delta * 7.0)
-	var target_speed := throttle * 21.0 - braking * 12.0
+	var max_speed := 21.0 + float(engine_level) * 2.5
+	var target_speed := throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8)
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
-	truck.position.x = clamp(truck.position.x + steer * delta * 6.4, -4.0, 4.0)
+	var steering_grip := 1.0 + float(tire_level) * 0.08
+	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip, -4.0, 4.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
 	truck.rotation.x = lerp(truck.rotation.x, sin(Time.get_ticks_msec() * 0.006) * speed * 0.0018, delta * 4.0)
 	for wheel in wheel_nodes:
@@ -717,6 +782,7 @@ func _process(delta: float) -> void:
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_refueling(delta)
+	var fuel_capacity := 100.0 + float(tank_level) * 10.0
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
@@ -729,7 +795,7 @@ func _process(delta: float) -> void:
 			car.position.z = truck.position.z - 100.0 - float(i) * 20.0
 			car.position.x = traffic_lanes[i]
 		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
-			damage = min(100.0, damage + 16.0)
+			damage = min(100.0, damage + max(5.0, 16.0 - float(armor_level) * 3.0))
 			speed *= 0.45
 			hit_shake = 0.9
 			toast = "轻微碰撞！请注意车距"
@@ -865,7 +931,8 @@ func _update_refueling(delta: float) -> void:
 			break
 	var can_refuel := near_station and speed < 1.5 and fuel < 99.5
 	if can_refuel:
-		fuel = min(100.0, fuel + delta * 9.0)
+		var fuel_capacity := 100.0 + float(tank_level) * 10.0
+		fuel = min(fuel_capacity, fuel + delta * 9.0)
 		if not refueling:
 			toast = "PARKED AT FUEL STATION"
 			toast_time = 2.5

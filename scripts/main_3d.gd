@@ -27,6 +27,10 @@ var ui_stats: Label
 var ui_toast: Label
 var engine_player: AudioStreamPlayer
 var brake_player: AudioStreamPlayer
+var virtual_controls: Control
+var touch_steer := 0.0
+var touch_throttle := 0.0
+var touch_brake := 0.0
 
 const ROAD_WIDTH := 12.0
 const ROAD_LENGTH := 240.0
@@ -214,10 +218,15 @@ func _build_ui() -> void:
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var hint := _label(layer, Vector2(32, 650), 15, Color("#d5dded"))
 	hint.text = "触摸按钮驾驶  •  左右变道  •  避开车辆  •  到达目的地交付货物"
-	_add_button(layer, "◀", Vector2(42, 520), "steer_left")
-	_add_button(layer, "▶", Vector2(148, 520), "steer_right")
-	_add_button(layer, "＋", Vector2(1110, 520), "accelerate")
-	_add_button(layer, "—", Vector2(1210, 520), "brake")
+	virtual_controls = Control.new()
+	virtual_controls.name = "AnalogDrivingControls"
+	virtual_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	virtual_controls.mouse_filter = Control.MOUSE_FILTER_STOP
+	virtual_controls.set_script(load("res://scripts/virtual_controls.gd"))
+	virtual_controls.steering_changed.connect(_on_touch_steering)
+	virtual_controls.throttle_changed.connect(_on_touch_throttle)
+	virtual_controls.brake_changed.connect(_on_touch_brake)
+	layer.add_child(virtual_controls)
 	var pause_button := Button.new()
 	pause_button.text = "Ⅱ"
 	pause_button.position = Vector2(1197, 18)
@@ -246,6 +255,15 @@ func _add_button(layer: CanvasLayer, text: String, pos: Vector2, action: String)
 	button.button_up.connect(func(): Input.action_release(action))
 	layer.add_child(button)
 
+func _on_touch_steering(value: float) -> void:
+	touch_steer = value
+
+func _on_touch_throttle(value: float) -> void:
+	touch_throttle = value
+
+func _on_touch_brake(value: float) -> void:
+	touch_brake = value
+
 func _build_audio() -> void:
 	engine_player = AudioStreamPlayer.new()
 	engine_player.stream = load("res://audio/engine_loop.wav")
@@ -260,11 +278,12 @@ func _build_audio() -> void:
 func _process(delta: float) -> void:
 	if paused:
 		return
-	var throttle := Input.get_action_strength("accelerate")
-	var braking := Input.get_action_strength("brake")
-	var left := Input.get_action_strength("steer_left")
-	var right := Input.get_action_strength("steer_right")
-	var steer_input := right - left
+	var keyboard_throttle := Input.get_action_strength("accelerate")
+	var keyboard_brake := Input.get_action_strength("brake")
+	var keyboard_steer := Input.get_action_strength("steer_right") - Input.get_action_strength("steer_left")
+	var throttle := max(keyboard_throttle, touch_throttle)
+	var braking := max(keyboard_brake, touch_brake)
+	var steer_input := touch_steer if abs(touch_steer) > 0.01 else keyboard_steer
 	steer = lerp(steer, steer_input, delta * 7.0)
 	var target_speed := throttle * 21.0 - braking * 12.0
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)

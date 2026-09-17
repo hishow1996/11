@@ -145,6 +145,10 @@ func _save_game() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data))
 
+func _haptic(duration_ms: int, amplitude: float) -> void:
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(duration_ms, amplitude)
+
 func _mat(color: Color, roughness := 0.82) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
@@ -802,9 +806,10 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"tire": tire_level += 1
 			"tank": tank_level += 1
 			"armor": armor_level += 1
-			toast = "升级完成：" + upgrade_id
-			toast_time = 2.0
-			_save_game()
+				toast = "升级完成：" + upgrade_id
+				toast_time = 2.0
+				_save_game()
+				_haptic(80, 0.45)
 	_update_garage_label()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
@@ -909,6 +914,7 @@ func _process(delta: float) -> void:
 			hit_shake = 0.9
 			toast = "轻微碰撞！请注意车距"
 			toast_time = 2.2
+			_haptic(130, 0.75)
 	if distance >= route_goal:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
@@ -1043,9 +1049,10 @@ func _update_refueling(delta: float) -> void:
 	if can_refuel:
 		var fuel_capacity := 100.0 + float(tank_level) * 10.0
 		fuel = min(fuel_capacity, fuel + delta * 9.0)
-		if not refueling:
-			toast = "PARKED AT FUEL STATION"
-			toast_time = 2.5
+			if not refueling:
+				toast = "PARKED AT FUEL STATION"
+				toast_time = 2.5
+				_haptic(55, 0.25)
 		refueling = true
 	else:
 		refueling = false
@@ -1086,6 +1093,7 @@ func _complete_delivery() -> void:
 	money += 640
 	toast = "DELIVERY COMPLETE   +€640"
 	toast_time = 4.0
+	_haptic(220, 0.9)
 	distance = 0.0
 	cargo_index = (cargo_index + 1) % 3
 	route_goal = 10.0 + float(cargo_index * 2)

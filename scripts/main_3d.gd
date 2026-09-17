@@ -1270,6 +1270,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_mountain_gate(root, rng)
 	else:
 		_add_chunk_plain_gate(root, rng)
+	_add_chunk_event_landmark(root, biome, rng)
 	stream_chunks[chunk_index] = root
 
 func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int) -> void:
@@ -1318,3 +1319,36 @@ func _add_chunk_plain_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	for side in [-1.0, 1.0]:
 		_box(root, Vector3(0.22, 8.0, 0.22), Vector3(side * 12.0, 4.0, -52), Color("#d5dded"), "ChunkWindPole")
 		_box(root, Vector3(0.14, 3.5, 0.14), Vector3(side * 12.0, 8.0, -52), CREAM, "ChunkWindBlade")
+
+func _add_chunk_event_landmark(root: Node3D, biome: int, rng: RandomNumberGenerator) -> void:
+	if biome == 0:
+		# 3D city interchange with elevated ramps.
+		_box(root, Vector3(18.0, 0.35, 5.0), Vector3(0, 3.7, 0), Color("#66728b"), "CityFlyover")
+		for side in [-1.0, 1.0]:
+			_box(root, Vector3(0.55, 3.8, 0.55), Vector3(side * 7.5, 1.8, 0), INK, "FlyoverPillar")
+	elif biome == 1:
+		# Wooden bridge over a shallow stream.
+		_box(root, Vector3(17.0, 0.45, 7.0), Vector3(0, 0.6, 0), Color("#8c6048"), "VillageWoodBridge")
+		_box(root, Vector3(15.0, 0.08, 5.0), Vector3(0, 0.12, 0), Color("#5fb5d0"), "VillageStream")
+		for side in [-1.0, 1.0]:
+			_box(root, Vector3(0.28, 1.2, 7.0), Vector3(side * 7.2, 1.1, 0), Color("#f4b86b"), "BridgeWoodRail")
+	elif biome == 2:
+		# Forest lake and dock, built from 3D meshes.
+		_box(root, Vector3(17.0, 0.08, 18.0), Vector3(0, 0.03, 0), Color("#477f98"), "ForestLake")
+		_box(root, Vector3(5.0, 0.18, 0.7), Vector3(8.0, 0.22, 0), Color("#8c6048"), "ForestDock")
+		for dock_z in [-2.0, 0.0, 2.0]:
+			_box(root, Vector3(0.18, 0.3, 0.18), Vector3(5.7, 0.3, dock_z), INK, "DockPost")
+	elif biome == 3:
+		# Snow mountain tunnel portal.
+		_box(root, Vector3(15.0, 6.5, 1.0), Vector3(0, 3.25, 0), Color("#38405b"), "SnowTunnelFace")
+		_box(root, Vector3(7.0, 4.0, 1.2), Vector3(0, 1.5, -0.7), INK, "SnowTunnelOpening")
+		for x in [-4.0, -2.0, 0.0, 2.0, 4.0]:
+			_box(root, Vector3(0.24, 0.24, 0.18), Vector3(x, 4.2, -1.0), Color("#fff0a7"), "TunnelMarker")
+	else:
+		# Large solar field for the open plains.
+		for row in range(3):
+			for col in range(4):
+				var x := 10.0 + float(col) * 2.1
+				var z := -4.0 + float(row) * 3.2
+				_box(root, Vector3(1.6, 0.08, 2.0), Vector3(x, 1.3, z), Color("#31517c"), "SolarPanel")
+				_box(root, Vector3(0.12, 1.2, 0.12), Vector3(x, 0.65, z), Color("#d5dded"), "SolarPost")

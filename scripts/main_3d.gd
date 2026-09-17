@@ -66,6 +66,9 @@ var station_positions: Array[Vector3] = []
 var refueling := false
 var repair_positions: Array[Vector3] = []
 var repairing := false
+var stream_chunks: Dictionary = {}
+var stream_seed := 184729
+var active_chunk := 0
 var save_timer := 0.0
 var engine_level := 0
 var tire_level := 0
@@ -82,7 +85,8 @@ var touch_throttle := 0.0
 var touch_brake := 0.0
 
 const ROAD_WIDTH := 12.0
-const ROAD_LENGTH := 240.0
+const ROAD_LENGTH := 2200.0
+const CHUNK_LENGTH := 120.0
 const INK := Color("#211c37")
 const ASPHALT := Color("#40455b")
 const CREAM := Color("#fff1cf")
@@ -310,9 +314,9 @@ func _build_world() -> void:
 		_add_city_block(float(z))
 		if int(abs(z)) % 20 == 2:
 			_add_city_intersection(float(z))
-	_add_fuel_station(Vector3(-13.0, 0, -92.0), "CITY FUEL")
 		if int(abs(z)) % 20 == 12:
 			_add_city_landmark(float(z))
+	_add_fuel_station(Vector3(-13.0, 0, -92.0), "CITY FUEL")
 	for z in range(-68, -28, 12):
 		_add_village_farm(float(z))
 		_add_village_landmark(float(z))
@@ -325,15 +329,17 @@ func _build_world() -> void:
 	for z in range(28, 70, 10):
 		_add_mountain_pass(float(z))
 		_add_mountain_warning(float(z))
-	_add_repair_station(Vector3(-13.0, 0, 48.0))
 		if int(abs(z)) % 20 == 8:
 			_add_mountain_landmark(float(z))
+	_add_repair_station(Vector3(-13.0, 0, 48.0))
 	for z in range(74, 112, 12):
 		_add_plain_field(float(z))
 		_add_plain_landmark(float(z))
 	_add_bridge(92.0)
 	_add_direction_sign(Vector3(-7.4, 0, -86), "CITY")
 	_add_direction_sign(Vector3(7.4, 0, 42), "PASS")
+	for chunk_index in range(1, 7):
+		_ensure_stream_chunk(chunk_index)
 
 func _add_guardrail(pos: Vector3, side: float) -> void:
 	var rail := Node3D.new()
@@ -959,6 +965,7 @@ func _process(delta: float) -> void:
 		wheel.rotation.x -= speed * delta * 1.8
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
+	_update_streaming()
 	_update_refueling(delta)
 	_update_repairing(delta)
 	var fuel_capacity := 100.0 + float(tank_level) * 10.0
@@ -1146,7 +1153,10 @@ func _update_repairing(delta: float) -> void:
 
 func _update_scene_name() -> void:
 	var z := truck.position.z
-	if z > 70.0:
+	if z < -120.0:
+		var chunk_index := int(floor((-z - 120.0) / CHUNK_LENGTH))
+		current_scene = ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][chunk_index % 5]
+	elif z > 70.0:
 		current_scene = "开阔平原"
 	elif z > 26.0:
 		current_scene = "山区雪岭"
@@ -1207,4 +1217,104 @@ func _update_ui() -> void:
 	ui_stats.text = "TIME %s   •   %s   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	if minimap:
-		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination)
+			minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination)
+
+func _update_streaming() -> void:
+	var traveled := max(0.0, -truck.position.z - 120.0)
+	var next_chunk := max(0, int(floor(traveled / CHUNK_LENGTH)))
+	if next_chunk == active_chunk and stream_chunks.size() >= 5:
+		return
+	active_chunk = next_chunk
+	for chunk_index in range(active_chunk, active_chunk + 6):
+		_ensure_stream_chunk(chunk_index)
+	var expired: Array[int] = []
+	for old_index in stream_chunks.keys():
+		if int(old_index) < active_chunk - 2:
+			expired.append(int(old_index))
+	for old_index in expired:
+		var old_root: Node3D = stream_chunks[old_index]
+		old_root.queue_free()
+		stream_chunks.erase(old_index)
+
+func _ensure_stream_chunk(chunk_index: int) -> void:
+	if stream_chunks.has(chunk_index):
+		return
+	var root := Node3D.new()
+	root.name = "RouteChunk_%03d" % chunk_index
+	root.position = Vector3(0, 0, -120.0 - float(chunk_index) * CHUNK_LENGTH)
+	add_child(root)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = stream_seed + chunk_index * 7919
+	var biome := chunk_index % 5
+	for local_z in range(-48, 49, 16):
+		var road_kind := rng.randi_range(0, 3)
+		if road_kind == 0:
+			_box(root, Vector3(0.24, 0.04, 5.5), Vector3(0, 0.02, local_z), CREAM, "ChunkLaneMarker")
+		elif road_kind == 1:
+			_box(root, Vector3(0.16, 0.04, 3.0), Vector3(0, 0.02, local_z), Color("#ffd166"), "ChunkRoadDash")
+		if rng.randf() > 0.28:
+			_box(root, Vector3(0.14, 0.3, 12.0), Vector3(-6.4, 0.08, local_z), INK, "ChunkRoadEdge")
+			_box(root, Vector3(0.14, 0.3, 12.0), Vector3(6.4, 0.08, local_z), INK, "ChunkRoadEdge")
+	for prop_index in range(8):
+		var local_z := -52.0 + float(prop_index) * 14.0 + rng.randf_range(-3.0, 3.0)
+		var side := -1.0 if prop_index % 2 == 0 else 1.0
+		var lateral := rng.randf_range(9.0, 18.0) * side
+		_add_chunk_prop(root, biome, Vector3(lateral, 0, local_z), rng, prop_index)
+	if biome == 0:
+		_add_chunk_city_gate(root, rng)
+	elif biome == 1:
+		_add_chunk_village_gate(root, rng)
+	elif biome == 2:
+		_add_chunk_forest_gate(root, rng)
+	elif biome == 3:
+		_add_chunk_mountain_gate(root, rng)
+	else:
+		_add_chunk_plain_gate(root, rng)
+	stream_chunks[chunk_index] = root
+
+func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int) -> void:
+	if biome == 0:
+		var building_size := Vector3(rng.randf_range(3.5, 7.5), rng.randf_range(3.0, 10.0), rng.randf_range(3.5, 7.5))
+		_box(root, building_size, pos + Vector3(0, 2.0, 0), [Color("#e58c78"), Color("#8e9bd1"), Color("#f4b86b")][index % 3], "ChunkCityBuilding")
+		_box(root, Vector3(building_size.x * 0.75, 0.22, 0.15), pos + Vector3(0, 2.0, -building_size.z * 0.52), Color("#9fe3ff"), "ChunkWindow")
+	elif biome == 1:
+		_box(root, Vector3(5.0, 2.4, 4.0), pos + Vector3(0, 1.2, 0), Color("#f4b86b"), "ChunkFarmHouse")
+		_box(root, Vector3(5.4, 0.25, 4.4), pos + Vector3(0, 2.7, 0), CORAL, "ChunkFarmRoof")
+		for crop in range(3):
+			_box(root, Vector3(4.5, 0.08, 0.28), pos + Vector3(0, 0.08, -2.0 + crop * 1.7), Color("#c78c55"), "ChunkCropRow")
+	elif biome == 2:
+		_add_chunk_tree(root, pos, rng.randf_range(0.8, 1.5), index)
+	elif biome == 3:
+		var rock := _cylinder(root, rng.randf_range(1.0, 2.2), rng.randf_range(2.0, 5.0), pos + Vector3(0, 1.0, 0), [Color("#59627b"), Color("#7b7890"), Color("#8d9caf")][index % 3], "ChunkMountainRock")
+		rock.rotation_degrees.z = rng.randf_range(-18.0, 18.0)
+	else:
+		_box(root, Vector3(rng.randf_range(3.0, 7.0), 0.2, rng.randf_range(4.0, 10.0)), pos, [Color("#d3a35f"), Color("#a8c46f"), Color("#e7c97b")][index % 3], "ChunkPlainField")
+
+func _add_chunk_tree(root: Node3D, pos: Vector3, scale_value: float, index: int) -> void:
+	_box(root, Vector3(0.55 * scale_value, 2.7 * scale_value, 0.55 * scale_value), pos + Vector3(0, 1.35 * scale_value, 0), Color("#76513d"), "ChunkTreeTrunk")
+	var crown := _cylinder(root, 1.8 * scale_value, 3.8 * scale_value, pos + Vector3(0, 3.4 * scale_value, 0), [Color("#4c9c79"), Color("#397a68"), Color("#6da66b")][index % 3], "ChunkTreeCrown")
+	crown.rotation_degrees.z = float(index * 17 % 25)
+
+func _add_chunk_city_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
+	_box(root, Vector3(18.0, 0.35, 0.55), Vector3(0, 7.2, -52), Color("#66728b"), "ChunkCityArch")
+	_box(root, Vector3(0.45, 7.0, 0.55), Vector3(-8.7, 3.5, -52), CORAL, "ChunkCityPillar")
+	_box(root, Vector3(0.45, 7.0, 0.55), Vector3(8.7, 3.5, -52), CORAL, "ChunkCityPillar")
+
+func _add_chunk_village_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
+	_box(root, Vector3(0.3, 5.0, 0.3), Vector3(-8.7, 2.5, -52), INK, "ChunkFarmPole")
+	_box(root, Vector3(0.3, 5.0, 0.3), Vector3(8.7, 2.5, -52), INK, "ChunkFarmPole")
+	_box(root, Vector3(17.8, 0.28, 0.3), Vector3(0, 5.0, -52), Color("#f4b86b"), "ChunkFarmBeam")
+
+func _add_chunk_forest_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
+	for side in [-1.0, 1.0]:
+		_add_chunk_tree(root, Vector3(side * 8.5, 0, -52), rng.randf_range(1.4, 1.9), int(rng.randi()))
+
+func _add_chunk_mountain_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
+	_box(root, Vector3(16.0, 0.5, 0.8), Vector3(0, 5.8, -52), Color("#38405b"), "ChunkPassBeam")
+	_box(root, Vector3(0.7, 5.8, 0.8), Vector3(-7.6, 2.9, -52), Color("#59627b"), "ChunkPassPillar")
+	_box(root, Vector3(0.7, 5.8, 0.8), Vector3(7.6, 2.9, -52), Color("#59627b"), "ChunkPassPillar")
+
+func _add_chunk_plain_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
+	for side in [-1.0, 1.0]:
+		_box(root, Vector3(0.22, 8.0, 0.22), Vector3(side * 12.0, 4.0, -52), Color("#d5dded"), "ChunkWindPole")
+		_box(root, Vector3(0.14, 3.5, 0.14), Vector3(side * 12.0, 8.0, -52), CREAM, "ChunkWindBlade")

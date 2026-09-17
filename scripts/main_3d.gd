@@ -1167,6 +1167,8 @@ func _update_scene_name() -> void:
 			current_scene = ["森林·针叶林", "森林·雨林", "森林·湖畔林", "森林·峡谷林"][chunk_index % 4]
 		elif macro_region % 5 == 3:
 			current_scene = ["雪山·冰川山口", "雪山·雪松山林", "雪山·矿区山路", "雪山·隧道群"][chunk_index % 4]
+		elif macro_region % 5 == 4:
+			current_scene = ["平原·麦田高速", "平原·湖岸湿地", "平原·风电走廊", "平原·太阳能产业区"][chunk_index % 4]
 		else:
 			current_scene = macro_name
 	elif z > 70.0:
@@ -1384,6 +1386,12 @@ func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float
 		_box(segment, Vector3(0.24, 0.08, 86.0), Vector3(0, 0.17, 0), Color("#ffd166"), "HighwayCenterLine")
 		for side in [-1.0, 1.0]:
 			_box(segment, Vector3(0.28, 0.05, 86.0), Vector3(side * (road_width * 0.5 - 0.4), 0.18, 0), CREAM, "HighwayRumbleStrip")
+		if district == 1:
+			_box(segment, Vector3(5.0, 0.04, 80.0), Vector3(8.0, 0.04, 0), Color("#477f98"), "WetlandRoadsideWater")
+		elif district == 2:
+			_box(segment, Vector3(0.30, 1.2, 80.0), Vector3(7.2, 0.7, 0), Color("#d5dded"), "WindFarmFence")
+		elif district == 3:
+			_box(segment, Vector3(2.0, 0.05, 80.0), Vector3(-7.0, 0.04, 0), Color("#31517c"), "SolarFieldEdge")
 
 func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumberGenerator, district: int) -> void:
 	var world_z := root.position.z + local_z
@@ -1460,7 +1468,19 @@ func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGe
 			if district == 2:
 				_box(root, Vector3(2.0, 0.18, 0.18), pos + Vector3(0, 2.5, -1.2), Color("#ffd166"), "MineWarningStripe")
 	else:
-		_box(root, Vector3(rng.randf_range(3.0, 7.0), 0.2, rng.randf_range(4.0, 10.0)), pos, [Color("#d3a35f"), Color("#a8c46f"), Color("#e7c97b")][index % 3], "ChunkPlainField")
+		if district == 1:
+			_box(root, Vector3(rng.randf_range(4.0, 8.0), 0.08, rng.randf_range(5.0, 12.0)), pos, Color("#5fb5d0"), "WetlandPool")
+			_box(root, Vector3(0.18, 1.2, 0.18), pos + Vector3(1.6, 0.6, 0), Color("#8c6048"), "WetlandPost")
+		elif district == 2:
+			_box(root, Vector3(0.18, 8.0, 0.18), pos + Vector3(0, 4.0, 0), Color("#d5dded"), "WindTurbinePole")
+			for angle in [0.0, PI * 0.666, PI * 1.333]:
+				var blade := _box(root, Vector3(0.12, 2.5, 0.1), pos + Vector3(0, 8.0, 0), CREAM, "WindTurbineBlade")
+				blade.rotation_degrees.z = rad_to_deg(angle)
+		elif district == 3:
+			_box(root, Vector3(6.0, 0.08, 7.0), pos, Color("#31517c"), "PlainSolarPanel")
+			_box(root, Vector3(0.12, 1.2, 0.12), pos + Vector3(0, 0.6, 0), Color("#d5dded"), "PlainSolarPost")
+		else:
+			_box(root, Vector3(rng.randf_range(3.0, 7.0), 0.2, rng.randf_range(4.0, 10.0)), pos, [Color("#d3a35f"), Color("#a8c46f"), Color("#e7c97b")][index % 3], "ChunkPlainField")
 
 func _add_chunk_tree(root: Node3D, pos: Vector3, scale_value: float, index: int) -> void:
 	_box(root, Vector3(0.55 * scale_value, 2.7 * scale_value, 0.55 * scale_value), pos + Vector3(0, 1.35 * scale_value, 0), Color("#76513d"), "ChunkTreeTrunk")

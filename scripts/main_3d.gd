@@ -1310,6 +1310,32 @@ func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: Rand
 	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
 	for side in [-1.0, 1.0]:
 		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
+	_add_chunk_biome_road_detail(segment, biome, road_width, rng)
+
+func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float, rng: RandomNumberGenerator) -> void:
+	if biome == 1:
+		# Rural roads get grass shoulders, farm gates and wooden fencing.
+		for side in [-1.0, 1.0]:
+			_box(segment, Vector3(2.2, 0.06, 86.0), Vector3(side * (road_width * 0.5 + 1.3), 0.02, 0), Color("#a8c46f"), "VillageGrassShoulder")
+			for post_z in [-30.0, 0.0, 30.0]:
+				_box(segment, Vector3(0.14, 1.0, 0.14), Vector3(side * 8.0, 0.5, post_z), Color("#8c6048"), "VillageFencePost")
+	elif biome == 2:
+		# Forest roads get reflective guardrails and mossy roadside markers.
+		for side in [-1.0, 1.0]:
+			_box(segment, Vector3(0.14, 0.85, 84.0), Vector3(side * (road_width * 0.5 + 0.8), 0.6, 0), Color("#66728b"), "ForestGuardrail")
+			for marker_z in [-28.0, 0.0, 28.0]:
+				_box(segment, Vector3(0.22, 0.55, 0.12), Vector3(side * 7.0, 0.35, marker_z), Color("#74d0ad"), "ForestReflector")
+	elif biome == 3:
+		# Snow roads use tall snow poles, wider shoulders and chevrons.
+		for side in [-1.0, 1.0]:
+			_box(segment, Vector3(1.8, 0.12, 86.0), Vector3(side * (road_width * 0.5 + 1.4), 0.03, 0), Color("#d7e4ee"), "SnowShoulder")
+			for marker_z in [-30.0, 0.0, 30.0]:
+				_box(segment, Vector3(0.12, 2.4, 0.12), Vector3(side * 6.9, 1.2, marker_z), Color("#ef6f61"), "SnowPole")
+	elif biome == 4:
+		# Plains become broad highways with rumble strips and a central divider.
+		_box(segment, Vector3(0.24, 0.08, 86.0), Vector3(0, 0.17, 0), Color("#ffd166"), "HighwayCenterLine")
+		for side in [-1.0, 1.0]:
+			_box(segment, Vector3(0.28, 0.05, 86.0), Vector3(side * (road_width * 0.5 - 0.4), 0.18, 0), CREAM, "HighwayRumbleStrip")
 
 func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumberGenerator) -> void:
 	var world_z := root.position.z + local_z

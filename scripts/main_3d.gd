@@ -8,6 +8,7 @@ var truck: Node3D
 var camera: Camera3D
 var cockpit_mode := false
 var speed := 0.0
+var slope_percent := 0.0
 var steer := 0.0
 var distance := 0.0
 var fuel := 78.0
@@ -944,12 +945,15 @@ func _process(delta: float) -> void:
 	var steer_input := touch_steer if abs(touch_steer) > 0.01 else keyboard_steer
 	steer = lerp(steer, steer_input, delta * 7.0)
 	var max_speed := 21.0 + float(engine_level) * 2.5
-	var target_speed := throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8)
+	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
+	var slope_drag := slope_percent * 0.055
+	var target_speed := throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	var steering_grip := 1.0 + float(tire_level) * 0.08
 	var road_center := _road_center_at(truck.position.z)
 	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
+	var road_pitch := atan2(_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z), 8.0)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
 	for lamp in brake_lamps:
 		var brake_material := lamp.material_override as StandardMaterial3D
@@ -962,7 +966,11 @@ func _process(delta: float) -> void:
 	if exhaust_particles:
 		exhaust_particles.amount_ratio = clamp(0.18 + throttle * 0.72, 0.18, 1.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
-	truck.rotation.x = lerp(truck.rotation.x, sin(Time.get_ticks_msec() * 0.006) * speed * 0.0018, delta * 4.0)
+	truck.rotation.x = lerp(truck.rotation.x, -road_pitch + sin(Time.get_ticks_msec() * 0.006) * speed * 0.0018, delta * 4.0)
+	if engine_player:
+		var engine_load := clamp(throttle + max(0.0, slope_percent) * 0.035, 0.0, 1.0)
+		engine_player.pitch_scale = 0.82 + speed / max(max_speed, 1.0) * 0.32 + engine_load * 0.16
+		engine_player.volume_db = -12.0 + engine_load * 4.0
 	for wheel in wheel_nodes:
 		wheel.rotation.x -= speed * delta * 1.8
 	distance += speed * delta * 0.016
@@ -1230,7 +1238,7 @@ func _update_ui() -> void:
 	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s%s" % [current_scene, cargo, destination, "   •   ↗ " + branch_hint if branch_hint != "" else ""]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
-	ui_stats.text = "TIME %s   •   %s   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, distance, route_goal, int(fuel), int(damage), money]
+	ui_stats.text = "TIME %s   •   %s   •   SLOPE %+d%%   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, int(slope_percent), distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	if minimap:
 		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination, branch_hint)

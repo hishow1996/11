@@ -64,6 +64,8 @@ var brake_lamps: Array[MeshInstance3D] = []
 var signal_lamps: Array[MeshInstance3D] = []
 var station_positions: Array[Vector3] = []
 var refueling := false
+var repair_positions: Array[Vector3] = []
+var repairing := false
 var save_timer := 0.0
 var engine_level := 0
 var tire_level := 0
@@ -323,6 +325,7 @@ func _build_world() -> void:
 	for z in range(28, 70, 10):
 		_add_mountain_pass(float(z))
 		_add_mountain_warning(float(z))
+	_add_repair_station(Vector3(-13.0, 0, 48.0))
 		if int(abs(z)) % 20 == 8:
 			_add_mountain_landmark(float(z))
 	for z in range(74, 112, 12):
@@ -420,6 +423,18 @@ func _add_fuel_station(pos: Vector3, label_text: String) -> void:
 		pump_material.emission_energy_multiplier = 2.0
 	_box(station, Vector3(1.0, 4.0, 0.5), Vector3(3.9, 2.0, 0), Color("#ffd166"), "FuelSign")
 	_box(station, Vector3(0.8, 0.18, 0.12), Vector3(3.9, 3.25, -0.28), CREAM, "FuelSignStripe")
+	_register_scenery(station)
+
+func _add_repair_station(pos: Vector3) -> void:
+	var station := Node3D.new()
+	station.position = pos
+	add_child(station)
+	repair_positions.append(pos)
+	_box(station, Vector3(7.5, 0.12, 8.0), Vector3.ZERO, Color("#526476"), "RepairLot")
+	_box(station, Vector3(5.8, 3.4, 3.4), Vector3(0, 1.7, 0), Color("#d47761"), "RepairGarage")
+	_box(station, Vector3(6.5, 0.28, 1.0), Vector3(0, 3.55, 0), Color("#ffd166"), "RepairCanopy")
+	_box(station, Vector3(1.8, 1.5, 0.18), Vector3(0, 2.2, -1.82), CREAM, "RepairSign")
+	_box(station, Vector3(0.18, 1.2, 0.20), Vector3(0, 2.2, -1.95), Color("#74d0ad"), "WrenchIcon")
 	_register_scenery(station)
 
 func _add_city_landmark(z: float) -> void:
@@ -945,6 +960,7 @@ func _process(delta: float) -> void:
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_refueling(delta)
+	_update_repairing(delta)
 	var fuel_capacity := 100.0 + float(tank_level) * 10.0
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
@@ -1105,6 +1121,28 @@ func _update_refueling(delta: float) -> void:
 		refueling = true
 	else:
 		refueling = false
+
+func _update_repairing(delta: float) -> void:
+	var near_repair := false
+	for station_pos in repair_positions:
+		if truck.global_position.distance_to(station_pos) < 8.0:
+			near_repair = true
+			break
+	var can_repair := near_repair and speed < 1.5 and damage > 0.5
+	if can_repair and money >= 80:
+		var repair_amount := min(damage, delta * 12.0)
+		damage -= repair_amount
+		money = max(0, money - int(ceil(repair_amount * 5.0)))
+		if not repairing:
+			toast = "REPAIRING TRUCK"
+			toast_time = 2.5
+			_haptic(70, 0.3)
+		repairing = true
+	elif not can_repair or money < 80:
+		if can_repair and money < 80 and not repairing:
+			toast = "维修费用不足"
+			toast_time = 2.0
+		repairing = false
 
 func _update_scene_name() -> void:
 	var z := truck.position.z

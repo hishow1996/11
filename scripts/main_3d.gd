@@ -1165,6 +1165,8 @@ func _update_scene_name() -> void:
 			current_scene = ["乡村·农田", "乡村·村庄", "乡村·河谷", "乡村·果园"][chunk_index % 4]
 		elif macro_region % 5 == 2:
 			current_scene = ["森林·针叶林", "森林·雨林", "森林·湖畔林", "森林·峡谷林"][chunk_index % 4]
+		elif macro_region % 5 == 3:
+			current_scene = ["雪山·冰川山口", "雪山·雪松山林", "雪山·矿区山路", "雪山·隧道群"][chunk_index % 4]
 		else:
 			current_scene = macro_name
 	elif z > 70.0:
@@ -1371,6 +1373,12 @@ func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float
 			_box(segment, Vector3(1.8, 0.12, 86.0), Vector3(side * (road_width * 0.5 + 1.4), 0.03, 0), Color("#d7e4ee"), "SnowShoulder")
 			for marker_z in [-30.0, 0.0, 30.0]:
 				_box(segment, Vector3(0.12, 2.4, 0.12), Vector3(side * 6.9, 1.2, marker_z), Color("#ef6f61"), "SnowPole")
+		if district == 0:
+			_box(segment, Vector3(3.0, 0.10, 82.0), Vector3(0, 0.04, 0), Color("#d7e4ee"), "GlacierSnowDeck")
+		elif district == 2:
+			_box(segment, Vector3(0.22, 1.2, 82.0), Vector3(-5.7, 0.7, 0), Color("#7b7890"), "MineRockWall")
+		elif district == 3:
+			_box(segment, Vector3(0.35, 0.35, 82.0), Vector3(0, 0.28, 0), Color("#38405b"), "TunnelApproach")
 	elif biome == 4:
 		# Plains become broad highways with rumble strips and a central divider.
 		_box(segment, Vector3(0.24, 0.08, 86.0), Vector3(0, 0.17, 0), Color("#ffd166"), "HighwayCenterLine")
@@ -1441,8 +1449,16 @@ func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGe
 			var canyon_rock := _cylinder(root, rng.randf_range(1.4, 2.8), rng.randf_range(3.0, 7.0), pos + Vector3(0, 1.6, 0), Color("#59627b"), "CanyonRock")
 			canyon_rock.rotation_degrees.z = rng.randf_range(-20.0, 20.0)
 	elif biome == 3:
-		var rock := _cylinder(root, rng.randf_range(1.0, 2.2), rng.randf_range(2.0, 5.0), pos + Vector3(0, 1.0, 0), [Color("#59627b"), Color("#7b7890"), Color("#8d9caf")][index % 3], "ChunkMountainRock")
-		rock.rotation_degrees.z = rng.randf_range(-18.0, 18.0)
+		if district == 0:
+			var glacier := _cylinder(root, rng.randf_range(1.0, 2.2), rng.randf_range(3.0, 7.0), pos + Vector3(0, 1.5, 0), Color("#9fe3ff"), "GlacierIce")
+			glacier.rotation_degrees.z = rng.randf_range(-18.0, 18.0)
+		elif district == 1:
+			_add_chunk_tree(root, pos, rng.randf_range(1.0, 1.7), index + 1)
+		else:
+			var rock := _cylinder(root, rng.randf_range(1.0, 2.2), rng.randf_range(2.0, 5.0), pos + Vector3(0, 1.0, 0), [Color("#59627b"), Color("#7b7890"), Color("#8d9caf")][index % 3], "ChunkMountainRock")
+			rock.rotation_degrees.z = rng.randf_range(-18.0, 18.0)
+			if district == 2:
+				_box(root, Vector3(2.0, 0.18, 0.18), pos + Vector3(0, 2.5, -1.2), Color("#ffd166"), "MineWarningStripe")
 	else:
 		_box(root, Vector3(rng.randf_range(3.0, 7.0), 0.2, rng.randf_range(4.0, 10.0)), pos, [Color("#d3a35f"), Color("#a8c46f"), Color("#e7c97b")][index % 3], "ChunkPlainField")
 

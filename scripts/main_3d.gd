@@ -24,6 +24,7 @@ var traffic_lanes := [-3.2, 0.0, 3.2]
 var traffic_speeds := [0.82, 1.05, 0.68]
 var traffic_types := ["car", "van", "bus"]
 var traffic_lights: Array[MeshInstance3D] = []
+var traffic_signal_lamps: Array[MeshInstance3D] = []
 var toast := "READY TO HAUL"
 var toast_time := 3.0
 var ui_speed: Label
@@ -986,7 +987,10 @@ func _process(delta: float) -> void:
 		brake_player.play()
 		for i in traffic.size():
 			var car := traffic[i]
-			car.position.z += speed * delta * 0.7 * traffic_speeds[i]
+			var traffic_factor := traffic_speeds[i]
+			if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
+				traffic_factor = 0.08
+			car.position.z += speed * delta * 0.7 * traffic_factor
 			var car_center := _road_center_at(car.position.z)
 			var car_target_x := car_center + traffic_lanes[i]
 			car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
@@ -1007,7 +1011,8 @@ func _process(delta: float) -> void:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
-	_update_scene_name()
+		_update_scene_name()
+		_update_signal_visuals()
 	_update_day_night()
 	_update_weather_visuals()
 	_update_weather_audio(delta)
@@ -1293,6 +1298,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_road_segment(root, local_z, biome, rng)
 		if biome == 0 and abs(local_z) % 160 == 0:
 			_add_chunk_city_road_detail(root, local_z, rng, chunk_index % 4)
+			_add_chunk_city_signal(root, local_z)
 	for prop_index in range(8):
 		var local_z := -500.0 + float(prop_index) * 125.0 + rng.randf_range(-28.0, 28.0)
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
@@ -1431,6 +1437,30 @@ func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumber
 	if rng.randf() > (0.15 + district * 0.12):
 		for stripe in range(-4, 5):
 			_box(detail, Vector3(0.42, 0.025, 7.0), Vector3(float(stripe) * 0.62, 0.22, 0), CREAM, "CityCrosswalk")
+
+func _add_chunk_city_signal(root: Node3D, local_z: float) -> void:
+	var signal_root := Node3D.new()
+	signal_root.name = "ChunkSignalIntersection"
+	signal_root.position = Vector3(_road_center_at(root.position.z + local_z), _road_height_at(root.position.z + local_z), local_z)
+	root.add_child(signal_root)
+	for side in [-1.0, 1.0]:
+		_box(signal_root, Vector3(0.18, 4.0, 0.18), Vector3(side * 7.0, 2.0, 0), INK, "ChunkSignalPole")
+		var red := _box(signal_root, Vector3(0.42, 0.42, 0.25), Vector3(side * 7.0, 4.25, 0), CORAL, "ChunkSignalRed")
+		var green := _box(signal_root, Vector3(0.42, 0.42, 0.25), Vector3(side * 7.0, 3.65, 0), MINT, "ChunkSignalGreen")
+		traffic_signal_lamps.append(red)
+		traffic_signal_lamps.append(green)
+
+func _near_signal_intersection(world_z: float) -> bool:
+	return abs(fmod(abs(world_z), 160.0) - 0.0) < 12.0 or abs(fmod(abs(world_z), 160.0) - 160.0) < 12.0
+
+func _signal_is_red(world_z: float) -> bool:
+	return fmod(Time.get_ticks_msec() / 1000.0 + abs(world_z) * 0.001, 12.0) < 5.0
+
+func _update_signal_visuals() -> void:
+	var red_on := _signal_is_red(truck.position.z)
+	for i in traffic_signal_lamps.size():
+		if is_instance_valid(traffic_signal_lamps[i]):
+			traffic_signal_lamps[i].visible = (i % 2 == 0) == red_on
 
 func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int, district: int = 0) -> void:
 	if biome == 0:

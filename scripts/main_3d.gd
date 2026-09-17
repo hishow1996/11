@@ -59,6 +59,9 @@ var wheel_nodes: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
+var exhaust_particles: GPUParticles3D
+var brake_lamps: Array[MeshInstance3D] = []
+var signal_lamps: Array[MeshInstance3D] = []
 var station_positions: Array[Vector3] = []
 var refueling := false
 var save_timer := 0.0
@@ -602,6 +605,9 @@ func _build_truck() -> void:
 		front_hub.rotation_degrees.z = 90.0
 		var rear_hub := _cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, 2.5), Color("#ffce68"), "Hub")
 		rear_hub.rotation_degrees.z = 90.0
+	var exhaust := _cylinder(truck, 0.22, 0.9, Vector3(-1.55, 1.15, 4.65), INK, "ExhaustPipe")
+	exhaust.rotation_degrees.x = 90.0
+	exhaust_particles = _build_exhaust_particles()
 	for lamp_x in [-1.6, 1.6]:
 		var lamp := _box(truck, Vector3(0.3, 0.3, 0.2), Vector3(lamp_x, 1.8, -4.65), Color("#fff0a7"), "Lamp")
 		var lamp_material := lamp.material_override as StandardMaterial3D
@@ -616,6 +622,38 @@ func _build_truck() -> void:
 		headlight.shadow_enabled = false
 		truck.add_child(headlight)
 		headlight_nodes.append(headlight)
+		var brake_lamp := _box(truck, Vector3(0.32, 0.26, 0.16), Vector3(lamp_x, 1.65, 4.58), CORAL, "BrakeLamp")
+		brake_lamps.append(brake_lamp)
+		var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
+		signal_lamps.append(signal_lamp)
+
+func _build_exhaust_particles() -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = "ExhaustSmoke"
+	particles.amount = 18
+	particles.lifetime = 1.8
+	particles.emitting = true
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3(0, 1, 1)
+	process_material.initial_velocity_min = 0.25
+	process_material.initial_velocity_max = 0.7
+	process_material.gravity = Vector3(0, 0.15, 0)
+	process_material.scale_min = 0.08
+	process_material.scale_max = 0.18
+	process_material.color = Color(0.55, 0.58, 0.64, 0.28)
+	particles.process_material = process_material
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.22, 0.22)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.55, 0.58, 0.64, 0.28)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	quad.material = material
+	particles.draw_pass_1 = quad
+	particles.position = Vector3(-1.55, 1.65, 4.7)
+	truck.add_child(particles)
+	return particles
 
 func _build_traffic() -> void:
 	for i in 3:
@@ -889,6 +927,17 @@ func _process(delta: float) -> void:
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	var steering_grip := 1.0 + float(tire_level) * 0.08
 	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip, -4.0, 4.0)
+	var brake_glow := 1.0 if braking > 0.15 else 0.35
+	for lamp in brake_lamps:
+		var brake_material := lamp.material_override as StandardMaterial3D
+		brake_material.emission_enabled = true
+		brake_material.emission = CORAL
+		brake_material.emission_energy_multiplier = brake_glow * 2.8
+	var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+	for lamp in signal_lamps:
+		lamp.visible = signal_on
+	if exhaust_particles:
+		exhaust_particles.amount_ratio = clamp(0.18 + throttle * 0.72, 0.18, 1.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
 	truck.rotation.x = lerp(truck.rotation.x, sin(Time.get_ticks_msec() * 0.006) * speed * 0.0018, delta * 4.0)
 	for wheel in wheel_nodes:

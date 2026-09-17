@@ -984,12 +984,18 @@ func _process(delta: float) -> void:
 	thunder_cooldown -= delta
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
-	for i in traffic.size():
-		var car := traffic[i]
-		car.position.z += speed * delta * 0.7 * traffic_speeds[i]
-		if car.position.z > truck.position.z + 22.0:
-			car.position.z = truck.position.z - 100.0 - float(i) * 20.0
-			car.position.x = traffic_lanes[i]
+		for i in traffic.size():
+			var car := traffic[i]
+			car.position.z += speed * delta * 0.7 * traffic_speeds[i]
+			var car_center := _road_center_at(car.position.z)
+			var car_target_x := car_center + traffic_lanes[i]
+			car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
+			car.position.y = 0.55 + _road_height_at(car.position.z)
+			car.rotation.y = atan2(_road_center_at(car.position.z - 8.0) - car_center, 8.0)
+			car.rotation.x = -atan2(_road_height_at(car.position.z - 8.0) - _road_height_at(car.position.z), 8.0)
+			if car.position.z > truck.position.z + 22.0:
+				car.position.z = truck.position.z - 100.0 - float(i) * 20.0
+				car.position.x = _road_center_at(car.position.z) + traffic_lanes[i]
 		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
 			damage = min(100.0, damage + max(5.0, 16.0 - float(armor_level) * 3.0))
 			speed *= 0.45

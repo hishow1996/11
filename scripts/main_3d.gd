@@ -28,6 +28,8 @@ var ui_toast: Label
 var engine_player: AudioStreamPlayer
 var brake_player: AudioStreamPlayer
 var virtual_controls: Control
+var scenery: Array[Node3D] = []
+var current_scene := "乡村公路"
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -135,6 +137,70 @@ func _build_world() -> void:
 		_add_mountain_cluster(Vector3(19, 0, z - 8), 0.8 + float(abs(z % 3)) * 0.09)
 		_add_tree(Vector3(-9.0, 0, z + 4), 1.0)
 		_add_tree(Vector3(9.0, 0, z - 3), 0.9)
+	# Route zones: city → countryside → deep forest → mountain pass → plains.
+	for z in range(-112, -72, 10):
+		_add_city_block(float(z))
+	for z in range(-68, -28, 12):
+		_add_village_farm(float(z))
+	for z in range(-24, 24, 9):
+		_add_deep_forest(float(z))
+	for z in range(28, 70, 10):
+		_add_mountain_pass(float(z))
+	for z in range(74, 112, 12):
+		_add_plain_field(float(z))
+
+func _register_scenery(root: Node3D) -> void:
+	scenery.append(root)
+
+func _add_city_block(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var block := Node3D.new()
+		block.position = Vector3(side * (11.0 + fmod(abs(z), 3.0)), 0, z)
+		add_child(block)
+		_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
+		_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
+		_box(block, Vector3(3.6, 2.0, 0.18), Vector3(0, 2.0, -3.55), Color("#9fe3ff"), "CityWindow")
+		_register_scenery(block)
+
+func _add_village_farm(z: float) -> void:
+	var farm := Node3D.new()
+	farm.position = Vector3(-12.0, 0, z)
+	add_child(farm)
+	_box(farm, Vector3(8.0, 3.2, 7.0), Vector3.ZERO, Color("#f4b86b"), "FarmHouse")
+	_box(farm, Vector3(8.5, 0.3, 7.5), Vector3(0, 1.9, 0), CORAL, "FarmRoof")
+	for row in 4:
+		_box(farm, Vector3(7.0, 0.08, 0.35), Vector3(0, 0.08, -4.0 + row * 2.0), Color("#c78c55"), "CropRow")
+	_register_scenery(farm)
+	var silo := Node3D.new()
+	silo.position = Vector3(13.0, 1.5, z + 4.0)
+	add_child(silo)
+	_cylinder(silo, 1.6, 5.5, Vector3.ZERO, Color("#d5dded"), "Silo")
+	_register_scenery(silo)
+
+func _add_deep_forest(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		for tree_index in 3:
+			_add_tree(Vector3(side * (9.5 + tree_index * 2.3), 0, z + tree_index * 2.5), 1.25)
+
+func _add_mountain_pass(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var cliff := Node3D.new()
+		cliff.position = Vector3(side * 14.0, 3.5, z)
+		cliff.scale = Vector3(1.0, 1.4 + fmod(abs(z), 3.0) * 0.15, 1.0)
+		add_child(cliff)
+		_cylinder(cliff, 5.0, 10.0, Vector3.ZERO, Color("#66728b"), "RockWall")
+		_cylinder(cliff, 3.2, 0.4, Vector3(0, 5.2, 0), Color("#f5f2df"), "SnowEdge")
+		_register_scenery(cliff)
+
+func _add_plain_field(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var field := Node3D.new()
+		field.position = Vector3(side * 13.0, 0, z)
+		add_child(field)
+		_box(field, Vector3(10.0, 0.08, 9.0), Vector3.ZERO, Color("#d8b867"), "WheatField")
+		for row in 5:
+			_box(field, Vector3(0.12, 0.5, 7.5), Vector3(-4.0 + row * 2.0, 0.3, 0), Color("#a67c43"), "WheatRow")
+		_register_scenery(field)
 
 func _add_mountain_cluster(pos: Vector3, scale_factor: float) -> void:
 	var root := Node3D.new()
@@ -158,7 +224,7 @@ func _add_tree(pos: Vector3, scale_factor: float) -> void:
 func _build_truck() -> void:
 	truck = Node3D.new()
 	truck.name = "PlayerTruck"
-	truck.position = Vector3(0, 0.65, 8)
+	truck.position = Vector3(0, 0.65, 95)
 	add_child(truck)
 	_box(truck, Vector3(4.9, 2.25, 7.2), Vector3(0, 1.35, 0.9), CREAM, "Trailer")
 	_box(truck, Vector3(4.98, 0.36, 7.0), Vector3(0, 2.28, 0.9), CORAL, "TrailerStripe")
@@ -187,7 +253,7 @@ func _build_traffic() -> void:
 	for i in 3:
 		var car := Node3D.new()
 		car.name = "Traffic_%d" % i
-		car.position = Vector3(traffic_lanes[i], 0.55, -24.0 - float(i) * 28.0)
+		car.position = Vector3(traffic_lanes[i], 0.55, truck.position.z - 24.0 - float(i) * 28.0)
 		add_child(car)
 		_box(car, Vector3(2.5, 1.15, 4.2), Vector3.ZERO, [MINT, Color("#f4b86b"), Color("#bb86fc")][i], "Body")
 		_box(car, Vector3(1.8, 0.65, 1.2), Vector3(0, 0.7, -0.65), Color("#9fe3ff"), "Glass")
@@ -290,6 +356,7 @@ func _process(delta: float) -> void:
 	truck.position.x = clamp(truck.position.x + steer * delta * 6.4, -4.0, 4.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
 	distance += speed * delta * 0.016
+	truck.position.z -= speed * delta * 0.7
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
@@ -309,7 +376,21 @@ func _process(delta: float) -> void:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
+	_update_scene_name()
 	_update_ui()
+
+func _update_scene_name() -> void:
+	var z := truck.position.z
+	if z > 70.0:
+		current_scene = "开阔平原"
+	elif z > 26.0:
+		current_scene = "山区雪岭"
+	elif z > -26.0:
+		current_scene = "深山老林"
+	elif z > -70.0:
+		current_scene = "乡村田园"
+	else:
+		current_scene = "动漫城市"
 
 func _update_camera(delta: float) -> void:
 	var target := truck.global_position + Vector3(0, 5.2, 11.5)
@@ -334,7 +415,7 @@ func _update_ui() -> void:
 	if not ui_speed:
 		return
 	var cargo := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
-	ui_route.text = "CONTRACT  /  %s  →  %s" % [cargo, destination]
+	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s" % [current_scene, cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_stats.text = "ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""

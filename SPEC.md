@@ -17,6 +17,7 @@ HUD 使用 CanvasLayer 和 Button 控件。左下角按钮绑定 `steer_left` �
 5. 移动端触控按钮可独立完成加速、刹车、左右转向与暂停。
 6. 路线、燃油、损伤、金钱和货运合同会更新。
 7. 发动机音频在启动时播放，刹车时播放气刹音效。
+8. 卡车沿连续路线依次经过城市、乡村、深山老林、山区雪岭和开阔平原，HUD 显示当前场景名称。
 
 ## Commands
 - Godot editor: import `/home/ubuntu/truck-anime-godot/project.godot` and run.

@@ -27,9 +27,17 @@ var ui_stats: Label
 var ui_toast: Label
 var engine_player: AudioStreamPlayer
 var brake_player: AudioStreamPlayer
+var rain_player: AudioStreamPlayer
+var wind_player: AudioStreamPlayer
+var wet_tire_player: AudioStreamPlayer
+var snow_tire_player: AudioStreamPlayer
+var thunder_player: AudioStreamPlayer
 var virtual_controls: Control
 var scenery: Array[Node3D] = []
 var current_scene := "乡村公路"
+var current_weather := "clear"
+var weather_intensity := 0.0
+var thunder_cooldown := 18.0
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -340,6 +348,25 @@ func _build_audio() -> void:
 	brake_player.stream = load("res://audio/air_brake.wav")
 	brake_player.volume_db = -4.0
 	add_child(brake_player)
+	rain_player = _loop_audio("res://audio/rain_ambient.wav", -28.0)
+	wind_player = _loop_audio("res://audio/wind_ambient.wav", -24.0)
+	wet_tire_player = _loop_audio("res://audio/tire_wet.wav", -32.0)
+	snow_tire_player = _loop_audio("res://audio/tire_snow.wav", -32.0)
+	thunder_player = AudioStreamPlayer.new()
+	thunder_player.stream = load("res://audio/thunder_rumble.wav")
+	thunder_player.volume_db = -9.0
+	add_child(thunder_player)
+
+func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
+	var player := AudioStreamPlayer.new()
+	var stream := load(path)
+	if stream is AudioStreamWAV:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	player.stream = stream
+	player.volume_db = volume
+	add_child(player)
+	player.play()
+	return player
 
 func _process(delta: float) -> void:
 	if paused:
@@ -359,6 +386,7 @@ func _process(delta: float) -> void:
 	truck.position.z -= speed * delta * 0.7
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
+	thunder_cooldown -= delta
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
 	for i in traffic.size():
@@ -377,7 +405,31 @@ func _process(delta: float) -> void:
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
 	_update_scene_name()
+	_update_weather_audio(delta)
 	_update_ui()
+
+func _update_weather_audio(delta: float) -> void:
+	# Weather is biome-driven for the prototype; later it can be replaced by a forecast manager.
+	if current_scene == "山区雪岭":
+		current_weather = "snow"
+		weather_intensity = 0.78
+	elif current_scene == "深山老林":
+		current_weather = "rain"
+		weather_intensity = 0.62
+	elif current_scene == "动漫城市" and int(distance) % 3 == 0:
+		current_weather = "rain"
+		weather_intensity = 0.38
+	else:
+		current_weather = "clear"
+		weather_intensity = 0.0
+	var speed_factor := clamp(speed / 21.0, 0.0, 1.0)
+	rain_player.volume_db = lerp(-42.0, -12.0, weather_intensity)
+	wind_player.volume_db = lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
+	wet_tire_player.volume_db = -38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity)
+	snow_tire_player.volume_db = -38.0 if current_weather != "snow" else lerp(-34.0, -8.0, speed_factor * weather_intensity)
+	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
+		thunder_player.play()
+		thunder_cooldown = 24.0 + randf() * 20.0
 
 func _update_scene_name() -> void:
 	var z := truck.position.z

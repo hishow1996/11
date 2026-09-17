@@ -230,14 +230,21 @@ func _build_world() -> void:
 	# Route zones: city → countryside → deep forest → mountain pass → plains.
 	for z in range(-112, -72, 10):
 		_add_city_block(float(z))
+		if int(abs(z)) % 20 == 12:
+			_add_city_landmark(float(z))
 	for z in range(-68, -28, 12):
 		_add_village_farm(float(z))
+		_add_village_landmark(float(z))
 	for z in range(-24, 24, 9):
 		_add_deep_forest(float(z))
+		_add_forest_landmark(float(z))
 	for z in range(28, 70, 10):
 		_add_mountain_pass(float(z))
+		if int(abs(z)) % 20 == 8:
+			_add_mountain_landmark(float(z))
 	for z in range(74, 112, 12):
 		_add_plain_field(float(z))
+		_add_plain_landmark(float(z))
 	_add_direction_sign(Vector3(-7.4, 0, -86), "CITY")
 	_add_direction_sign(Vector3(7.4, 0, 42), "PASS")
 
@@ -313,6 +320,16 @@ func _add_city_block(z: float) -> void:
 		_add_city_lamp(block, Vector3(0, 0, -5.0))
 		_register_scenery(block)
 
+func _add_city_landmark(z: float) -> void:
+	var tower := Node3D.new()
+	tower.position = Vector3(0, 0, z - 3.0)
+	add_child(tower)
+	_box(tower, Vector3(2.2, 12.0, 2.2), Vector3.ZERO, Color("#66728b"), "CityTower")
+	_box(tower, Vector3(3.8, 0.28, 3.8), Vector3(0, 6.0, 0), CORAL, "TowerCap")
+	for y in [2.0, 4.0, 8.0, 10.0]:
+		_box(tower, Vector3(1.5, 0.5, 0.14), Vector3(0, y, -1.18), Color("#ffd166"), "TowerWindow")
+	_register_scenery(tower)
+
 func _add_village_farm(z: float) -> void:
 	var farm := Node3D.new()
 	farm.position = Vector3(-12.0, 0, z)
@@ -328,10 +345,29 @@ func _add_village_farm(z: float) -> void:
 	_cylinder(silo, 1.6, 5.5, Vector3.ZERO, Color("#d5dded"), "Silo")
 	_register_scenery(silo)
 
+func _add_village_landmark(z: float) -> void:
+	var mill := Node3D.new()
+	mill.position = Vector3(11.5, 0, z - 3.0)
+	add_child(mill)
+	_box(mill, Vector3(1.4, 5.5, 1.4), Vector3(0, 2.75, 0), Color("#f4b86b"), "WindmillTower")
+	for angle in [0.0, PI * 0.5, PI, PI * 1.5]:
+		var blade := _box(mill, Vector3(0.18, 3.4, 0.12), Vector3(0, 5.8, 0), CREAM, "WindmillBlade")
+		blade.rotation_degrees.z = rad_to_deg(angle)
+	_register_scenery(mill)
+
 func _add_deep_forest(z: float) -> void:
 	for side in [-1.0, 1.0]:
 		for tree_index in 3:
 			_add_tree(Vector3(side * (9.5 + tree_index * 2.3), 0, z + tree_index * 2.5), 1.25)
+
+func _add_forest_landmark(z: float) -> void:
+	var boulder := Node3D.new()
+	boulder.position = Vector3(-10.8, 0.9, z - 3.0)
+	boulder.scale = Vector3(1.4, 0.8, 1.1)
+	add_child(boulder)
+	_cylinder(boulder, 1.4, 2.0, Vector3.ZERO, Color("#4a5268"), "ForestBoulder")
+	var log := _box(self, Vector3(1.0, 0.8, 4.8), Vector3(11.0, 0.45, z + 2.0), Color("#78533c"), "FallenLog")
+	log.rotation_degrees.y = 18.0
 
 func _add_mountain_pass(z: float) -> void:
 	for side in [-1.0, 1.0]:
@@ -343,6 +379,20 @@ func _add_mountain_pass(z: float) -> void:
 		_cylinder(cliff, 3.2, 0.4, Vector3(0, 5.2, 0), Color("#f5f2df"), "SnowEdge")
 		_register_scenery(cliff)
 
+func _add_mountain_landmark(z: float) -> void:
+	var tunnel := Node3D.new()
+	tunnel.position = Vector3(0, 0, z - 4.5)
+	add_child(tunnel)
+	_box(tunnel, Vector3(13.0, 5.5, 1.2), Vector3(0, 2.75, 0), Color("#38405b"), "TunnelFace")
+	_box(tunnel, Vector3(7.0, 3.5, 1.4), Vector3(0, 1.4, -0.7), INK, "TunnelOpening")
+	for x in [-4.0, -2.0, 0.0, 2.0, 4.0]:
+		var lamp := _box(tunnel, Vector3(0.28, 0.28, 0.18), Vector3(x, 3.8, -1.0), Color("#fff0a7"), "TunnelLamp")
+		var lamp_material := lamp.material_override as StandardMaterial3D
+		lamp_material.emission_enabled = true
+		lamp_material.emission = Color("#fff0a7")
+		lamp_material.emission_energy_multiplier = 2.0
+	_register_scenery(tunnel)
+
 func _add_plain_field(z: float) -> void:
 	for side in [-1.0, 1.0]:
 		var field := Node3D.new()
@@ -352,6 +402,20 @@ func _add_plain_field(z: float) -> void:
 		for row in 5:
 			_box(field, Vector3(0.12, 0.5, 7.5), Vector3(-4.0 + row * 2.0, 0.3, 0), Color("#a67c43"), "WheatRow")
 		_register_scenery(field)
+
+func _add_plain_landmark(z: float) -> void:
+	var lake := _box(self, Vector3(15.0, 0.06, 7.0), Vector3(-14.0, 0.02, z), Color("#5fb5d0"), "PlainLake")
+	var lake_material := lake.material_override as StandardMaterial3D
+	lake_material.roughness = 0.12
+	lake_material.metallic = 0.35
+	for side in [-1.0, 1.0]:
+		var turbine := Node3D.new()
+		turbine.position = Vector3(side * 15.0, 0, z + 2.0)
+		add_child(turbine)
+		_box(turbine, Vector3(0.2, 7.0, 0.2), Vector3(0, 3.5, 0), Color("#d5dded"), "TurbinePole")
+		for angle in [0.0, PI * 0.666, PI * 1.333]:
+			var blade := _box(turbine, Vector3(0.12, 2.4, 0.1), Vector3(0, 7.0, 0), CREAM, "TurbineBlade")
+			blade.rotation_degrees.z = rad_to_deg(angle)
 
 func _add_mountain_cluster(pos: Vector3, scale_factor: float) -> void:
 	var root := Node3D.new()
@@ -433,6 +497,8 @@ func _build_camera() -> void:
 	camera = Camera3D.new()
 	camera.position = Vector3(0, 7.6, 15.0)
 	camera.rotation_degrees = Vector3(-17, 180, 0)
+	camera.near = 0.1
+	camera.far = 155.0
 	camera.current = true
 	add_child(camera)
 

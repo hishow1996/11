@@ -19,6 +19,9 @@ var time_left := 184.0
 var paused := false
 var traffic: Array[Node3D] = []
 var traffic_lanes := [-3.2, 0.0, 3.2]
+var traffic_speeds := [0.82, 1.05, 0.68]
+var traffic_types := ["car", "van", "bus"]
+var traffic_lights: Array[MeshInstance3D] = []
 var toast := "READY TO HAUL"
 var toast_time := 3.0
 var ui_speed: Label
@@ -531,10 +534,27 @@ func _build_traffic() -> void:
 		car.name = "Traffic_%d" % i
 		car.position = Vector3(traffic_lanes[i], 0.55, truck.position.z - 24.0 - float(i) * 28.0)
 		add_child(car)
-		_box(car, Vector3(2.5, 1.15, 4.2), Vector3.ZERO, [MINT, Color("#f4b86b"), Color("#bb86fc")][i], "Body")
-		_box(car, Vector3(1.8, 0.65, 1.2), Vector3(0, 0.7, -0.65), Color("#9fe3ff"), "Glass")
-		_cylinder(car, 0.36, 2.65, Vector3(-1.0, 0, -1.2), INK, "Wheel")
-		_cylinder(car, 0.36, 2.65, Vector3(1.0, 0, -1.2), INK, "Wheel")
+		var body_size := Vector3(2.5, 1.15, 4.2)
+		if traffic_types[i] == "van":
+			body_size = Vector3(2.65, 1.7, 5.0)
+		elif traffic_types[i] == "bus":
+			body_size = Vector3(3.0, 2.5, 7.0)
+		_box(car, body_size, Vector3.ZERO, [MINT, Color("#f4b86b"), Color("#bb86fc")][i], "Body")
+		_box(car, Vector3(body_size.x * 0.72, body_size.y * 0.52, 1.2), Vector3(0, body_size.y * 0.48, -body_size.z * 0.16), Color("#9fe3ff"), "Glass")
+		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(-body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")
+		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")
+		var tail_lamp := _box(car, Vector3(0.30, 0.24, 0.12), Vector3(-body_size.x * 0.32, body_size.y * 0.12, body_size.z * 0.5), CORAL, "TrafficTailLamp")
+		var tail_material := tail_lamp.material_override as StandardMaterial3D
+		tail_material.emission_enabled = true
+		tail_material.emission = CORAL
+		tail_material.emission_energy_multiplier = 1.6
+		traffic_lights.append(tail_lamp)
+		var head_lamp := _box(car, Vector3(0.30, 0.24, 0.12), Vector3(body_size.x * 0.32, body_size.y * 0.12, -body_size.z * 0.5), Color("#fff0a7"), "TrafficHeadLamp")
+		var head_material := head_lamp.material_override as StandardMaterial3D
+		head_material.emission_enabled = true
+		head_material.emission = Color("#fff0a7")
+		head_material.emission_energy_multiplier = 1.8
+		traffic_lights.append(head_lamp)
 		traffic.append(car)
 
 func _build_camera() -> void:
@@ -665,7 +685,7 @@ func _process(delta: float) -> void:
 		brake_player.play()
 	for i in traffic.size():
 		var car := traffic[i]
-		car.position.z += speed * delta * 0.7
+		car.position.z += speed * delta * 0.7 * traffic_speeds[i]
 		if car.position.z > truck.position.z + 22.0:
 			car.position.z = truck.position.z - 100.0 - float(i) * 20.0
 			car.position.x = traffic_lanes[i]
@@ -729,6 +749,9 @@ func _update_day_night() -> void:
 		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
 	for headlight in headlight_nodes:
 		headlight.light_energy = clamp((1.0 - daylight) * 2.8, 0.0, 2.8)
+	for traffic_lamp in traffic_lights:
+		var traffic_material := traffic_lamp.material_override as StandardMaterial3D
+		traffic_material.emission_energy_multiplier = lerp(0.8, 2.2, 1.0 - daylight)
 
 func _update_weather_visuals() -> void:
 	var rain_strength := weather_intensity if current_weather == "rain" else 0.0

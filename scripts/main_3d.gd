@@ -59,6 +59,8 @@ var wheel_nodes: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
+var station_positions: Array[Vector3] = []
+var refueling := false
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -238,6 +240,7 @@ func _build_world() -> void:
 		_add_city_block(float(z))
 		if int(abs(z)) % 20 == 2:
 			_add_city_intersection(float(z))
+	_add_fuel_station(Vector3(-13.0, 0, -92.0), "CITY FUEL")
 		if int(abs(z)) % 20 == 12:
 			_add_city_landmark(float(z))
 	for z in range(-68, -28, 12):
@@ -245,6 +248,7 @@ func _build_world() -> void:
 		_add_village_landmark(float(z))
 		if int(abs(z)) % 24 == 20:
 			_add_village_junction(float(z))
+	_add_fuel_station(Vector3(13.0, 0, -48.0), "FARM FUEL")
 	for z in range(-24, 24, 9):
 		_add_deep_forest(float(z))
 		_add_forest_landmark(float(z))
@@ -331,6 +335,24 @@ func _add_city_block(z: float) -> void:
 					window_material.emission_energy_multiplier = 1.8
 		_add_city_lamp(block, Vector3(0, 0, -5.0))
 		_register_scenery(block)
+
+func _add_fuel_station(pos: Vector3, label_text: String) -> void:
+	var station := Node3D.new()
+	station.position = pos
+	add_child(station)
+	station_positions.append(pos)
+	_box(station, Vector3(7.5, 0.12, 8.0), Vector3.ZERO, Color("#5b6d73"), "StationLot")
+	_box(station, Vector3(6.0, 0.28, 2.2), Vector3(0, 3.4, 0), Color("#ef6f61"), "StationCanopy")
+	for pump_x in [-2.0, 0.0, 2.0]:
+		_box(station, Vector3(0.8, 1.6, 0.8), Vector3(pump_x, 0.9, 0), Color("#d5dded"), "FuelPump")
+		var pump_light := _box(station, Vector3(0.38, 0.22, 0.12), Vector3(pump_x, 1.65, -0.42), Color("#74d0ad"), "PumpLight")
+		var pump_material := pump_light.material_override as StandardMaterial3D
+		pump_material.emission_enabled = true
+		pump_material.emission = Color("#74d0ad")
+		pump_material.emission_energy_multiplier = 2.0
+	_box(station, Vector3(1.0, 4.0, 0.5), Vector3(3.9, 2.0, 0), Color("#ffd166"), "FuelSign")
+	_box(station, Vector3(0.8, 0.18, 0.12), Vector3(3.9, 3.25, -0.28), CREAM, "FuelSignStripe")
+	_register_scenery(station)
 
 func _add_city_landmark(z: float) -> void:
 	var tower := Node3D.new()
@@ -694,6 +716,7 @@ func _process(delta: float) -> void:
 		wheel.rotation.x -= speed * delta * 1.8
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
+	_update_refueling(delta)
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
@@ -833,6 +856,22 @@ func _update_weather_audio(delta: float) -> void:
 	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
 		thunder_player.play()
 		thunder_cooldown = 24.0 + randf() * 20.0
+
+func _update_refueling(delta: float) -> void:
+	var near_station := false
+	for station_pos in station_positions:
+		if truck.global_position.distance_to(station_pos) < 8.0:
+			near_station = true
+			break
+	var can_refuel := near_station and speed < 1.5 and fuel < 99.5
+	if can_refuel:
+		fuel = min(100.0, fuel + delta * 9.0)
+		if not refueling:
+			toast = "PARKED AT FUEL STATION"
+			toast_time = 2.5
+		refueling = true
+	else:
+		refueling = false
 
 func _update_scene_name() -> void:
 	var z := truck.position.z

@@ -1251,6 +1251,8 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 	var biome := int(floor(float(chunk_index) / 50.0)) % 5 # 50 km macro-regions.
 	for local_z in range(-480, 481, 80):
 		_add_chunk_road_segment(root, local_z, biome, rng)
+		if biome == 0 and abs(local_z) % 160 == 0:
+			_add_chunk_city_road_detail(root, local_z, rng)
 	for prop_index in range(8):
 		var local_z := -500.0 + float(prop_index) * 125.0 + rng.randf_range(-28.0, 28.0)
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
@@ -1308,6 +1310,27 @@ func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: Rand
 	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
 	for side in [-1.0, 1.0]:
 		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
+
+func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumberGenerator) -> void:
+	var world_z := root.position.z + local_z
+	var center := _road_center_at(world_z)
+	var height := _road_height_at(world_z)
+	var detail := Node3D.new()
+	detail.position = Vector3(center, height, local_z)
+	detail.rotation.y = atan2(_road_center_at(world_z + 8.0) - center, 8.0)
+	root.add_child(detail)
+	for side in [-1.0, 1.0]:
+		_box(detail, Vector3(2.0, 0.16, 82.0), Vector3(side * 8.0, 0.12, 0), Color("#858b9d"), "CitySidewalk")
+		for lamp_z in [-30.0, 0.0, 30.0]:
+			_box(detail, Vector3(0.16, 4.8, 0.16), Vector3(side * 8.8, 2.45, lamp_z), INK, "ChunkStreetLamp")
+			var lamp := _box(detail, Vector3(0.42, 0.18, 0.32), Vector3(side * 8.45, 4.55, lamp_z), Color("#ffd166"), "ChunkLampGlow")
+			var lamp_material := lamp.material_override as StandardMaterial3D
+			lamp_material.emission_enabled = true
+			lamp_material.emission = Color("#ffb35c")
+			lamp_material.emission_energy_multiplier = 2.2
+	if rng.randf() > 0.35:
+		for stripe in range(-4, 5):
+			_box(detail, Vector3(0.42, 0.025, 7.0), Vector3(float(stripe) * 0.62, 0.22, 0), CREAM, "CityCrosswalk")
 
 func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int) -> void:
 	if biome == 0:

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="220" viewBox="0 0 420 220">
+<defs><linearGradient id="cab" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffcf5c"/><stop offset="1" stop-color="#ff7b54"/></linearGradient></defs>
+<rect width="420" height="220" fill="none"/>
+<path d="M35 138 L35 67 Q35 42 61 42 H196 L231 75 H359 Q385 75 385 101 V151 H35Z" fill="url(#cab)" stroke="#251b38" stroke-width="9"/>
+<path d="M50 64 H139 V106 H50Z" fill="#9fe3ff" stroke="#251b38" stroke-width="7"/><path d="M151 64 H193 L220 106 H151Z" fill="#78c9e7" stroke="#251b38" stroke-width="7"/>
+<path d="M231 83 H357 Q374 83 374 102 V132 H231Z" fill="#fff1c7" stroke="#251b38" stroke-width="7"/>
+<circle cx="100" cy="157" r="31" fill="#2e2945" stroke="#f7f0d0" stroke-width="9"/><circle cx="100" cy="157" r="10" fill="#ffcc66"/><circle cx="315" cy="157" r="31" fill="#2e2945" stroke="#f7f0d0" stroke-width="9"/><circle cx="315" cy="157" r="10" fill="#ffcc66"/>
+<path d="M239 120 H367" stroke="#d94c58" stroke-width="9"/><path d="M250 95 H349" stroke="#58b9a9" stroke-width="6"/>
+</svg>

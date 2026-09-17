@@ -6,6 +6,7 @@ extends Node3D
 
 var truck: Node3D
 var camera: Camera3D
+var cockpit_mode := false
 var speed := 0.0
 var steer := 0.0
 var distance := 0.0
@@ -606,6 +607,14 @@ func _build_ui() -> void:
 	pause_button.add_theme_font_size_override("font_size", 23)
 	pause_button.pressed.connect(_toggle_pause)
 	layer.add_child(pause_button)
+	var camera_button := Button.new()
+	camera_button.text = "视角"
+	camera_button.position = Vector2(1118, 18)
+	camera_button.size = Vector2(70, 52)
+	camera_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	camera_button.add_theme_font_size_override("font_size", 16)
+	camera_button.pressed.connect(_toggle_camera_mode)
+	layer.add_child(camera_button)
 	_update_ui()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
@@ -839,15 +848,23 @@ func _update_scene_name() -> void:
 		current_scene = "动漫城市"
 
 func _update_camera(delta: float) -> void:
-	var target := truck.global_position + Vector3(0, 5.2, 11.5)
 	var speed_zoom := clamp(speed / 21.0, 0.0, 1.0)
-	target.z += speed_zoom * 2.2
+	var target: Vector3
+	var look_target: Vector3
+	if cockpit_mode:
+		target = truck.global_position + Vector3(0, 2.65, -3.55)
+		look_target = truck.global_position + Vector3(steer * 2.0, 2.45, -18.0)
+		camera.fov = lerp(camera.fov, 70.0 + speed_zoom * 5.0, delta * 3.0)
+	else:
+		target = truck.global_position + Vector3(0, 5.2, 11.5)
+		target.z += speed_zoom * 2.2
+		look_target = truck.global_position + Vector3(0, 1.2, -5.0)
+		camera.fov = lerp(camera.fov, 58.0 + speed_zoom * 7.0, delta * 3.0)
 	hit_shake = move_toward(hit_shake, 0.0, delta * 2.8)
 	var shake := Vector3(sin(Time.get_ticks_msec() * 0.08), cos(Time.get_ticks_msec() * 0.11), 0) * hit_shake * 0.22
 	target += shake
 	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
-	camera.look_at(truck.global_position + Vector3(0, 1.2, -5.0), Vector3.UP)
-	camera.fov = lerp(camera.fov, 58.0 + speed_zoom * 7.0, delta * 3.0)
+	camera.look_at(look_target, Vector3.UP)
 
 func _complete_delivery() -> void:
 	money += 640
@@ -861,6 +878,11 @@ func _complete_delivery() -> void:
 func _toggle_pause() -> void:
 	paused = not paused
 	toast = "PAUSED" if paused else "BACK ON THE ROAD"
+	toast_time = 2.0
+
+func _toggle_camera_mode() -> void:
+	cockpit_mode = not cockpit_mode
+	toast = "驾驶舱视角" if cockpit_mode else "第三人称视角"
 	toast_time = 2.0
 
 func _update_ui() -> void:

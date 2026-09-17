@@ -1163,6 +1163,8 @@ func _update_scene_name() -> void:
 			current_scene = ["动漫城市·市中心", "动漫城市·住宅区", "动漫城市·工业区", "动漫城市·外环"][chunk_index % 4]
 		elif macro_region % 5 == 1:
 			current_scene = ["乡村·农田", "乡村·村庄", "乡村·河谷", "乡村·果园"][chunk_index % 4]
+		elif macro_region % 5 == 2:
+			current_scene = ["森林·针叶林", "森林·雨林", "森林·湖畔林", "森林·峡谷林"][chunk_index % 4]
 		else:
 			current_scene = macro_name
 	elif z > 70.0:
@@ -1357,6 +1359,12 @@ func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float
 			_box(segment, Vector3(0.14, 0.85, 84.0), Vector3(side * (road_width * 0.5 + 0.8), 0.6, 0), Color("#66728b"), "ForestGuardrail")
 			for marker_z in [-28.0, 0.0, 28.0]:
 				_box(segment, Vector3(0.22, 0.55, 0.12), Vector3(side * 7.0, 0.35, marker_z), Color("#74d0ad"), "ForestReflector")
+		if district == 1:
+			_box(segment, Vector3(3.0, 0.05, 82.0), Vector3(0, 0.03, 0), Color("#355b52"), "RainforestWetCenter")
+		elif district == 2:
+			_box(segment, Vector3(2.0, 0.04, 82.0), Vector3(-7.0, 0.04, 0), Color("#477f98"), "LakeForestWaterEdge")
+		elif district == 3:
+			_box(segment, Vector3(0.24, 1.6, 82.0), Vector3(0, 0.8, 0), Color("#8d9caf"), "CanyonDivider")
 	elif biome == 3:
 		# Snow roads use tall snow poles, wider shoulders and chevrons.
 		for side in [-1.0, 1.0]:
@@ -1421,7 +1429,17 @@ func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGe
 		for crop in range(3):
 			_box(root, Vector3(4.5, 0.08, 0.28), pos + Vector3(0, 0.08, -2.0 + crop * 1.7), Color("#c78c55"), "ChunkCropRow")
 	elif biome == 2:
-		_add_chunk_tree(root, pos, rng.randf_range(0.8, 1.5), index)
+		if district == 0:
+			_add_chunk_tree(root, pos, rng.randf_range(1.2, 2.0), index + 2)
+		elif district == 1:
+			_add_chunk_tree(root, pos, rng.randf_range(0.8, 1.6), index)
+			_box(root, Vector3(2.0, 0.08, 2.0), pos + Vector3(0, 0.05, 0), Color("#557b54"), "RainforestMoss")
+		elif district == 2:
+			_add_chunk_tree(root, pos, rng.randf_range(0.75, 1.3), index)
+			_box(root, Vector3(6.0, 0.06, 4.0), pos + Vector3(0, 0.02, 2.0), Color("#477f98"), "ForestPond")
+		else:
+			var canyon_rock := _cylinder(root, rng.randf_range(1.4, 2.8), rng.randf_range(3.0, 7.0), pos + Vector3(0, 1.6, 0), Color("#59627b"), "CanyonRock")
+			canyon_rock.rotation_degrees.z = rng.randf_range(-20.0, 20.0)
 	elif biome == 3:
 		var rock := _cylinder(root, rng.randf_range(1.0, 2.2), rng.randf_range(2.0, 5.0), pos + Vector3(0, 1.0, 0), [Color("#59627b"), Color("#7b7890"), Color("#8d9caf")][index % 3], "ChunkMountainRock")
 		rock.rotation_degrees.z = rng.randf_range(-18.0, 18.0)

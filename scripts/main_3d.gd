@@ -1158,7 +1158,11 @@ func _update_scene_name() -> void:
 	if z < -120.0:
 		var chunk_index := int(floor((-z - 120.0) / CHUNK_LENGTH))
 		var macro_region := int(floor(float(chunk_index) / 50.0))
-		current_scene = ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][macro_region % 5]
+		var macro_name := ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][macro_region % 5]
+		if macro_region % 5 == 0:
+			current_scene = ["动漫城市·市中心", "动漫城市·住宅区", "动漫城市·工业区", "动漫城市·外环"][chunk_index % 4]
+		else:
+			current_scene = macro_name
 	elif z > 70.0:
 		current_scene = "开阔平原"
 	elif z > 26.0:
@@ -1266,12 +1270,12 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 	for local_z in range(-480, 481, 80):
 		_add_chunk_road_segment(root, local_z, biome, rng)
 		if biome == 0 and abs(local_z) % 160 == 0:
-			_add_chunk_city_road_detail(root, local_z, rng)
+			_add_chunk_city_road_detail(root, local_z, rng, chunk_index % 4)
 	for prop_index in range(8):
 		var local_z := -500.0 + float(prop_index) * 125.0 + rng.randf_range(-28.0, 28.0)
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
 		var lateral := rng.randf_range(9.0, 18.0) * side
-		_add_chunk_prop(root, biome, Vector3(lateral, 0, local_z), rng, prop_index)
+		_add_chunk_prop(root, biome, Vector3(lateral, 0, local_z), rng, prop_index, chunk_index % 4)
 	if biome == 0:
 		_add_chunk_city_gate(root, rng)
 	elif biome == 1:
@@ -1357,7 +1361,7 @@ func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float
 		for side in [-1.0, 1.0]:
 			_box(segment, Vector3(0.28, 0.05, 86.0), Vector3(side * (road_width * 0.5 - 0.4), 0.18, 0), CREAM, "HighwayRumbleStrip")
 
-func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumberGenerator) -> void:
+func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumberGenerator, district: int) -> void:
 	var world_z := root.position.z + local_z
 	var center := _road_center_at(world_z)
 	var height := _road_height_at(world_z)
@@ -1368,21 +1372,35 @@ func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumber
 	for side in [-1.0, 1.0]:
 		_box(detail, Vector3(2.0, 0.16, 82.0), Vector3(side * 8.0, 0.12, 0), Color("#858b9d"), "CitySidewalk")
 		for lamp_z in [-30.0, 0.0, 30.0]:
+			if district == 3 and abs(lamp_z) < 1.0:
+				continue
 			_box(detail, Vector3(0.16, 4.8, 0.16), Vector3(side * 8.8, 2.45, lamp_z), INK, "ChunkStreetLamp")
 			var lamp := _box(detail, Vector3(0.42, 0.18, 0.32), Vector3(side * 8.45, 4.55, lamp_z), Color("#ffd166"), "ChunkLampGlow")
 			var lamp_material := lamp.material_override as StandardMaterial3D
 			lamp_material.emission_enabled = true
 			lamp_material.emission = Color("#ffb35c")
 			lamp_material.emission_energy_multiplier = 2.2
-	if rng.randf() > 0.35:
+	if district == 2:
+		_box(detail, Vector3(1.2, 0.12, 70.0), Vector3(0, 0.22, 0), Color("#66728b"), "IndustrialMedian")
+	if rng.randf() > (0.15 + district * 0.12):
 		for stripe in range(-4, 5):
 			_box(detail, Vector3(0.42, 0.025, 7.0), Vector3(float(stripe) * 0.62, 0.22, 0), CREAM, "CityCrosswalk")
 
-func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int) -> void:
+func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int, district: int = 0) -> void:
 	if biome == 0:
 		var building_size := Vector3(rng.randf_range(3.5, 7.5), rng.randf_range(3.0, 10.0), rng.randf_range(3.5, 7.5))
+		if district == 0: # downtown skyline
+			building_size = Vector3(rng.randf_range(5.0, 9.0), rng.randf_range(14.0, 28.0), rng.randf_range(5.0, 9.0))
+		elif district == 1: # residential blocks
+			building_size = Vector3(rng.randf_range(5.0, 8.0), rng.randf_range(4.0, 9.0), rng.randf_range(5.0, 8.0))
+		elif district == 2: # industrial sheds
+			building_size = Vector3(rng.randf_range(8.0, 14.0), rng.randf_range(3.0, 6.0), rng.randf_range(9.0, 18.0))
+		else: # outer ring low-rise
+			building_size = Vector3(rng.randf_range(3.5, 7.5), rng.randf_range(2.5, 5.0), rng.randf_range(3.5, 7.5))
 		_box(root, building_size, pos + Vector3(0, 2.0, 0), [Color("#e58c78"), Color("#8e9bd1"), Color("#f4b86b")][index % 3], "ChunkCityBuilding")
 		_box(root, Vector3(building_size.x * 0.75, 0.22, 0.15), pos + Vector3(0, 2.0, -building_size.z * 0.52), Color("#9fe3ff"), "ChunkWindow")
+		if district == 2:
+			_box(root, Vector3(building_size.x * 0.5, 0.3, 0.2), pos + Vector3(0, building_size.y * 0.65, -building_size.z * 0.53), Color("#ffd166"), "IndustrialSign")
 	elif biome == 1:
 		_box(root, Vector3(5.0, 2.4, 4.0), pos + Vector3(0, 1.2, 0), Color("#f4b86b"), "ChunkFarmHouse")
 		_box(root, Vector3(5.4, 0.25, 4.4), pos + Vector3(0, 2.7, 0), CORAL, "ChunkFarmRoof")

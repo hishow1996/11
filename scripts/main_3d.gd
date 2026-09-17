@@ -85,8 +85,8 @@ var touch_throttle := 0.0
 var touch_brake := 0.0
 
 const ROAD_WIDTH := 12.0
-const ROAD_LENGTH := 2200.0
-const CHUNK_LENGTH := 120.0
+const ROAD_LENGTH := 3200000.0 # 3200 km at 1 world unit = 1 meter.
+const CHUNK_LENGTH := 1000.0 # 1 km streaming chunk.
 const INK := Color("#211c37")
 const ASPHALT := Color("#40455b")
 const CREAM := Color("#fff1cf")
@@ -293,7 +293,7 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 func _build_world() -> void:
 	var ground := _box(self, Vector3(180, 0.4, ROAD_LENGTH), Vector3(0, -0.35, -ROAD_LENGTH * 0.25), Color("#9bb07f"), "Grass")
 	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	road_surface = _box(self, Vector3(ROAD_WIDTH, 0.18, ROAD_LENGTH), Vector3(0, -0.12, -ROAD_LENGTH * 0.25), ASPHALT, "Road")
+	road_surface = _box(self, Vector3(ROAD_WIDTH, 0.18, 260.0), Vector3(0, -0.12, -10.0), ASPHALT, "Road")
 	road_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for z in range(-120, 110, 12):
 		_box(self, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.01, z), CREAM, "LaneMarker")
@@ -338,7 +338,7 @@ func _build_world() -> void:
 	_add_bridge(92.0)
 	_add_direction_sign(Vector3(-7.4, 0, -86), "CITY")
 	_add_direction_sign(Vector3(7.4, 0, 42), "PASS")
-	for chunk_index in range(1, 7):
+	for chunk_index in range(0, 7):
 		_ensure_stream_chunk(chunk_index)
 
 func _add_guardrail(pos: Vector3, side: float) -> void:
@@ -947,7 +947,8 @@ func _process(delta: float) -> void:
 	var target_speed := throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8)
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	var steering_grip := 1.0 + float(tire_level) * 0.08
-	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip, -4.0, 4.0)
+	var road_center := _road_center_at(truck.position.z)
+	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
 	for lamp in brake_lamps:
 		var brake_material := lamp.material_override as StandardMaterial3D
@@ -1245,18 +1246,11 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 	add_child(root)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = stream_seed + chunk_index * 7919
-	var biome := chunk_index % 5
-	for local_z in range(-48, 49, 16):
-		var road_kind := rng.randi_range(0, 3)
-		if road_kind == 0:
-			_box(root, Vector3(0.24, 0.04, 5.5), Vector3(0, 0.02, local_z), CREAM, "ChunkLaneMarker")
-		elif road_kind == 1:
-			_box(root, Vector3(0.16, 0.04, 3.0), Vector3(0, 0.02, local_z), Color("#ffd166"), "ChunkRoadDash")
-		if rng.randf() > 0.28:
-			_box(root, Vector3(0.14, 0.3, 12.0), Vector3(-6.4, 0.08, local_z), INK, "ChunkRoadEdge")
-			_box(root, Vector3(0.14, 0.3, 12.0), Vector3(6.4, 0.08, local_z), INK, "ChunkRoadEdge")
+	var biome := int(floor(float(chunk_index) / 12.0)) % 5
+	for local_z in range(-480, 481, 80):
+		_add_chunk_road_segment(root, local_z, biome, rng)
 	for prop_index in range(8):
-		var local_z := -52.0 + float(prop_index) * 14.0 + rng.randf_range(-3.0, 3.0)
+		var local_z := -500.0 + float(prop_index) * 125.0 + rng.randf_range(-28.0, 28.0)
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
 		var lateral := rng.randf_range(9.0, 18.0) * side
 		_add_chunk_prop(root, biome, Vector3(lateral, 0, local_z), rng, prop_index)
@@ -1272,6 +1266,31 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_plain_gate(root, rng)
 	_add_chunk_event_landmark(root, biome, rng)
 	stream_chunks[chunk_index] = root
+
+func _road_center_at(world_z: float) -> float:
+	var macro := sin(world_z * 0.0027 + 0.8) * 3.0
+	var long_curve := sin(world_z * 0.00072 + 2.1) * 2.4
+	return clamp(macro + long_curve, -5.0, 5.0)
+
+func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: RandomNumberGenerator) -> void:
+	var world_z := root.position.z + local_z
+	var center := _road_center_at(world_z)
+	var ahead := _road_center_at(world_z + 8.0)
+	var segment := Node3D.new()
+	segment.name = "CurvedRoadSegment"
+	segment.position = Vector3(center, 0, local_z)
+	segment.rotation.y = atan2(ahead - center, 8.0)
+	root.add_child(segment)
+	var road_width := 12.0
+	if biome == 0 and rng.randf() > 0.7:
+		road_width = 16.0
+	elif biome == 3 and rng.randf() > 0.55:
+		road_width = 9.5
+	_box(segment, Vector3(road_width, 0.18, 90.0), Vector3.ZERO, ASPHALT, "ChunkRoadSurface")
+	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, -30.0), CREAM, "ChunkLaneMarker")
+	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
+	for side in [-1.0, 1.0]:
+		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
 
 func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGenerator, index: int) -> void:
 	if biome == 0:

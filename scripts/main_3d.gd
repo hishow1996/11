@@ -214,6 +214,19 @@ func _cylinder(parent: Node3D, radius: float, height: float, pos: Vector3, color
 	parent.add_child(node)
 	return node
 
+func _cone(parent: Node3D, radius: float, height: float, pos: Vector3, color: Color, name := "Cone") -> MeshInstance3D:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.0
+	mesh.bottom_radius = radius
+	mesh.height = height
+	var node := MeshInstance3D.new()
+	node.name = name
+	node.mesh = mesh
+	node.material_override = _mat(color)
+	node.position = pos
+	parent.add_child(node)
+	return node
+
 func _build_environment() -> void:
 	world_environment = WorldEnvironment.new()
 	environment = Environment.new()
@@ -238,6 +251,10 @@ func _build_environment() -> void:
 	environment.fog_density = 0.008
 	environment.fog_height = 3.0
 	environment.fog_height_density = 0.04
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.72
+	environment.glow_bloom = 0.12
+	environment.glow_hdr_threshold = 1.15
 	world_environment.environment = environment
 	add_child(world_environment)
 	sun = DirectionalLight3D.new()
@@ -403,8 +420,12 @@ func _add_city_block(z: float) -> void:
 		var block := Node3D.new()
 		block.position = Vector3(side * (11.0 + fmod(abs(z), 3.0)), 0, z)
 		add_child(block)
-		_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
-		_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
+			_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
+			_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
+			for balcony_y in [1.0, 2.8, 4.6]:
+				_box(block, Vector3(6.4, 0.12, 0.52), Vector3(0, balcony_y, -3.72), Color("#f5d3a4"), "CityBalcony")
+				_box(block, Vector3(0.12, 0.5, 0.52), Vector3(-3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
+				_box(block, Vector3(0.12, 0.5, 0.52), Vector3(3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
 		for window_y in [1.2, 3.0, 4.8]:
 			for window_x in [-2.0, 0.0, 2.0]:
 				var window := _box(block, Vector3(1.1, 0.65, 0.18), Vector3(window_x, window_y, -3.55), Color("#9fe3ff"), "CityWindow")
@@ -585,10 +606,10 @@ func _add_mountain_cluster(pos: Vector3, scale_factor: float) -> void:
 	root.position = pos
 	root.scale = Vector3.ONE * scale_factor
 	add_child(root)
-	var cone := _cylinder(root, 7.0, 18.0, Vector3(0, 8.8, 0), Color("#53617d"), "Mountain")
-	var cap := _cylinder(root, 3.5, 0.8, Vector3(0, 18.3, 0), Color("#f5f2df"), "SnowCap")
+	var cone := _cone(root, 7.0, 18.0, Vector3(0, 8.8, 0), Color("#53617d"), "Mountain")
+	var snow := _cone(root, 3.6, 5.0, Vector3(0, 17.2, 0), Color("#f5f2df"), "SnowCap")
 	cone.rotation_degrees.y = 22.0
-	cap.rotation_degrees.y = 22.0
+	snow.rotation_degrees.y = 22.0
 
 func _add_tree(pos: Vector3, scale_factor: float) -> void:
 	var tree := Node3D.new()
@@ -596,8 +617,9 @@ func _add_tree(pos: Vector3, scale_factor: float) -> void:
 	tree.scale = Vector3.ONE * scale_factor
 	add_child(tree)
 	_cylinder(tree, 0.25, 2.5, Vector3(0, 1.2, 0), Color("#6e4639"), "Trunk")
-	_cylinder(tree, 1.7, 3.2, Vector3(0, 3.1, 0), Color("#4c9c79"), "Foliage")
-	_cylinder(tree, 1.2, 2.4, Vector3(0, 4.8, 0), Color("#74d0ad"), "FoliageTop")
+	_cone(tree, 2.2, 3.0, Vector3(0, 3.0, 0), Color("#4c9c79"), "Foliage")
+	_cone(tree, 1.65, 2.5, Vector3(0, 4.7, 0), Color("#5bb691"), "FoliageMid")
+	_cone(tree, 1.1, 2.0, Vector3(0, 6.1, 0), Color("#74d0ad"), "FoliageTop")
 
 func _build_truck() -> void:
 	truck = Node3D.new()

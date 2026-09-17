@@ -12,6 +12,17 @@ The project uses a consistent high-detail anime 3D direction: cel-shaded low-pol
 | `art/visual_target_mountain.png` | Snow mountain road, tunnel, guardrail and depth reference |
 | `art/visual_target_rural.png` | Rural road, village, orchard, bridge and field reference |
 
+## Scene previews
+
+These previews are retained as quick visual checkpoints for the runtime biome pass.
+
+| Asset | Checkpoint |
+|---|---|
+| `preview_city.png` | City lighting, buildings and traffic checkpoint |
+| `preview_forest.png` | Deep forest and weather checkpoint |
+| `preview_snow_mountain.png` | Snow pass, tunnel and fog checkpoint |
+| `preview_plains.png` | Plains, fields and lake checkpoint |
+
 ## Runtime implementation
 
 The runtime scene uses Godot `MeshInstance3D`, `BoxMesh`, `CylinderMesh`, `StandardMaterial3D`, procedural particles, dynamic lights and seeded streaming chunks. The latest vehicle pass adds a more detailed grille, cab windows, panel seams, side accents, bumper lamps, outline silhouettes and anime material response. This keeps the reference direction while avoiding large imported assets that would exceed Android memory budgets.

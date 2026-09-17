@@ -36,6 +36,7 @@ var wet_tire_player: AudioStreamPlayer
 var snow_tire_player: AudioStreamPlayer
 var thunder_player: AudioStreamPlayer
 var virtual_controls: Control
+var minimap: Control
 var scenery: Array[Node3D] = []
 var current_scene := "乡村公路"
 var current_weather := "clear"
@@ -580,6 +581,12 @@ func _build_ui() -> void:
 	ui_toast = _label(layer, Vector2(470, 115), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	minimap = Control.new()
+	minimap.name = "RouteMinimap"
+	minimap.position = Vector2(28, 110)
+	minimap.size = Vector2(270, 170)
+	minimap.set_script(load("res://scripts/minimap.gd"))
+	layer.add_child(minimap)
 	var hint := _label(layer, Vector2(32, 650), 15, Color("#d5dded"))
 	hint.text = "触摸按钮驾驶  •  左右变道  •  避开车辆  •  到达目的地交付货物"
 	virtual_controls = Control.new()
@@ -865,3 +872,5 @@ func _update_ui() -> void:
 	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.text = "TIME %s   •   %s   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""
+	if minimap:
+		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination)

@@ -47,6 +47,9 @@ var moon: DirectionalLight3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
 var lightning_light: OmniLight3D
+var sky_material: ProceduralSkyMaterial
+var road_surface: MeshInstance3D
+var city_lights: Array[OmniLight3D] = []
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -126,8 +129,17 @@ func _cylinder(parent: Node3D, radius: float, height: float, pos: Vector3, color
 func _build_environment() -> void:
 	world_environment = WorldEnvironment.new()
 	environment = Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = SKY
+	environment.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	sky_material = ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("#4b78c2")
+	sky_material.sky_horizon_color = SKY
+	sky_material.ground_bottom_color = Color("#40516b")
+	sky_material.ground_horizon_color = Color("#9bb07f")
+	sky_material.sun_angle_max = 18.0
+	sky_material.sun_curve = 0.08
+	sky.sky_material = sky_material
+	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#d8edff")
 	environment.ambient_light_energy = 0.72
@@ -196,8 +208,8 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 func _build_world() -> void:
 	var ground := _box(self, Vector3(180, 0.4, ROAD_LENGTH), Vector3(0, -0.35, -ROAD_LENGTH * 0.25), Color("#9bb07f"), "Grass")
 	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var road := _box(self, Vector3(ROAD_WIDTH, 0.18, ROAD_LENGTH), Vector3(0, -0.12, -ROAD_LENGTH * 0.25), ASPHALT, "Road")
-	road.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	road_surface = _box(self, Vector3(ROAD_WIDTH, 0.18, ROAD_LENGTH), Vector3(0, -0.12, -ROAD_LENGTH * 0.25), ASPHALT, "Road")
+	road_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for z in range(-120, 110, 12):
 		_box(self, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.01, z), CREAM, "LaneMarker")
 		_box(self, Vector3(0.18, 0.35, 12.0), Vector3(-6.35, 0.1, z), INK, "RoadEdge")
@@ -256,6 +268,16 @@ func _add_city_lamp(parent: Node3D, pos: Vector3) -> void:
 	glow_material.emission_enabled = true
 	glow_material.emission = Color("#ff9a42")
 	glow_material.emission_energy_multiplier = 2.5
+	var point_light := OmniLight3D.new()
+	point_light.name = "CityLampLight"
+	point_light.position = pos + Vector3(0.78, 4.15, 0)
+	point_light.light_color = Color("#ffb35c")
+	point_light.light_energy = 0.0
+	point_light.omni_range = 8.0
+	point_light.shadow_enabled = false
+	point_light.add_to_group("city_lights")
+	parent.add_child(point_light)
+	city_lights.append(point_light)
 
 func _register_scenery(root: Node3D) -> void:
 	scenery.append(root)
@@ -545,11 +567,29 @@ func _update_day_night() -> void:
 		environment.background_color = Color("#111b39")
 	else:
 		environment.background_color = Color("#86d6e8")
+	var sky_top := Color("#4b78c2")
+	var sky_horizon := Color("#86d6e8")
+	var ground_horizon := Color("#9bb07f")
+	if game_hour >= 5.0 and game_hour < 8.0:
+		sky_top = Color("#bd7891")
+		sky_horizon = Color("#f3b181")
+	elif game_hour >= 17.0 and game_hour < 20.0:
+		sky_top = Color("#8b5e9e")
+		sky_horizon = Color("#ef916c")
+	elif daylight <= 0.02:
+		sky_top = Color("#0d1631")
+		sky_horizon = Color("#273b66")
+		ground_horizon = Color("#263047")
+	sky_material.sky_top_color = sky_material.sky_top_color.lerp(sky_top, 0.08)
+	sky_material.sky_horizon_color = sky_material.sky_horizon_color.lerp(sky_horizon, 0.08)
+	sky_material.ground_horizon_color = sky_material.ground_horizon_color.lerp(ground_horizon, 0.08)
 	# Snow reflects more moonlight; forest remains intentionally darker at night.
 	if current_scene == "山区雪岭":
 		environment.ambient_light_energy += night * 0.12
 	elif current_scene == "深山老林":
 		environment.ambient_light_energy -= night * 0.08
+	for city_light in city_lights:
+		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
 
 func _update_weather_visuals() -> void:
 	var rain_strength := weather_intensity if current_weather == "rain" else 0.0
@@ -570,6 +610,19 @@ func _update_weather_visuals() -> void:
 	elif current_weather == "snow":
 		base_fog += weather_intensity * 0.018
 	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
+	var road_material := road_surface.material_override as StandardMaterial3D
+	if current_weather == "rain":
+		road_material.albedo_color = road_material.albedo_color.lerp(Color("#29364d"), 0.12)
+		road_material.roughness = lerp(road_material.roughness, 0.18, 0.08)
+		road_material.metallic = lerp(road_material.metallic, 0.22, 0.08)
+	elif current_weather == "snow":
+		road_material.albedo_color = road_material.albedo_color.lerp(Color("#8d9caf"), 0.10)
+		road_material.roughness = lerp(road_material.roughness, 0.68, 0.08)
+		road_material.metallic = lerp(road_material.metallic, 0.04, 0.08)
+	else:
+		road_material.albedo_color = road_material.albedo_color.lerp(ASPHALT, 0.08)
+		road_material.roughness = lerp(road_material.roughness, 0.82, 0.08)
+		road_material.metallic = lerp(road_material.metallic, 0.0, 0.08)
 	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
 		lightning_light.light_energy = 6.0
 		var flash := create_tween()

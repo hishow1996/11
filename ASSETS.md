@@ -1,0 +1,32 @@
+# Anime Haul Visual Assets
+
+## Art direction
+
+The project uses a consistent high-detail anime 3D direction: cel-shaded low-poly forms, warm European Alpine color palettes, deep ink outlines, readable road geometry, practical street lighting, and realistic vehicle/audio behavior. The reference images below were generated as visual targets for scene composition and lighting; the playable Godot scene continues to use lightweight runtime 3D geometry so it remains suitable for Android.
+
+## Generated visual targets
+
+| Asset | Use |
+|---|---|
+| `art/visual_target_city.png` | City street, truck proportions, traffic signal and warm sunset lighting reference |
+| `art/visual_target_mountain.png` | Snow mountain road, tunnel, guardrail and depth reference |
+| `art/visual_target_rural.png` | Rural road, village, orchard, bridge and field reference |
+
+## Runtime implementation
+
+The runtime scene uses Godot `MeshInstance3D`, `BoxMesh`, `CylinderMesh`, `StandardMaterial3D`, procedural particles, dynamic lights and seeded streaming chunks. The latest vehicle pass adds a more detailed grille, cab windows, panel seams, side accents, bumper lamps, outline silhouettes and anime material response. This keeps the reference direction while avoiding large imported assets that would exceed Android memory budgets.
+
+## Audio direction
+
+Vehicle and weather sound remains realistic-style: diesel engine loop, air brakes, rain, wet tires, snow tires, wind and thunder. Visual assets are intentionally anime-styled while sound remains grounded and mechanical.
+
+## Acceptance target
+
+A screenshot should read immediately as an anime 3D long-haul truck game, with the truck as the focal point, a clearly modeled road, a coherent biome, visible route depth, and lighting that supports gameplay readability on a mobile display.
+
+## Generated files
+
+- `art/visual_target_city.png`
+- `art/visual_target_mountain.png`
+- `art/visual_target_rural.png`
+- `art/truck.svg` (editable vector fallback asset)

@@ -163,7 +163,8 @@ func _haptic(duration_ms: int, amplitude: float) -> void:
 func _mat(color: Color, roughness := 0.82) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
-	material.roughness = roughness
+	material.roughness = 0.62 if color == ASPHALT else roughness
+	material.metallic = 0.08 if color == ASPHALT else 0.0
 	material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	return material
@@ -616,6 +617,23 @@ func _build_truck() -> void:
 	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(-2.25, 1.85, -3.72), INK, "MirrorArm")
 	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(2.25, 1.85, -3.72), INK, "MirrorArm")
 	_box(truck, Vector3(1.8, 0.38, 0.16), Vector3(0, 0.86, -4.76), Color("#66728b"), "FrontGrille")
+	for grille_y in [0.72, 0.84, 0.96]:
+		_box(truck, Vector3(1.55, 0.05, 0.08), Vector3(0, grille_y, -4.86), INK, "GrilleSlat")
+	for side in [-1.0, 1.0]:
+		_box(truck, Vector3(0.12, 1.35, 1.55), Vector3(side * 2.03, 1.48, -3.3), INK, "CabOutline")
+		_box(truck, Vector3(0.08, 0.72, 1.1), Vector3(side * 2.1, 1.58, -3.3), Color("#9fe3ff"), "CabSideWindow")
+		_box(truck, Vector3(0.08, 0.08, 1.2), Vector3(side * 2.13, 0.9, -3.3), Color("#ffd166"), "CabStep")
+		_box(truck, Vector3(0.16, 0.5, 2.8), Vector3(side * 2.56, 1.05, 0.75), INK, "TrailerSideOutline")
+		_box(truck, Vector3(0.08, 0.3, 2.4), Vector3(side * 2.62, 1.2, 0.75), CORAL, "TrailerSideAccent")
+	for trailer_z in [-1.8, 0.0, 1.8, 3.6]:
+		_box(truck, Vector3(0.06, 1.45, 0.08), Vector3(-2.54, 1.25, trailer_z), INK, "TrailerPanelLine")
+		_box(truck, Vector3(0.06, 1.45, 0.08), Vector3(2.54, 1.25, trailer_z), INK, "TrailerPanelLine")
+	for bumper_x in [-1.4, 0.0, 1.4]:
+		var bumper_lamp := _box(truck, Vector3(0.34, 0.16, 0.12), Vector3(bumper_x, 0.44, -4.9), Color("#fff0a7"), "BumperLamp")
+		var bumper_material := bumper_lamp.material_override as StandardMaterial3D
+		bumper_material.emission_enabled = true
+		bumper_material.emission = Color("#fff0a7")
+		bumper_material.emission_energy_multiplier = 2.0
 	for x in [-2.1, 2.1]:
 		var front_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, -2.8), INK, "FrontWheel")
 		front_wheel.rotation_degrees.z = 90.0

@@ -85,7 +85,7 @@ var touch_throttle := 0.0
 var touch_brake := 0.0
 
 const ROAD_WIDTH := 12.0
-const ROAD_LENGTH := 3200000.0 # 3200 km at 1 world unit = 1 meter.
+const ROAD_LENGTH := 20000000.0 # 20000 km at 1 world unit = 1 meter.
 const CHUNK_LENGTH := 1000.0 # 1 km streaming chunk.
 const INK := Color("#211c37")
 const ASPHALT := Color("#40455b")
@@ -1156,7 +1156,8 @@ func _update_scene_name() -> void:
 	var z := truck.position.z
 	if z < -120.0:
 		var chunk_index := int(floor((-z - 120.0) / CHUNK_LENGTH))
-		current_scene = ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][chunk_index % 5]
+		var macro_region := int(floor(float(chunk_index) / 50.0))
+		current_scene = ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][macro_region % 5]
 	elif z > 70.0:
 		current_scene = "开阔平原"
 	elif z > 26.0:
@@ -1246,7 +1247,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 	add_child(root)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = stream_seed + chunk_index * 7919
-	var biome := int(floor(float(chunk_index) / 12.0)) % 5
+	var biome := int(floor(float(chunk_index) / 50.0)) % 5 # 50 km macro-regions.
 	for local_z in range(-480, 481, 80):
 		_add_chunk_road_segment(root, local_z, biome, rng)
 	for prop_index in range(8):
@@ -1265,6 +1266,9 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 	else:
 		_add_chunk_plain_gate(root, rng)
 	_add_chunk_event_landmark(root, biome, rng)
+	_add_chunk_mileage_marker(root, chunk_index, rng)
+	if chunk_index % 4 == 0:
+		_add_chunk_rest_area(root, rng)
 	stream_chunks[chunk_index] = root
 
 func _road_center_at(world_z: float) -> float:
@@ -1371,3 +1375,21 @@ func _add_chunk_event_landmark(root: Node3D, biome: int, rng: RandomNumberGenera
 				var z := -4.0 + float(row) * 3.2
 				_box(root, Vector3(1.6, 0.08, 2.0), Vector3(x, 1.3, z), Color("#31517c"), "SolarPanel")
 				_box(root, Vector3(0.12, 1.2, 0.12), Vector3(x, 0.65, z), Color("#d5dded"), "SolarPost")
+
+func _add_chunk_mileage_marker(root: Node3D, chunk_index: int, rng: RandomNumberGenerator) -> void:
+	var marker_z := rng.randf_range(-410.0, -300.0)
+	var side := -1.0 if chunk_index % 2 == 0 else 1.0
+	var x := side * 7.2
+	_box(root, Vector3(0.16, 2.2, 0.16), Vector3(x, 1.1, marker_z), INK, "KilometerPost")
+	_box(root, Vector3(1.8, 0.8, 0.12), Vector3(x, 2.25, marker_z), [CORAL, MINT, Color("#66728b")][chunk_index % 3], "KilometerPlate")
+	_box(root, Vector3(1.1, 0.12, 0.06), Vector3(x, 2.25, marker_z - 0.08), CREAM, "KilometerTextStripe")
+
+func _add_chunk_rest_area(root: Node3D, rng: RandomNumberGenerator) -> void:
+	var rest_z := rng.randf_range(80.0, 260.0)
+	var side := -1.0 if rng.randf() > 0.5 else 1.0
+	var rest_x := side * 15.0
+	_box(root, Vector3(10.0, 0.08, 28.0), Vector3(rest_x, 0.03, rest_z), Color("#5b6d73"), "RestAreaLot")
+	_box(root, Vector3(7.0, 2.8, 3.8), Vector3(rest_x, 1.4, rest_z - 8.0), Color("#8e9bd1"), "RestAreaBuilding")
+	_box(root, Vector3(7.5, 0.25, 4.3), Vector3(rest_x, 2.95, rest_z - 8.0), Color("#ffd166"), "RestAreaRoof")
+	for parking in [-5.0, 0.0, 5.0]:
+		_box(root, Vector3(3.6, 0.04, 7.0), Vector3(rest_x + side * 3.0, 0.08, rest_z + parking), CREAM, "RestParkingBay")

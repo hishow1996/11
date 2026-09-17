@@ -1214,13 +1214,27 @@ func _update_ui() -> void:
 	if not ui_speed:
 		return
 	var cargo := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
-	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s" % [current_scene, cargo, destination]
+	var branch_hint := _get_branch_hint()
+	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s%s" % [current_scene, cargo, destination, "   •   ↗ " + branch_hint if branch_hint != "" else ""]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.text = "TIME %s   •   %s   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, distance, route_goal, int(fuel), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	if minimap:
-			minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination)
+		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination, branch_hint)
+
+func _get_branch_hint() -> String:
+	if current_scene.find("城市") >= 0:
+		return "环城匝道 / OLD TOWN"
+	if current_scene.find("乡村") >= 0:
+		return "农场支路 / FARM LAKE"
+	if current_scene.find("雪谷") >= 0:
+		return "观景道路 / SUMMIT VIEW"
+	if current_scene.find("森林") >= 0:
+		return "湖区连接 / FOREST LAKE"
+	if current_scene.find("平原") >= 0:
+		return "服务区 / REST STOP"
+	return ""
 
 func _update_streaming() -> void:
 	var traveled := max(0.0, -truck.position.z - 120.0)

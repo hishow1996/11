@@ -1161,6 +1161,8 @@ func _update_scene_name() -> void:
 		var macro_name := ["动漫城市新区", "乡村湖区", "深林国家公园", "高山雪谷", "金色平原"][macro_region % 5]
 		if macro_region % 5 == 0:
 			current_scene = ["动漫城市·市中心", "动漫城市·住宅区", "动漫城市·工业区", "动漫城市·外环"][chunk_index % 4]
+		elif macro_region % 5 == 1:
+			current_scene = ["乡村·农田", "乡村·村庄", "乡村·河谷", "乡村·果园"][chunk_index % 4]
 		else:
 			current_scene = macro_name
 	elif z > 70.0:
@@ -1334,15 +1336,21 @@ func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: Rand
 	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
 	for side in [-1.0, 1.0]:
 		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
-	_add_chunk_biome_road_detail(segment, biome, road_width, rng)
+		_add_chunk_biome_road_detail(segment, biome, road_width, rng, int(root.name.trim_prefix("RouteChunk_")) % 4)
 
-func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float, rng: RandomNumberGenerator) -> void:
+func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float, rng: RandomNumberGenerator, district: int = 0) -> void:
 	if biome == 1:
 		# Rural roads get grass shoulders, farm gates and wooden fencing.
 		for side in [-1.0, 1.0]:
 			_box(segment, Vector3(2.2, 0.06, 86.0), Vector3(side * (road_width * 0.5 + 1.3), 0.02, 0), Color("#a8c46f"), "VillageGrassShoulder")
 			for post_z in [-30.0, 0.0, 30.0]:
 				_box(segment, Vector3(0.14, 1.0, 0.14), Vector3(side * 8.0, 0.5, post_z), Color("#8c6048"), "VillageFencePost")
+		if district == 2:
+			_box(segment, Vector3(4.0, 0.08, 86.0), Vector3(0, 0.05, 0), Color("#5fb5d0"), "ValleyStream")
+		elif district == 3:
+			for orchard_x in [-8.0, 8.0]:
+				for orchard_z in [-28.0, 0.0, 28.0]:
+					_add_chunk_tree(segment, Vector3(orchard_x, 0, orchard_z), 0.65, int(abs(orchard_z)))
 	elif biome == 2:
 		# Forest roads get reflective guardrails and mossy roadside markers.
 		for side in [-1.0, 1.0]:
@@ -1402,8 +1410,14 @@ func _add_chunk_prop(root: Node3D, biome: int, pos: Vector3, rng: RandomNumberGe
 		if district == 2:
 			_box(root, Vector3(building_size.x * 0.5, 0.3, 0.2), pos + Vector3(0, building_size.y * 0.65, -building_size.z * 0.53), Color("#ffd166"), "IndustrialSign")
 	elif biome == 1:
-		_box(root, Vector3(5.0, 2.4, 4.0), pos + Vector3(0, 1.2, 0), Color("#f4b86b"), "ChunkFarmHouse")
-		_box(root, Vector3(5.4, 0.25, 4.4), pos + Vector3(0, 2.7, 0), CORAL, "ChunkFarmRoof")
+		if district == 1:
+			_box(root, Vector3(6.0, 2.8, 5.0), pos + Vector3(0, 1.4, 0), Color("#f4b86b"), "ChunkVillageHouse")
+			_box(root, Vector3(6.4, 0.25, 5.4), pos + Vector3(0, 3.0, 0), CORAL, "ChunkVillageRoof")
+		elif district == 2:
+			_box(root, Vector3(7.0, 2.0, 3.0), pos + Vector3(0, 1.0, 0), Color("#8e9bd1"), "ChunkValleyBarn")
+		else:
+			_box(root, Vector3(5.0, 2.4, 4.0), pos + Vector3(0, 1.2, 0), Color("#f4b86b"), "ChunkFarmHouse")
+			_box(root, Vector3(5.4, 0.25, 4.4), pos + Vector3(0, 2.7, 0), CORAL, "ChunkFarmRoof")
 		for crop in range(3):
 			_box(root, Vector3(4.5, 0.08, 0.28), pos + Vector3(0, 0.08, -2.0 + crop * 1.7), Color("#c78c55"), "ChunkCropRow")
 	elif biome == 2:

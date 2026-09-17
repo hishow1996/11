@@ -61,6 +61,7 @@ var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
 var station_positions: Array[Vector3] = []
 var refueling := false
+var save_timer := 0.0
 var engine_level := 0
 var tire_level := 0
 var tank_level := 0
@@ -79,8 +80,10 @@ const CREAM := Color("#fff1cf")
 const CORAL := Color("#ef6f61")
 const MINT := Color("#74d0ad")
 const SKY := Color("#86d6e8")
+const SAVE_PATH := "user://anime_haul_save.json"
 
 func _ready() -> void:
+	_load_save()
 	_build_environment()
 	_build_weather_effects()
 	_build_world()
@@ -89,6 +92,45 @@ func _ready() -> void:
 	_build_camera()
 	_build_ui()
 	_build_audio()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_game()
+
+func _load_save() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var data = JSON.parse_string(file.get_as_text())
+	if data is Dictionary:
+		money = int(data.get("money", money))
+		fuel = float(data.get("fuel", fuel))
+		damage = float(data.get("damage", damage))
+		distance = float(data.get("distance", distance))
+		cargo_index = int(data.get("cargo_index", cargo_index))
+		game_hour = float(data.get("game_hour", game_hour))
+		engine_level = int(data.get("engine_level", engine_level))
+		tire_level = int(data.get("tire_level", tire_level))
+		tank_level = int(data.get("tank_level", tank_level))
+		armor_level = int(data.get("armor_level", armor_level))
+		route_goal = 10.0 + float(cargo_index * 2)
+		destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
+
+func _save_game() -> void:
+	var data := {
+		"money": money,
+		"fuel": fuel,
+		"damage": damage,
+		"distance": distance,
+		"cargo_index": cargo_index,
+		"game_hour": game_hour,
+		"engine_level": engine_level,
+		"tire_level": tire_level,
+		"tank_level": tank_level,
+		"armor_level": armor_level
+	}
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	file.store_string(JSON.stringify(data))
 
 func _mat(color: Color, roughness := 0.82) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -698,8 +740,9 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"tire": tire_level += 1
 			"tank": tank_level += 1
 			"armor": armor_level += 1
-		toast = "升级完成：" + upgrade_id
-		toast_time = 2.0
+			toast = "升级完成：" + upgrade_id
+			toast_time = 2.0
+			_save_game()
 	_update_garage_label()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
@@ -762,6 +805,10 @@ func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
 func _process(delta: float) -> void:
 	if paused:
 		return
+	save_timer += delta
+	if save_timer >= 10.0:
+		save_timer = 0.0
+		_save_game()
 	game_hour = fmod(game_hour + 24.0 * delta / day_length_seconds, 24.0)
 	var keyboard_throttle := Input.get_action_strength("accelerate")
 	var keyboard_brake := Input.get_action_strength("brake")
@@ -980,6 +1027,7 @@ func _complete_delivery() -> void:
 	cargo_index = (cargo_index + 1) % 3
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
+	_save_game()
 
 func _toggle_pause() -> void:
 	paused = not paused

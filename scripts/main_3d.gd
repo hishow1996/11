@@ -50,11 +50,23 @@ func _mat(color: Color, roughness := 0.82) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = roughness
+	material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	return material
 
 func _box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, name := "Box") -> MeshInstance3D:
+	var outlined_parts := ["Trailer", "Cab", "Windshield", "FrontBumper", "TrailerStripe", "Body", "Glass", "Lamp"]
 	var mesh := BoxMesh.new()
 	mesh.size = size
+	if name in outlined_parts:
+		var outline_mesh := BoxMesh.new()
+		outline_mesh.size = size * 1.075
+		var outline := MeshInstance3D.new()
+		outline.name = name + "_AnimeOutline"
+		outline.mesh = outline_mesh
+		outline.material_override = _mat(INK, 1.0)
+		outline.position = pos
+		parent.add_child(outline)
 	var node := MeshInstance3D.new()
 	node.name = name
 	node.mesh = mesh
@@ -68,6 +80,17 @@ func _cylinder(parent: Node3D, radius: float, height: float, pos: Vector3, color
 	mesh.top_radius = radius
 	mesh.bottom_radius = radius
 	mesh.height = height
+	if name in ["FrontWheel", "RearWheel", "Wheel", "Hub"]:
+		var outline_mesh := CylinderMesh.new()
+		outline_mesh.top_radius = radius * 1.11
+		outline_mesh.bottom_radius = radius * 1.11
+		outline_mesh.height = height * 1.08
+		var outline := MeshInstance3D.new()
+		outline.name = name + "_AnimeOutline"
+		outline.mesh = outline_mesh
+		outline.material_override = _mat(INK, 1.0)
+		outline.position = pos
+		parent.add_child(outline)
 	var node := MeshInstance3D.new()
 	node.name = name
 	node.mesh = mesh
@@ -138,12 +161,21 @@ func _build_truck() -> void:
 	_box(truck, Vector3(4.0, 2.7, 2.7), Vector3(0, 1.55, -3.25), Color("#ff9c65"), "Cab")
 	_box(truck, Vector3(3.2, 1.0, 0.15), Vector3(0, 2.15, -4.65), Color("#9fe3ff"), "Windshield")
 	_box(truck, Vector3(4.2, 0.18, 0.18), Vector3(0, 0.35, -4.7), INK, "FrontBumper")
+	_box(truck, Vector3(3.5, 0.12, 0.22), Vector3(0, 2.55, -3.45), Color("#ffd166"), "AnimeRoofStripe")
+	_box(truck, Vector3(0.55, 0.5, 0.22), Vector3(-1.5, 2.72, -3.55), CORAL, "RoofLamp")
+	_box(truck, Vector3(0.55, 0.5, 0.22), Vector3(1.5, 2.72, -3.55), CORAL, "RoofLamp")
+	_box(truck, Vector3(1.8, 0.8, 0.16), Vector3(0, 1.45, 4.52), Color("#ffcf5c"), "AnimeCargoBadge")
+	_box(truck, Vector3(0.22, 1.4, 0.22), Vector3(-1.25, 3.1, -3.45), INK, "Antenna")
 	for x in [-2.1, 2.1]:
-		_cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, -2.8), INK, "FrontWheel")
-		_cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, 2.5), INK, "RearWheel")
+		var front_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, -2.8), INK, "FrontWheel")
+		front_wheel.rotation_degrees.z = 90.0
+		var rear_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, 2.5), INK, "RearWheel")
+		rear_wheel.rotation_degrees.z = 90.0
 	for x in [-2.1, 2.1]:
-		_cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, -2.8), Color("#ffce68"), "Hub")
-		_cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, 2.5), Color("#ffce68"), "Hub")
+		var front_hub := _cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, -2.8), Color("#ffce68"), "Hub")
+		front_hub.rotation_degrees.z = 90.0
+		var rear_hub := _cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, 2.5), Color("#ffce68"), "Hub")
+		rear_hub.rotation_degrees.z = 90.0
 	_box(truck, Vector3(0.3, 0.3, 0.2), Vector3(-1.6, 1.8, -4.65), Color("#fff0a7"), "Lamp")
 	_box(truck, Vector3(0.3, 0.3, 0.2), Vector3(1.6, 1.8, -4.65), Color("#fff0a7"), "Lamp")
 

@@ -11,6 +11,7 @@ var wheel_touch_id := -1
 var throttle_touch_id := -1
 var brake_touch_id := -1
 var steering_value := 0.0
+var sensitivity := 1.0
 var throttle_value := 0.0
 var brake_value := 0.0
 var wheel_return_speed := 5.5
@@ -102,7 +103,8 @@ func _update_wheel(position: Vector2) -> void:
 	# Deadzone removes tiny finger tremors; cubic response gives precision near center.
 	if abs(normalized) < 0.08:
 		normalized = 0.0
-	steering_value = sign(normalized) * pow(abs(normalized), 0.82)
+	steering_value = sign(normalized) * pow(abs(normalized), 0.82) * sensitivity
+	steering_value = clamp(steering_value, -1.0, 1.0)
 	steering_changed.emit(steering_value)
 	queue_redraw()
 

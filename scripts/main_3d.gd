@@ -68,6 +68,10 @@ var tank_level := 0
 var armor_level := 0
 var garage_panel: Panel
 var garage_label: Label
+var settings_panel: Panel
+var quality_mode := 1
+var steering_sensitivity := 1.0
+var master_volume := 0.8
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -92,6 +96,9 @@ func _ready() -> void:
 	_build_camera()
 	_build_ui()
 	_build_audio()
+	_apply_quality(quality_mode)
+	_apply_sensitivity(steering_sensitivity)
+	_apply_volume(master_volume)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -113,6 +120,9 @@ func _load_save() -> void:
 		tire_level = int(data.get("tire_level", tire_level))
 		tank_level = int(data.get("tank_level", tank_level))
 		armor_level = int(data.get("armor_level", armor_level))
+		quality_mode = int(data.get("quality_mode", quality_mode))
+		steering_sensitivity = float(data.get("steering_sensitivity", steering_sensitivity))
+		master_volume = float(data.get("master_volume", master_volume))
 		route_goal = 10.0 + float(cargo_index * 2)
 		destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 
@@ -127,7 +137,10 @@ func _save_game() -> void:
 		"engine_level": engine_level,
 		"tire_level": tire_level,
 		"tank_level": tank_level,
-		"armor_level": armor_level
+		"armor_level": armor_level,
+		"quality_mode": quality_mode,
+		"steering_sensitivity": steering_sensitivity,
+		"master_volume": master_volume
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data))
@@ -693,8 +706,57 @@ func _build_ui() -> void:
 	garage_button.add_theme_font_size_override("font_size", 16)
 	garage_button.pressed.connect(_toggle_garage)
 	layer.add_child(garage_button)
+	var settings_button := Button.new()
+	settings_button.text = "设置"
+	settings_button.position = Vector2(950, 18)
+	settings_button.size = Vector2(72, 52)
+	settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	settings_button.add_theme_font_size_override("font_size", 16)
+	settings_button.pressed.connect(_toggle_settings)
+	layer.add_child(settings_button)
 	_build_garage_panel(layer)
+	_build_settings_panel(layer)
 	_update_ui()
+
+func _build_settings_panel(layer: CanvasLayer) -> void:
+	settings_panel = Panel.new()
+	settings_panel.position = Vector2(760, 112)
+	settings_panel.size = Vector2(370, 290)
+	settings_panel.visible = false
+	settings_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	settings_panel.set_script(load("res://scripts/settings_panel.gd"))
+	settings_panel.quality_selected.connect(_apply_quality)
+	settings_panel.sensitivity_changed.connect(_apply_sensitivity)
+	settings_panel.volume_changed.connect(_apply_volume)
+	settings_panel.closed.connect(_toggle_settings)
+	layer.add_child(settings_panel)
+	settings_panel.quality_mode = quality_mode
+	settings_panel.sensitivity = steering_sensitivity
+	settings_panel.volume = master_volume
+
+func _toggle_settings() -> void:
+	settings_panel.visible = not settings_panel.visible
+
+func _apply_quality(mode: int) -> void:
+	quality_mode = mode
+	var ratios := [0.45, 0.72, 1.0]
+	rain_particles.amount_ratio = ratios[mode]
+	snow_particles.amount_ratio = ratios[mode]
+	camera.far = [95.0, 125.0, 155.0][mode]
+	_save_game()
+
+func _apply_sensitivity(value: float) -> void:
+	steering_sensitivity = value
+	if virtual_controls:
+		virtual_controls.sensitivity = value
+	_save_game()
+
+func _apply_volume(value: float) -> void:
+	master_volume = value
+	for player in [engine_player, brake_player, rain_player, wind_player, wet_tire_player, snow_tire_player, thunder_player]:
+		if player:
+			player.volume_db = linear_to_db(max(master_volume, 0.001))
+	_save_game()
 
 func _build_garage_panel(layer: CanvasLayer) -> void:
 	garage_panel = Panel.new()
@@ -962,10 +1024,11 @@ func _update_weather_audio(delta: float) -> void:
 		current_weather = "clear"
 		weather_intensity = 0.0
 	var speed_factor := clamp(speed / 21.0, 0.0, 1.0)
-	rain_player.volume_db = lerp(-42.0, -12.0, weather_intensity)
-	wind_player.volume_db = lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
-	wet_tire_player.volume_db = -38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity)
-	snow_tire_player.volume_db = -38.0 if current_weather != "snow" else lerp(-34.0, -8.0, speed_factor * weather_intensity)
+	var master_db := linear_to_db(max(master_volume, 0.001))
+	rain_player.volume_db = master_db + lerp(-42.0, -12.0, weather_intensity)
+	wind_player.volume_db = master_db + lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
+	wet_tire_player.volume_db = master_db + (-38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity))
+	snow_tire_player.volume_db = master_db + (-38.0 if current_weather != "snow" else lerp(-34.0, -8.0, speed_factor * weather_intensity))
 	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
 		thunder_player.play()
 		thunder_cooldown = 24.0 + randf() * 20.0

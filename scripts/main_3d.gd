@@ -50,6 +50,9 @@ var lightning_light: OmniLight3D
 var sky_material: ProceduralSkyMaterial
 var road_surface: MeshInstance3D
 var city_lights: Array[OmniLight3D] = []
+var wheel_nodes: Array[MeshInstance3D] = []
+var headlight_nodes: Array[OmniLight3D] = []
+var road_puddles: Array[MeshInstance3D] = []
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -218,6 +221,7 @@ func _build_world() -> void:
 		_add_guardrail(Vector3(7.0, 0, z), 1.0)
 		_add_reflector(Vector3(-6.75, 0.32, z + 4.0))
 		_add_reflector(Vector3(6.75, 0.32, z + 4.0))
+		_add_puddle(Vector3(sin(float(z)) * 2.2, 0.06, z + 2.5), 0.7 + fmod(abs(z), 2.0) * 0.22)
 	for z in range(-115, 100, 18):
 		_add_mountain_cluster(Vector3(-19, 0, z), 1.0 + float(abs(z % 4)) * 0.08)
 		_add_mountain_cluster(Vector3(19, 0, z - 8), 0.8 + float(abs(z % 3)) * 0.09)
@@ -251,6 +255,15 @@ func _add_reflector(pos: Vector3) -> void:
 	material.emission_enabled = true
 	material.emission = Color("#ffb84d")
 	material.emission_energy_multiplier = 1.8
+
+func _add_puddle(pos: Vector3, width: float) -> void:
+	var puddle := _box(self, Vector3(width, 0.018, 1.6 + width), pos, Color("#526d88"), "RoadPuddle")
+	var puddle_material := puddle.material_override as StandardMaterial3D
+	puddle_material.roughness = 0.08
+	puddle_material.metallic = 0.52
+	puddle_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	puddle_material.albedo_color = Color(0.20, 0.32, 0.45, 0.52)
+	road_puddles.append(puddle)
 
 func _add_direction_sign(pos: Vector3, text_hint: String) -> void:
 	var sign_root := Node3D.new()
@@ -380,8 +393,10 @@ func _build_truck() -> void:
 	for x in [-2.1, 2.1]:
 		var front_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, -2.8), INK, "FrontWheel")
 		front_wheel.rotation_degrees.z = 90.0
+		wheel_nodes.append(front_wheel)
 		var rear_wheel := _cylinder(truck, 0.62, 0.42, Vector3(x, 0.62, 2.5), INK, "RearWheel")
 		rear_wheel.rotation_degrees.z = 90.0
+		wheel_nodes.append(rear_wheel)
 	for x in [-2.1, 2.1]:
 		var front_hub := _cylinder(truck, 0.25, 0.44, Vector3(x, 0.62, -2.8), Color("#ffce68"), "Hub")
 		front_hub.rotation_degrees.z = 90.0
@@ -393,6 +408,14 @@ func _build_truck() -> void:
 		lamp_material.emission_enabled = true
 		lamp_material.emission = Color("#fff0a7")
 		lamp_material.emission_energy_multiplier = 3.0
+		var headlight := OmniLight3D.new()
+		headlight.position = Vector3(lamp_x, 1.75, -5.1)
+		headlight.light_color = Color("#fff0b2")
+		headlight.light_energy = 0.0
+		headlight.omni_range = 18.0
+		headlight.shadow_enabled = false
+		truck.add_child(headlight)
+		headlight_nodes.append(headlight)
 
 func _build_traffic() -> void:
 	for i in 3:
@@ -520,6 +543,9 @@ func _process(delta: float) -> void:
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	truck.position.x = clamp(truck.position.x + steer * delta * 6.4, -4.0, 4.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
+	truck.rotation.x = lerp(truck.rotation.x, sin(Time.get_ticks_msec() * 0.006) * speed * 0.0018, delta * 4.0)
+	for wheel in wheel_nodes:
+		wheel.rotation.x -= speed * delta * 1.8
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
@@ -590,6 +616,8 @@ func _update_day_night() -> void:
 		environment.ambient_light_energy -= night * 0.08
 	for city_light in city_lights:
 		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
+	for headlight in headlight_nodes:
+		headlight.light_energy = clamp((1.0 - daylight) * 2.8, 0.0, 2.8)
 
 func _update_weather_visuals() -> void:
 	var rain_strength := weather_intensity if current_weather == "rain" else 0.0
@@ -623,6 +651,8 @@ func _update_weather_visuals() -> void:
 		road_material.albedo_color = road_material.albedo_color.lerp(ASPHALT, 0.08)
 		road_material.roughness = lerp(road_material.roughness, 0.82, 0.08)
 		road_material.metallic = lerp(road_material.metallic, 0.0, 0.08)
+	for puddle in road_puddles:
+		puddle.visible = current_weather == "rain"
 	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
 		lightning_light.light_energy = 6.0
 		var flash := create_tween()
@@ -669,8 +699,11 @@ func _update_scene_name() -> void:
 
 func _update_camera(delta: float) -> void:
 	var target := truck.global_position + Vector3(0, 5.2, 11.5)
+	var speed_zoom := clamp(speed / 21.0, 0.0, 1.0)
+	target.z += speed_zoom * 2.2
 	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
 	camera.look_at(truck.global_position + Vector3(0, 1.2, -5.0), Vector3.UP)
+	camera.fov = lerp(camera.fov, 58.0 + speed_zoom * 7.0, delta * 3.0)
 
 func _complete_delivery() -> void:
 	money += 640

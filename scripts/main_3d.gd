@@ -53,6 +53,7 @@ var city_lights: Array[OmniLight3D] = []
 var wheel_nodes: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
+var hit_shake := 0.0
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -230,21 +231,27 @@ func _build_world() -> void:
 	# Route zones: city → countryside → deep forest → mountain pass → plains.
 	for z in range(-112, -72, 10):
 		_add_city_block(float(z))
+		if int(abs(z)) % 20 == 2:
+			_add_city_intersection(float(z))
 		if int(abs(z)) % 20 == 12:
 			_add_city_landmark(float(z))
 	for z in range(-68, -28, 12):
 		_add_village_farm(float(z))
 		_add_village_landmark(float(z))
+		if int(abs(z)) % 24 == 20:
+			_add_village_junction(float(z))
 	for z in range(-24, 24, 9):
 		_add_deep_forest(float(z))
 		_add_forest_landmark(float(z))
 	for z in range(28, 70, 10):
 		_add_mountain_pass(float(z))
+		_add_mountain_warning(float(z))
 		if int(abs(z)) % 20 == 8:
 			_add_mountain_landmark(float(z))
 	for z in range(74, 112, 12):
 		_add_plain_field(float(z))
 		_add_plain_landmark(float(z))
+	_add_bridge(92.0)
 	_add_direction_sign(Vector3(-7.4, 0, -86), "CITY")
 	_add_direction_sign(Vector3(7.4, 0, 42), "PASS")
 
@@ -330,6 +337,31 @@ func _add_city_landmark(z: float) -> void:
 		_box(tower, Vector3(1.5, 0.5, 0.14), Vector3(0, y, -1.18), Color("#ffd166"), "TowerWindow")
 	_register_scenery(tower)
 
+func _add_city_intersection(z: float) -> void:
+	for stripe in range(-4, 5):
+		_box(self, Vector3(0.45, 0.025, 7.0), Vector3(float(stripe) * 0.65, 0.08, z), CREAM, "CrosswalkStripe")
+	for side in [-1.0, 1.0]:
+		var signal := Node3D.new()
+		signal.position = Vector3(side * 6.9, 0, z - 2.0)
+		add_child(signal)
+		_box(signal, Vector3(0.18, 4.0, 0.18), Vector3(0, 2.0, 0), INK, "TrafficPole")
+		var red := _box(signal, Vector3(0.42, 0.42, 0.25), Vector3(0, 4.2, 0), CORAL, "TrafficRed")
+		var red_material := red.material_override as StandardMaterial3D
+		red_material.emission_enabled = true
+		red_material.emission = CORAL
+		red_material.emission_energy_multiplier = 1.5
+
+func _add_bridge(z: float) -> void:
+	var bridge := Node3D.new()
+	bridge.position = Vector3(0, 0, z)
+	add_child(bridge)
+	_box(bridge, Vector3(22.0, 0.6, 10.0), Vector3(0, -0.05, 0), Color("#66728b"), "BridgeDeck")
+	for side in [-1.0, 1.0]:
+		_box(bridge, Vector3(0.3, 1.6, 10.0), Vector3(side * 7.0, 0.9, 0), Color("#aeb8c5"), "BridgeRail")
+		for pillar_z in [-3.0, 3.0]:
+			_box(bridge, Vector3(0.45, 5.0, 0.45), Vector3(side * 5.5, -2.5, pillar_z), INK, "BridgePillar")
+	_register_scenery(bridge)
+
 func _add_village_farm(z: float) -> void:
 	var farm := Node3D.new()
 	farm.position = Vector3(-12.0, 0, z)
@@ -354,6 +386,10 @@ func _add_village_landmark(z: float) -> void:
 		var blade := _box(mill, Vector3(0.18, 3.4, 0.12), Vector3(0, 5.8, 0), CREAM, "WindmillBlade")
 		blade.rotation_degrees.z = rad_to_deg(angle)
 	_register_scenery(mill)
+
+func _add_village_junction(z: float) -> void:
+	_box(self, Vector3(8.0, 0.04, 0.55), Vector3(9.0, 0.04, z), Color("#4c9c79"), "FarmRoad")
+	_box(self, Vector3(2.5, 0.65, 0.2), Vector3(9.0, 0.38, z - 1.2), CREAM, "FarmRoadSign")
 
 func _add_deep_forest(z: float) -> void:
 	for side in [-1.0, 1.0]:
@@ -392,6 +428,14 @@ func _add_mountain_landmark(z: float) -> void:
 		lamp_material.emission = Color("#fff0a7")
 		lamp_material.emission_energy_multiplier = 2.0
 	_register_scenery(tunnel)
+
+func _add_mountain_warning(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var sign := Node3D.new()
+		sign.position = Vector3(side * 6.9, 0, z + 2.5)
+		add_child(sign)
+		_box(sign, Vector3(0.12, 2.0, 0.12), Vector3(0, 1.0, 0), INK, "WarningPost")
+		_box(sign, Vector3(0.9, 0.65, 0.12), Vector3(0, 2.0, 0), Color("#ffd166"), "MountainWarning")
 
 func _add_plain_field(z: float) -> void:
 	for side in [-1.0, 1.0]:
@@ -628,6 +672,7 @@ func _process(delta: float) -> void:
 		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
 			damage = min(100.0, damage + 16.0)
 			speed *= 0.45
+			hit_shake = 0.9
 			toast = "轻微碰撞！请注意车距"
 			toast_time = 2.2
 	if distance >= route_goal:
@@ -767,6 +812,9 @@ func _update_camera(delta: float) -> void:
 	var target := truck.global_position + Vector3(0, 5.2, 11.5)
 	var speed_zoom := clamp(speed / 21.0, 0.0, 1.0)
 	target.z += speed_zoom * 2.2
+	hit_shake = move_toward(hit_shake, 0.0, delta * 2.8)
+	var shake := Vector3(sin(Time.get_ticks_msec() * 0.08), cos(Time.get_ticks_msec() * 0.11), 0) * hit_shake * 0.22
+	target += shake
 	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
 	camera.look_at(truck.global_position + Vector3(0, 1.2, -5.0), Vector3.UP)
 	camera.fov = lerp(camera.fov, 58.0 + speed_zoom * 7.0, delta * 3.0)

@@ -6,6 +6,7 @@ extends Node3D
 
 var truck: Node3D
 var camera: Camera3D
+var camera_look_target := Vector3.ZERO
 var cockpit_mode := false
 var speed := 0.0
 var slope_percent := 0.0
@@ -775,6 +776,7 @@ func _build_camera() -> void:
 	camera.far = 155.0
 	camera.current = true
 	add_child(camera)
+	camera_look_target = truck.global_position + Vector3(0, 1.2, -5.0)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -1202,10 +1204,10 @@ func _update_refueling(delta: float) -> void:
 	if can_refuel:
 		var fuel_capacity := 100.0 + float(tank_level) * 10.0
 		fuel = min(fuel_capacity, fuel + delta * 9.0)
-			if not refueling:
-				toast = "PARKED AT FUEL STATION"
-				toast_time = 2.5
-				_haptic(55, 0.25)
+		if not refueling:
+			toast = "PARKED AT FUEL STATION"
+			toast_time = 2.5
+			_haptic(55, 0.25)
 		refueling = true
 	else:
 		refueling = false
@@ -1278,7 +1280,8 @@ func _update_camera(delta: float) -> void:
 	var shake := Vector3(sin(Time.get_ticks_msec() * 0.08), cos(Time.get_ticks_msec() * 0.11), 0) * hit_shake * 0.22
 	target += shake
 	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
-	camera.look_at(look_target, Vector3.UP)
+	camera_look_target = camera_look_target.lerp(look_target, delta * 5.5)
+	camera.look_at(camera_look_target, Vector3.UP)
 
 func _complete_delivery() -> void:
 	money += 640
@@ -1422,7 +1425,7 @@ func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: Rand
 	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
 	for side in [-1.0, 1.0]:
 		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
-		_add_chunk_biome_road_detail(segment, biome, road_width, rng, int(root.name.trim_prefix("RouteChunk_")) % 4)
+	_add_chunk_biome_road_detail(segment, biome, road_width, rng, int(root.name.trim_prefix("RouteChunk_")) % 4)
 
 func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float, rng: RandomNumberGenerator, district: int = 0) -> void:
 	if biome == 1:

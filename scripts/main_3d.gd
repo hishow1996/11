@@ -68,6 +68,7 @@ var sun: DirectionalLight3D
 var moon: DirectionalLight3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
+var speed_lines: GPUParticles3D
 var lightning_light: OmniLight3D
 var delivery_flash: OmniLight3D
 var collision_sparks: GPUParticles3D
@@ -356,6 +357,7 @@ func _build_environment() -> void:
 func _build_weather_effects() -> void:
 	rain_particles = _weather_particles("RainParticles", Color("#a8d8ff"), 420, 0.75, 28.0)
 	snow_particles = _weather_particles("SnowParticles", Color("#fff7df"), 260, 4.5, 2.2)
+	speed_lines = _speed_line_particles()
 	lightning_light = OmniLight3D.new()
 	lightning_light.name = "LightningFlash"
 	lightning_light.light_color = Color("#e8f4ff")
@@ -399,6 +401,33 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 	particles.draw_pass_1 = quad
 	particles.position = Vector3(0, 10, 0)
 	particles.visibility_aabb = AABB(Vector3(-18, -2, -24), Vector3(36, 22, 48))
+	add_child(particles)
+	return particles
+
+func _speed_line_particles() -> GPUParticles3D:
+	var particles: Variant = GPUParticles3D.new()
+	particles.name = "AnimeSpeedLines"
+	particles.amount = 90
+	particles.lifetime = 0.7
+	particles.emitting = false
+	var process_material: Variant = ParticleProcessMaterial.new()
+	process_material.direction = Vector3(0, 0, 1)
+	process_material.spread = 24.0
+	process_material.initial_velocity_min = 6.0
+	process_material.initial_velocity_max = 12.0
+	process_material.gravity = Vector3.ZERO
+	process_material.color = Color(0.75, 0.9, 1.0, 0.52)
+	particles.process_material = process_material
+	var mesh: Variant = QuadMesh.new()
+	mesh.size = Vector2(0.035, 0.72)
+	var material: Variant = StandardMaterial3D.new()
+	material.albedo_color = Color(0.75, 0.9, 1.0, 0.52)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mesh.material = material
+	particles.draw_pass_1 = mesh
+	particles.visibility_aabb = AABB(Vector3(-10, -3, -10), Vector3(20, 8, 30))
 	add_child(particles)
 	return particles
 
@@ -901,6 +930,13 @@ func _attach_authored_truck_lods() -> void:
 				var source_material: Variant = (instance as MeshInstance3D).get_active_material(0)
 				if source_material:
 					instance.material_override = source_material.duplicate()
+			if instance is MeshInstance3D:
+				var cel_material: Variant = (instance as MeshInstance3D).material_override as BaseMaterial3D
+				if cel_material:
+					cel_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+					cel_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+					cel_material.roughness = 0.72
+					cel_material.metallic = 0.0
 			instance.visibility_range_begin = ranges[i][0]
 			instance.visibility_range_end = ranges[i][1]
 			instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -1512,6 +1548,10 @@ func _process(delta: float) -> void:
 	var lateral_rate: Variant = lerp(5.8, 3.2, speed_ratio) * steering_grip
 	truck.position.x = clamp(truck.position.x + steer * delta * lateral_rate + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
+	if speed_lines:
+		speed_lines.position = truck.position + Vector3(0, 1.5, 4.0)
+		speed_lines.emitting = speed > 13.0 and current_weather != "snow"
+		speed_lines.amount_ratio = clamp((speed - 13.0) / 10.0, 0.0, 1.0)
 	var road_pitch: Variant = atan2(_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z), 8.0)
 	var brake_glow: Variant = 1.0 if braking > 0.15 else 0.35
 	for lamp in brake_lamps:
@@ -2109,6 +2149,12 @@ func _update_pedestrians(delta: float) -> void:
 		var side: Variant = float(person.get_meta("walk_side", 1.0))
 		person.position.z += side * delta * 0.55
 		person.position.x += sin(now * 0.8 + phase) * delta * 0.18
+		person.rotation.y = side * PI * 0.5
+		for arm in person.find_children("PedestrianArm", "MeshInstance3D", true, false):
+			arm.rotation.z = sin(now * 5.0 + phase) * 0.22
+		var body: Variant = person.get_node_or_null("PedestrianBody")
+		if body:
+			body.position.y = 0.55 + sin(now * 5.0 + phase) * 0.025
 		if abs(person.position.z) > 36.0:
 			person.position.z = -sign(person.position.z) * 34.0
 	pedestrian_nodes = alive
@@ -2369,6 +2415,8 @@ func _add_city_pedestrians(parent: Node3D, district: int, rng: RandomNumberGener
 		person.set_meta("walk_side", side)
 		parent.add_child(person)
 		_box(person, Vector3(0.34, 0.9, 0.28), Vector3(0, 0.55, 0), palette[(district + i) % palette.size()], "PedestrianBody")
+		_box(person, Vector3(0.10, 0.58, 0.12), Vector3(-0.25, 0.62, 0), INK, "PedestrianArm")
+		_box(person, Vector3(0.10, 0.58, 0.12), Vector3(0.25, 0.62, 0), INK, "PedestrianArm")
 		var head: Variant = SphereMesh.new()
 		head.radius = 0.18
 		head.height = 0.36

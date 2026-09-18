@@ -11,14 +11,25 @@ var volume := 0.8
 var status_label: Label
 
 func _ready() -> void:
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("#211c37", 0.96)
+	panel_style.border_color = Color("#52617e", 0.9)
+	panel_style.set_border_width_all(2)
+	panel_style.corner_radius_top_left = 18
+	panel_style.corner_radius_top_right = 18
+	panel_style.corner_radius_bottom_left = 18
+	panel_style.corner_radius_bottom_right = 18
+	add_theme_stylebox_override("panel", panel_style)
 	var title := Label.new()
 	title.text = "设置 / SETTINGS"
 	title.position = Vector2(18, 14)
 	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color("#fff1cf"))
 	add_child(title)
 	status_label = Label.new()
 	status_label.position = Vector2(18, 50)
 	status_label.size = Vector2(310, 60)
+	status_label.add_theme_color_override("font_color", Color("#c0cde4"))
 	add_child(status_label)
 	var low := _button("低画质", Vector2(18, 116), func(): _select_quality(0))
 	var medium := _button("中画质", Vector2(120, 116), func(): _select_quality(1))
@@ -36,6 +47,17 @@ func _button(text: String, pos: Vector2, callback: Callable) -> Button:
 	button.position = pos
 	button.size = Vector2(90, 40)
 	button.add_theme_font_size_override("font_size", 14)
+	button.add_theme_color_override("font_color", Color("#fff1cf"))
+	button.add_theme_color_override("font_hover_color", Color("#211c37"))
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("#3d4764", 0.96)
+	normal.border_color = Color("#66789d", 0.9)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(10)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate()
+	hover.bg_color = Color("#ffd166", 0.96)
+	button.add_theme_stylebox_override("hover", hover)
 	button.pressed.connect(callback)
 	add_child(button)
 	return button

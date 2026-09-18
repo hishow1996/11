@@ -119,10 +119,10 @@ func _set_brake(value: float) -> void:
 	queue_redraw()
 
 func _throttle_rect() -> Rect2:
-	return Rect2(size.x - 176, size.y - 260, 78, 188)
+	return Rect2(size.x - 82, size.y - 260, 78, 188)
 
 func _brake_rect() -> Rect2:
-	return Rect2(size.x - 82, size.y - 260, 78, 188)
+	return Rect2(size.x - 176, size.y - 260, 78, 188)
 
 func _draw() -> void:
 	if wheel_center == Vector2.ZERO:
@@ -136,8 +136,8 @@ func _draw() -> void:
 		draw_line(wheel_center, wheel_center + Vector2(cos(angle), sin(angle)) * (wheel_radius - 18), Color("#211c37"), 10, true)
 	draw_circle(wheel_center, 28, Color("#ef6f61"))
 	draw_circle(wheel_center, 10, Color("#fff1cf"))
-	_draw_pedal(_throttle_rect(), "油门", throttle_value, Color("#74d0ad"))
-	_draw_pedal(_brake_rect(), "刹车", brake_value, Color("#ef6f61"))
+	_draw_pedal(_throttle_rect(), "GAS", throttle_value, Color("#74d0ad"))
+	_draw_pedal(_brake_rect(), "BRAKE", brake_value, Color("#ef6f61"))
 
 func _draw_pedal(rect: Rect2, text: String, value: float, color: Color) -> void:
 	draw_style_box(_panel(color, 0.22), rect)

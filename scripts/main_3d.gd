@@ -785,23 +785,33 @@ func _build_ui() -> void:
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(layer)
 	var top := ColorRect.new()
-	top.color = Color(INK, 0.93)
-	top.size = Vector2(1280, 94)
+	top.color = Color(INK, 0.0)
+	top.size = Vector2(1, 1)
 	layer.add_child(top)
-	ui_route = _label(layer, Vector2(32, 12), 23, CREAM)
-	ui_speed = _label(layer, Vector2(935, 17), 34, CREAM)
-	ui_stats = _label(layer, Vector2(32, 52), 16, Color("#c0cde4"))
-	ui_toast = _label(layer, Vector2(470, 115), 20, CREAM)
+	_hud_card(layer, Vector2(330, 22), Vector2(292, 112), Color("#211c37", 0.92))
+	_hud_card(layer, Vector2(970, 22), Vector2(112, 92), Color("#211c37", 0.94))
+	_hud_card(layer, Vector2(1090, 22), Vector2(166, 92), Color("#211c37", 0.94))
+	_hud_card(layer, Vector2(970, 124), Vector2(286, 70), Color("#211c37", 0.90))
+	ui_route = _label(layer, Vector2(350, 40), 18, CREAM)
+	ui_route.size = Vector2(252, 82)
+	ui_route.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ui_speed = _label(layer, Vector2(988, 34), 34, CREAM)
+	ui_speed.size = Vector2(76, 56)
+	ui_speed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui_stats = _label(layer, Vector2(990, 137), 14, Color("#c0cde4"))
+	ui_stats.size = Vector2(260, 48)
+	ui_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ui_toast = _label(layer, Vector2(470, 145), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	minimap = Control.new()
 	minimap.name = "RouteMinimap"
-	minimap.position = Vector2(28, 110)
-	minimap.size = Vector2(270, 170)
+	minimap.position = Vector2(24, 22)
+	minimap.size = Vector2(292, 190)
 	minimap.set_script(load("res://scripts/minimap.gd"))
 	layer.add_child(minimap)
-	var hint := _label(layer, Vector2(32, 650), 15, Color("#d5dded"))
-	hint.text = "触摸按钮驾驶  •  左右变道  •  避开车辆  •  到达目的地交付货物"
+	var hint := _label(layer, Vector2(330, 148), 13, Color("#d5dded"))
+	hint.text = "触摸驾驶  •  左右变道  •  避开交通  •  到达目的地交付"
 	virtual_controls = Control.new()
 	virtual_controls.name = "AnalogDrivingControls"
 	virtual_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -817,6 +827,7 @@ func _build_ui() -> void:
 	pause_button.size = Vector2(52, 52)
 	pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_button.add_theme_font_size_override("font_size", 23)
+	_style_ui_button(pause_button)
 	pause_button.pressed.connect(_toggle_pause)
 	layer.add_child(pause_button)
 	var camera_button := Button.new()
@@ -825,6 +836,7 @@ func _build_ui() -> void:
 	camera_button.size = Vector2(70, 52)
 	camera_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	camera_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(camera_button)
 	camera_button.pressed.connect(_toggle_camera_mode)
 	layer.add_child(camera_button)
 	var garage_button := Button.new()
@@ -833,6 +845,7 @@ func _build_ui() -> void:
 	garage_button.size = Vector2(72, 52)
 	garage_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	garage_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(garage_button)
 	garage_button.pressed.connect(_toggle_garage)
 	layer.add_child(garage_button)
 	var settings_button := Button.new()
@@ -841,11 +854,42 @@ func _build_ui() -> void:
 	settings_button.size = Vector2(72, 52)
 	settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	settings_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(settings_button)
 	settings_button.pressed.connect(_toggle_settings)
 	layer.add_child(settings_button)
 	_build_garage_panel(layer)
 	_build_settings_panel(layer)
 	_update_ui()
+
+func _style_ui_button(button: Button) -> void:
+	button.add_theme_color_override("font_color", CREAM)
+	button.add_theme_color_override("font_hover_color", INK)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("#3d4764", 0.96)
+	normal.border_color = Color("#66789d", 0.9)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(12)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate()
+	hover.bg_color = Color("#ffd166", 0.96)
+	button.add_theme_stylebox_override("hover", hover)
+
+func _hud_card(layer: CanvasLayer, pos: Vector2, card_size: Vector2, color: Color) -> Panel:
+	var card := Panel.new()
+	card.position = pos
+	card.size = card_size
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = Color("#52617e", 0.72)
+	style.set_border_width_all(2)
+	style.corner_radius_top_left = 18
+	style.corner_radius_top_right = 18
+	style.corner_radius_bottom_left = 18
+	style.corner_radius_bottom_right = 18
+	card.add_theme_stylebox_override("panel", style)
+	layer.add_child(card)
+	return card
 
 func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel = Panel.new()
@@ -893,6 +937,12 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 	garage_panel.size = Vector2(390, 300)
 	garage_panel.visible = false
 	garage_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var garage_style := StyleBoxFlat.new()
+	garage_style.bg_color = Color("#211c37", 0.96)
+	garage_style.border_color = Color("#52617e", 0.9)
+	garage_style.set_border_width_all(2)
+	garage_style.set_corner_radius_all(18)
+	garage_panel.add_theme_stylebox_override("panel", garage_style)
 	layer.add_child(garage_panel)
 	garage_label = Label.new()
 	garage_label.position = Vector2(20, 16)
@@ -907,6 +957,7 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 		button.position = Vector2(18, 68 + i * 50)
 		button.size = Vector2(350, 40)
 		button.add_theme_font_size_override("font_size", 16)
+		_style_ui_button(button)
 		var upgrade_id := ["engine", "tire", "tank", "armor"][i]
 		button.pressed.connect(func(): _buy_upgrade(upgrade_id))
 		garage_panel.add_child(button)
@@ -1314,10 +1365,10 @@ func _update_ui() -> void:
 		return
 	var cargo := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
 	var branch_hint := _get_branch_hint()
-	ui_route.text = "%s   •   CONTRACT  /  %s  →  %s%s" % [current_scene, cargo, destination, "   •   ↗ " + branch_hint if branch_hint != "" else ""]
+	ui_route.text = "↗ %s\n%s\n%s  →  %s" % [branch_hint if branch_hint != "" else "ROUTE AHEAD", current_scene, cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
-	ui_stats.text = "TIME %s   •   %s   •   SLOPE %+d%%   •   ROUTE %.1f / %.1f km   •   FUEL %d%%   •   DAMAGE %d%%   •   € %d" % [_format_clock(), weather_name, int(slope_percent), distance, route_goal, int(fuel), int(damage), money]
+	ui_stats.text = "DEST  %s   %.1f km\nTIME  %s   %s   FUEL %d%%\nSLOPE %+d%%   DAMAGE %d%%   € %d" % [destination, max(route_goal - distance, 0.0), _format_clock(), weather_name, int(fuel), int(slope_percent), int(damage), money]
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	if minimap:
 		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination, branch_hint)

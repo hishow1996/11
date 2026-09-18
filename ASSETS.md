@@ -39,6 +39,8 @@ A screenshot should read immediately as an anime 3D long-haul truck game, with t
 
 The complete production-facing inventory is maintained in [`ART_ASSET_MASTER_LIST.md`](ART_ASSET_MASTER_LIST.md). It covers models, textures, materials, animations, VFX, UI, LOD, collision, naming, priority and Android budgets.
 
+The current runtime HUD follows the city reference composition: route map at upper left, route card near the upper center, compact speed/fuel cards at upper right, destination/status card below them, and large touch controls along the lower edge. Settings and garage panels share the same navy-violet translucent cards, rounded corners, thin blue borders and warm highlight states.
+
 The long-distance map production strategy is maintained in [`WORLD_ART_PRODUCTION_PLAN.md`](WORLD_ART_PRODUCTION_PLAN.md). It explains how a finite modular asset library, seeded 1 km streaming chunks, five biome families, sub-biomes and landmark cooldowns can create a varied 20,000 km route without authoring 20,000 km of unique meshes.
 
 ## Generated files

@@ -113,6 +113,7 @@ var garage_panel: Panel
 var garage_label: Label
 var settings_panel: Panel
 var quality_mode := 1
+var traffic_ai_frame := 0
 var steering_sensitivity := 1.0
 var master_volume := 0.8
 var touch_steer := 0.0
@@ -1636,8 +1637,12 @@ func _process(delta: float) -> void:
 	camera_toggle_cooldown = max(0.0, camera_toggle_cooldown - delta)
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
+	traffic_ai_frame = (traffic_ai_frame + 1) % 60
+	var traffic_ai_stride: Variant = 1 if quality_mode >= 2 else (2 if quality_mode == 1 else 3)
 	for i in traffic.size():
 		var car: Variant = traffic[i]
+		if not car.visible and quality_mode == 0:
+			continue
 		var traffic_factor: Variant = traffic_speeds[i]
 		if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
 			traffic_factor = 0.08
@@ -1647,7 +1652,9 @@ func _process(delta: float) -> void:
 		car.position.z += speed * delta * 0.7 * traffic_factor
 		var car_center: Variant = _road_center_at(car.position.z)
 		traffic_lane_cooldowns[i] = max(0.0, traffic_lane_cooldowns[i] - delta)
-		var proposed_lane: Variant = _traffic_target_lane(i, car)
+		var proposed_lane: Variant = traffic_lane_targets[i]
+		if i % traffic_ai_stride == traffic_ai_frame % traffic_ai_stride:
+			proposed_lane = _traffic_target_lane(i, car)
 		if abs(proposed_lane - traffic_lane_targets[i]) > 0.1 and traffic_lane_cooldowns[i] <= 0.0:
 			traffic_lane_targets[i] = proposed_lane
 			traffic_lane_cooldowns[i] = 3.0
@@ -2177,6 +2184,7 @@ func _update_streaming() -> void:
 
 func _update_pedestrians(delta: float) -> void:
 	var now: Variant = Time.get_ticks_msec() * 0.001
+	var animate_skeletons: Variant = quality_mode >= 2 or traffic_ai_frame % 3 == 0
 	var alive: Array[Node3D] = []
 	for person in pedestrian_nodes:
 		if not is_instance_valid(person):
@@ -2187,11 +2195,12 @@ func _update_pedestrians(delta: float) -> void:
 		person.position.z += side * delta * 0.55
 		person.position.x += sin(now * 0.8 + phase) * delta * 0.18
 		person.rotation.y = side * PI * 0.5
-		for arm in person.find_children("PedestrianArm", "MeshInstance3D", true, false):
-			arm.rotation.z = sin(now * 5.0 + phase) * 0.22
-		var body: Variant = person.get_node_or_null("PedestrianBody")
-		if body:
-			body.position.y = 0.55 + sin(now * 5.0 + phase) * 0.025
+		if animate_skeletons:
+			for arm in person.find_children("PedestrianArm", "MeshInstance3D", true, false):
+				arm.rotation.z = sin(now * 5.0 + phase) * 0.22
+			var body: Variant = person.get_node_or_null("PedestrianBody")
+			if body:
+				body.position.y = 0.55 + sin(now * 5.0 + phase) * 0.025
 		if abs(person.position.z) > 36.0:
 			person.position.z = -sign(person.position.z) * 34.0
 	pedestrian_nodes = alive

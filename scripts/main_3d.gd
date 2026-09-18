@@ -139,6 +139,9 @@ const FACILITY_REPAIR_TEXTURE = preload("res://art/runtime/facility_repair.svg")
 const TRAFFIC_CAR_TEXTURE = preload("res://art/runtime/traffic_car.svg")
 const TRAFFIC_VAN_TEXTURE = preload("res://art/runtime/traffic_van.svg")
 const TRAFFIC_BUS_TEXTURE = preload("res://art/runtime/traffic_bus.svg")
+const PLAYER_TRUCK_LOD0 = preload("res://assets/vehicles/player_truck/player_truck_lod0.glb")
+const PLAYER_TRUCK_LOD1 = preload("res://assets/vehicles/player_truck/player_truck_lod1.glb")
+const PLAYER_TRUCK_LOD2 = preload("res://assets/vehicles/player_truck/player_truck_lod2.glb")
 
 func _ready() -> void:
 	_load_save()
@@ -789,9 +792,32 @@ func _build_truck() -> void:
 	for stripe_index in range(6):
 		var warning_stripe := _box(truck, Vector3(0.34, 0.10, 0.08), Vector3(-1.1 + stripe_index * 0.44, 0.62, 4.72), Color("#ffd166" if stripe_index % 2 == 0 else CORAL), "RearWarningStripe")
 		warning_stripe.rotation_degrees.y = 20.0 if stripe_index % 2 == 0 else -20.0
-	var plate := _label3d(truck, "AH-2048", Vector3(0, 0.68, 4.82), CREAM, 18)
-	plate.rotation_degrees = Vector3(0, 180, 0)
-	_build_cockpit_interior()
+		var plate := _label3d(truck, "AH-2048", Vector3(0, 0.68, 4.82), CREAM, 18)
+		plate.rotation_degrees = Vector3(0, 180, 0)
+		_build_cockpit_interior()
+		_attach_authored_truck_lods()
+
+func _attach_authored_truck_lods() -> void:
+	# The authored GLB is the visible exterior; procedural geometry remains available
+	# as a safe fallback for Android builds and continues to drive lights/instruments.
+	for child in truck.get_children():
+		if child is GeometryInstance3D or child is Label3D or child is GPUParticles3D:
+			child.visible = false
+	var lods := [PLAYER_TRUCK_LOD0, PLAYER_TRUCK_LOD1, PLAYER_TRUCK_LOD2]
+	var ranges := [[0.0, 18.0], [18.0, 55.0], [55.0, 130.0]]
+	for i in lods.size():
+		var authored := (lods[i] as PackedScene).instantiate() as Node3D
+		if authored == null:
+			continue
+		authored.name = "AuthoredTruckLOD%d" % i
+		authored.position = Vector3.ZERO
+		authored.scale = Vector3.ONE
+		truck.add_child(authored)
+		for geometry in authored.find_children("*", "GeometryInstance3D", true, false):
+			var instance := geometry as GeometryInstance3D
+			instance.visibility_range_begin = ranges[i][0]
+			instance.visibility_range_end = ranges[i][1]
+			instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
 	var label := Label3D.new()

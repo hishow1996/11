@@ -90,6 +90,9 @@ var touch_brake := 0.0
 var interior_steering_wheel: MeshInstance3D
 var interior_speed_display: Label3D
 var interior_fuel_display: Label3D
+var interior_rpm_display: Label3D
+var interior_gear_display: Label3D
+var interior_indicator_display: Label3D
 var interior_nav_display: Label3D
 var interior_mirrors: Array[MeshInstance3D] = []
 var mirror_viewports: Array[SubViewport] = []
@@ -760,7 +763,13 @@ func _build_cockpit_interior() -> void:
 	interior_speed_display.rotation_degrees = Vector3(0, 180, 0)
 	interior_fuel_display = _label3d(cabin, "FUEL 78%", Vector3(-0.78, 1.67, -4.28), Color("#9fe3ff"), 20)
 	interior_fuel_display.rotation_degrees = Vector3(0, 180, 0)
-	interior_warning_display = _label3d(cabin, "SYSTEMS OK", Vector3(0.72, 1.62, -4.28), MINT, 18)
+	interior_rpm_display = _label3d(cabin, "RPM 0800", Vector3(-0.78, 1.48, -4.28), Color("#ffd166"), 18)
+	interior_rpm_display.rotation_degrees = Vector3(0, 180, 0)
+	interior_gear_display = _label3d(cabin, "GEAR N", Vector3(0.76, 1.48, -4.28), CREAM, 18)
+	interior_gear_display.rotation_degrees = Vector3(0, 180, 0)
+	interior_indicator_display = _label3d(cabin, "○  LIGHTS", Vector3(0.76, 1.67, -4.28), Color("#9fe3ff"), 18)
+	interior_indicator_display.rotation_degrees = Vector3(0, 180, 0)
+	interior_warning_display = _label3d(cabin, "SYSTEMS OK", Vector3(0.0, 1.27, -4.28), MINT, 18)
 	interior_warning_display.rotation_degrees = Vector3(0, 180, 0)
 	# Steering wheel, center badge and two control stalks.
 	interior_steering_wheel = _cylinder(cabin, 0.62, 0.12, Vector3(-1.0, 1.35, -3.6), INK, "InteriorSteeringWheel")
@@ -1461,6 +1470,16 @@ func _update_cockpit_instruments(delta: float) -> void:
 		interior_speed_display.text = "%02d km/h" % int(speed * 4.4)
 	if interior_fuel_display:
 		interior_fuel_display.text = "FUEL %02d%%" % int(fuel)
+	if interior_rpm_display:
+		interior_rpm_display.text = "RPM %04d" % int(800.0 + speed * 115.0 + abs(slope_percent) * 35.0)
+	if interior_gear_display:
+		var gear := 0 if speed < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12)
+		interior_gear_display.text = "GEAR N" if gear == 0 else "GEAR %02d" % gear
+	if interior_indicator_display:
+		var indicator_on := fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+		var direction := "L" if steer < -0.14 else ("R" if steer > 0.14 else "○")
+		var night_lights := game_hour < 6.0 or game_hour >= 19.0
+		interior_indicator_display.text = "%s  %s" % [direction if indicator_on else "○", "LIGHTS ON" if night_lights else "LIGHTS"]
 	if interior_warning_display:
 		if damage >= 70.0:
 			interior_warning_display.text = "DAMAGE HIGH"

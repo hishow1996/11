@@ -102,6 +102,7 @@ var interior_lamps: Array[MeshInstance3D] = []
 var wiper_phase := 0.0
 var mirrors_enabled := true
 var interior_warning_display: Label3D
+var truck_detail_nodes: Array[MeshInstance3D] = []
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -727,6 +728,16 @@ func _build_truck() -> void:
 			brake_lamps.append(brake_lamp)
 			var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
 			signal_lamps.append(signal_lamp)
+	# Exterior refinement pass: door seams, handles, wheel arches, tanks and trailer hardware.
+	for side in [-1.0, 1.0]:
+		truck_detail_nodes.append(_box(truck, Vector3(0.07, 1.55, 0.08), Vector3(side * 2.08, 1.45, -3.18), INK, "CabDoorSeam"))
+		truck_detail_nodes.append(_box(truck, Vector3(0.18, 0.08, 0.42), Vector3(side * 2.14, 1.85, -3.72), Color("#ffd166"), "CabDoorHandle"))
+		truck_detail_nodes.append(_box(truck, Vector3(0.34, 0.18, 1.72), Vector3(side * 2.46, 0.78, -2.8), INK, "FrontMudguard"))
+		truck_detail_nodes.append(_box(truck, Vector3(0.42, 0.52, 2.2), Vector3(side * 2.25, 0.62, 0.15), Color("#53617d"), "FuelTank"))
+		truck_detail_nodes.append(_box(truck, Vector3(0.12, 0.16, 2.6), Vector3(side * 2.57, 1.25, 1.0), INK, "TrailerLatchRail"))
+	for trailer_x in [-1.45, 1.45]:
+		truck_detail_nodes.append(_box(truck, Vector3(0.12, 1.55, 0.12), Vector3(trailer_x, 1.25, 4.63), INK, "TrailerDoorLockBar"))
+		truck_detail_nodes.append(_box(truck, Vector3(0.30, 0.18, 0.16), Vector3(trailer_x, 2.02, 4.62), Color("#ffd166"), "TrailerDoorHandle"))
 	_build_cockpit_interior()
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:

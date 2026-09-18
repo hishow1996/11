@@ -151,6 +151,7 @@ var interior_mirrors: Array[MeshInstance3D] = []
 var mirror_viewports: Array[SubViewport] = []
 var mirror_cameras: Array[Camera3D] = []
 var interior_wipers: Array[MeshInstance3D] = []
+var windshield_glass: MeshInstance3D
 var interior_lamps: Array[MeshInstance3D] = []
 var wiper_phase := 0.0
 var mirrors_enabled := true
@@ -1050,8 +1051,13 @@ func _build_cockpit_interior() -> void:
 		_box(cabin, Vector3(0.82, 0.12, 0.08), Vector3(side * 0.9, 1.98, -2.42), CORAL, "SeatHeadrestTrim")
 		_box(cabin, Vector3(0.12, 0.75, 0.12), Vector3(side * 1.55, 1.0, -1.92), INK, "SeatBelt")
 	# Dashboard shell, instrument hood and central navigation console.
-	_box(cabin, Vector3(3.65, 0.32, 0.95), Vector3(0, 1.65, -3.95), Color("#303950"), "Dashboard")
-	_box(cabin, Vector3(3.15, 0.16, 0.32), Vector3(0, 1.88, -4.18), INK, "InstrumentHood")
+		_box(cabin, Vector3(3.65, 0.32, 0.95), Vector3(0, 1.65, -3.95), Color("#303950"), "Dashboard")
+		_box(cabin, Vector3(3.15, 0.16, 0.32), Vector3(0, 1.88, -4.18), INK, "InstrumentHood")
+		windshield_glass = _box(cabin, Vector3(3.35, 1.55, 0.05), Vector3(0, 2.42, -4.56), Color("#9fd7e8", 0.10), "WindshieldGlass")
+		var glass_material: Variant = windshield_glass.material_override as StandardMaterial3D
+		glass_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		glass_material.roughness = 0.12
+		glass_material.metallic = 0.04
 	_box(cabin, Vector3(1.35, 0.58, 0.12), Vector3(0.75, 1.9, -4.22), Color("#1d263b"), "NavigationConsole")
 	interior_nav_display = _label3d(cabin, "ROUTE AHEAD\nLUCERNE", Vector3(0.75, 1.94, -4.3), MINT, 24)
 	interior_nav_display.rotation_degrees = Vector3(0, 180, 0)
@@ -1267,7 +1273,7 @@ func _build_ui() -> void:
 	top.color = Color(INK, 0.0)
 	top.size = Vector2(1, 1)
 	layer.add_child(top)
-	_hud_card(layer, Vector2(330, 22), Vector2(292, 112), Color("#211c37", 0.92))
+	_hud_card(layer, Vector2(330, 22), Vector2(292, 142), Color("#211c37", 0.92))
 	_hud_card(layer, Vector2(970, 22), Vector2(112, 92), Color("#211c37", 0.94))
 	_hud_card(layer, Vector2(1090, 22), Vector2(166, 92), Color("#211c37", 0.94))
 	_hud_card(layer, Vector2(970, 124), Vector2(286, 70), Color("#211c37", 0.90))
@@ -1275,7 +1281,7 @@ func _build_ui() -> void:
 	_hud_icon(layer, UI_FUEL_TEXTURE, Vector2(978, 70), Vector2(24, 24))
 	_hud_icon(layer, UI_WEATHER_TEXTURE, Vector2(1100, 70), Vector2(24, 24))
 	ui_route = _label(layer, Vector2(350, 40), 18, CREAM)
-	ui_route.size = Vector2(252, 82)
+	ui_route.size = Vector2(252, 112)
 	ui_route.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ui_speed = _label(layer, Vector2(988, 34), 34, CREAM)
 	ui_speed.size = Vector2(76, 56)
@@ -1283,7 +1289,7 @@ func _build_ui() -> void:
 	ui_stats = _label(layer, Vector2(990, 137), 14, Color("#c0cde4"))
 	ui_stats.size = Vector2(260, 48)
 	ui_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ui_toast = _label(layer, Vector2(470, 145), 20, CREAM)
+	ui_toast = _label(layer, Vector2(470, 206), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	task_button = Button.new()
@@ -1299,7 +1305,7 @@ func _build_ui() -> void:
 	minimap.size = Vector2(292, 190)
 	minimap.set_script(load("res://scripts/minimap.gd"))
 	layer.add_child(minimap)
-	var hint: Variant = _label(layer, Vector2(330, 148), 13, Color("#d5dded"))
+	var hint: Variant = _label(layer, Vector2(330, 174), 13, Color("#d5dded"))
 	hint.text = "触摸驾驶  •  左右变道  •  避开交通  •  到达目的地交付"
 	virtual_controls = Control.new()
 	virtual_controls.name = "AnalogDrivingControls"
@@ -1996,6 +2002,25 @@ func _update_weather_visuals() -> void:
 	environment.adjustment_saturation = lerp(environment.adjustment_saturation, target_saturation, 0.04)
 	environment.adjustment_brightness = lerp(environment.adjustment_brightness, target_brightness, 0.04)
 	var road_material: Variant = road_surface.material_override as StandardMaterial3D
+	if windshield_glass:
+		var glass_material: Variant = windshield_glass.material_override as StandardMaterial3D
+		var glass_alpha: float = 0.08
+		var glass_color := Color("#9fd7e8")
+		var glass_roughness: float = 0.12
+		if current_weather == "rain":
+			glass_alpha = 0.16 + weather_intensity * 0.08
+			glass_color = Color("#7ca8c6")
+			glass_roughness = 0.28
+		elif current_weather == "snow":
+			glass_alpha = 0.18 + weather_intensity * 0.10
+			glass_color = Color("#d9e7f2")
+			glass_roughness = 0.42
+		if weather_event_type == "大雾":
+			glass_alpha = 0.30
+			glass_color = Color("#c5d6df")
+			glass_roughness = 0.52
+		glass_material.albedo_color = Color(glass_color, glass_alpha)
+		glass_material.roughness = glass_roughness
 	if current_weather == "rain":
 		road_material.albedo_texture = ROAD_WET_TEXTURE
 		road_material.albedo_color = road_material.albedo_color.lerp(Color("#29364d"), 0.12)
@@ -2232,6 +2257,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 			interior_warning_display.modulate = MINT
 	if interior_nav_display:
 		interior_nav_display.text = "%s\n%s\n%.1f km\n%s" % ["JOB ACCEPTED" if task_active else "JOB AVAILABLE", destination, max(task_distance_goal - distance, 0.0), task_title]
+		interior_nav_display.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else MINT)
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
 	if mirrors_enabled:
@@ -2369,6 +2395,7 @@ func _update_ui() -> void:
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
+	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else Color("#c0cde4"))
 	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\nTIME  %s   %s   FUEL %d%%\nDAMAGE %d%%   奖励 €%d   余额 €%d" % [distance, task_distance_goal, int(task_time_remaining), _format_clock(), weather_name, int(fuel), int(damage), task_reward, money]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	if task_button:

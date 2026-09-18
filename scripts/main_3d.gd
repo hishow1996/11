@@ -58,6 +58,7 @@ var scenery: Array[Node3D] = []
 var current_scene := "乡村公路"
 var current_weather := "clear"
 var weather_intensity := 0.0
+var weather_target_intensity := 0.0
 var thunder_cooldown := 18.0
 var weather_event_cooldown := 24.0
 var weather_event_remaining := 0.0
@@ -1992,15 +1993,15 @@ func _update_weather_event(delta: float) -> void:
 	if event_roll == 0:
 		weather_event_type = "暴雨"
 		current_weather = "rain"
-		weather_intensity = 0.92
+		weather_target_intensity = 0.92
 	elif event_roll == 1:
 		weather_event_type = "大雾"
 		current_weather = "rain"
-		weather_intensity = 0.48
+		weather_target_intensity = 0.48
 	else:
 		weather_event_type = "降雪"
 		current_weather = "snow"
-		weather_intensity = 0.86
+		weather_target_intensity = 0.86
 	toast = "突发天气：" + weather_event_type
 	toast_time = 3.0
 
@@ -2012,16 +2013,17 @@ func _update_weather_audio(delta: float) -> void:
 	if weather_event_remaining <= 0.0:
 		if current_scene == "山区雪岭":
 			current_weather = "snow"
-			weather_intensity = 0.78
+			weather_target_intensity = 0.78
 		elif current_scene == "深山老林":
 			current_weather = "rain"
-			weather_intensity = 0.62
+			weather_target_intensity = 0.62
 		elif current_scene == "动漫城市" and int(distance) % 3 == 0:
 			current_weather = "rain"
-			weather_intensity = 0.38
+			weather_target_intensity = 0.38
 		else:
 			current_weather = "clear"
-			weather_intensity = 0.0
+			weather_target_intensity = 0.0
+		weather_intensity = move_toward(weather_intensity, weather_target_intensity, delta * 0.22)
 	var speed_factor: Variant = clamp(speed / 21.0, 0.0, 1.0)
 	var master_db: Variant = linear_to_db(max(music_volume * master_volume, 0.001))
 	rain_player.volume_db = master_db + lerp(-42.0, -12.0, weather_intensity)

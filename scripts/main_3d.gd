@@ -1242,6 +1242,17 @@ func _apply_quality(mode: int) -> void:
 	var ratios := [0.45, 0.72, 1.0]
 	rain_particles.amount_ratio = ratios[mode]
 	snow_particles.amount_ratio = ratios[mode]
+	if exhaust_particles:
+		exhaust_particles.amount = [8, 12, 18][mode]
+	if collision_sparks:
+		collision_sparks.amount = [12, 20, 28][mode]
+		collision_smoke.amount = [8, 12, 18][mode]
+		collision_debris.amount = [6, 12, 18][mode]
+	for i in traffic.size():
+		traffic[i].visible = mode > 0 or i < 3
+	for person in pedestrian_nodes:
+		if is_instance_valid(person):
+			person.visible = mode >= 1
 	camera.far = [95.0, 125.0, 155.0][mode]
 	sun.shadow_enabled = mode >= 1
 	moon.shadow_enabled = false
@@ -1870,15 +1881,18 @@ func _update_streaming() -> void:
 
 func _update_pedestrians(delta: float) -> void:
 	var now := Time.get_ticks_msec() * 0.001
+	var alive: Array[Node3D] = []
 	for person in pedestrian_nodes:
 		if not is_instance_valid(person):
 			continue
+		alive.append(person)
 		var phase := float(person.get_meta("walk_phase", 0.0))
 		var side := float(person.get_meta("walk_side", 1.0))
 		person.position.z += side * delta * 0.55
 		person.position.x += sin(now * 0.8 + phase) * delta * 0.18
 		if abs(person.position.z) > 36.0:
 			person.position.z = -sign(person.position.z) * 34.0
+	pedestrian_nodes = alive
 
 func _ensure_stream_chunk(chunk_index: int) -> void:
 	if stream_chunks.has(chunk_index):

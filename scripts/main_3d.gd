@@ -141,26 +141,26 @@ const CORAL := Color("#ef6f61")
 const MINT := Color("#74d0ad")
 const SKY := Color("#86d6e8")
 const SAVE_PATH := "user://anime_haul_save.json"
-const ROAD_CLEAR_TEXTURE = preload("res://art/runtime/road_surface.svg")
-const ROAD_WET_TEXTURE = preload("res://art/runtime/road_wet.svg")
-const ROAD_SNOW_TEXTURE = preload("res://art/runtime/road_snow.svg")
-const RAIN_STREAK_TEXTURE = preload("res://art/runtime/rain_streak.svg")
-const SNOW_FLAKE_TEXTURE = preload("res://art/runtime/snow_flake.svg")
-const ORANGE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_orange.svg")
-const BLUE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_blue.svg")
-const UI_FUEL_TEXTURE = preload("res://art/runtime/ui_fuel.svg")
-const UI_WEATHER_TEXTURE = preload("res://art/runtime/ui_weather.svg")
-const UI_ROUTE_TEXTURE = preload("res://art/runtime/ui_route.svg")
-const LANDMARK_CITY_TEXTURE = preload("res://art/runtime/landmark_city.svg")
-const LANDMARK_RURAL_TEXTURE = preload("res://art/runtime/landmark_rural.svg")
-const LANDMARK_FOREST_TEXTURE = preload("res://art/runtime/landmark_forest.svg")
-const LANDMARK_MOUNTAIN_TEXTURE = preload("res://art/runtime/landmark_mountain.svg")
-const LANDMARK_PLAINS_TEXTURE = preload("res://art/runtime/landmark_plains.svg")
-const FACILITY_FUEL_TEXTURE = preload("res://art/runtime/facility_fuel.svg")
-const FACILITY_REPAIR_TEXTURE = preload("res://art/runtime/facility_repair.svg")
-const TRAFFIC_CAR_TEXTURE = preload("res://art/runtime/traffic_car.svg")
-const TRAFFIC_VAN_TEXTURE = preload("res://art/runtime/traffic_van.svg")
-const TRAFFIC_BUS_TEXTURE = preload("res://art/runtime/traffic_bus.svg")
+const ROAD_CLEAR_TEXTURE = preload("res://art/runtime/road_surface.png")
+const ROAD_WET_TEXTURE = preload("res://art/runtime/road_wet.png")
+const ROAD_SNOW_TEXTURE = preload("res://art/runtime/road_snow.png")
+const RAIN_STREAK_TEXTURE = preload("res://art/runtime/rain_streak.png")
+const SNOW_FLAKE_TEXTURE = preload("res://art/runtime/snow_flake.png")
+const ORANGE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_orange.png")
+const BLUE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_blue.png")
+const UI_FUEL_TEXTURE = preload("res://art/runtime/ui_fuel.png")
+const UI_WEATHER_TEXTURE = preload("res://art/runtime/ui_weather.png")
+const UI_ROUTE_TEXTURE = preload("res://art/runtime/ui_route.png")
+const LANDMARK_CITY_TEXTURE = preload("res://art/runtime/landmark_city.png")
+const LANDMARK_RURAL_TEXTURE = preload("res://art/runtime/landmark_rural.png")
+const LANDMARK_FOREST_TEXTURE = preload("res://art/runtime/landmark_forest.png")
+const LANDMARK_MOUNTAIN_TEXTURE = preload("res://art/runtime/landmark_mountain.png")
+const LANDMARK_PLAINS_TEXTURE = preload("res://art/runtime/landmark_plains.png")
+const FACILITY_FUEL_TEXTURE = preload("res://art/runtime/facility_fuel.png")
+const FACILITY_REPAIR_TEXTURE = preload("res://art/runtime/facility_repair.png")
+const TRAFFIC_CAR_TEXTURE = preload("res://art/runtime/traffic_car.png")
+const TRAFFIC_VAN_TEXTURE = preload("res://art/runtime/traffic_van.png")
+const TRAFFIC_BUS_TEXTURE = preload("res://art/runtime/traffic_bus.png")
 const PLAYER_TRUCK_LOD0 = preload("res://assets/vehicles/player_truck/player_truck_lod0.glb")
 const PLAYER_TRUCK_LOD1 = preload("res://assets/vehicles/player_truck/player_truck_lod1.glb")
 const PLAYER_TRUCK_LOD2 = preload("res://assets/vehicles/player_truck/player_truck_lod2.glb")
@@ -190,11 +190,11 @@ func _load_save() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	var data = JSON.parse_string(file.get_as_text())
 	if data is Dictionary:
-			money = int(data.get("money", money))
-			best_distance = float(data.get("best_distance", best_distance))
-			achievements = data.get("achievements", {})
-			delivery_count = int(data.get("delivery_count", delivery_count))
-			leaderboard = data.get("leaderboard", leaderboard)
+		money = int(data.get("money", money))
+		best_distance = float(data.get("best_distance", best_distance))
+		achievements = data.get("achievements", {})
+		delivery_count = int(data.get("delivery_count", delivery_count))
+		leaderboard = data.get("leaderboard", leaderboard)
 		fuel = float(data.get("fuel", fuel))
 		damage = float(data.get("damage", damage))
 		distance = float(data.get("distance", distance))
@@ -212,11 +212,11 @@ func _load_save() -> void:
 
 func _save_game() -> void:
 	var data := {
-			"money": money,
-			"best_distance": best_distance,
-			"achievements": achievements,
-			"delivery_count": delivery_count,
-			"leaderboard": leaderboard,
+		"money": money,
+		"best_distance": best_distance,
+		"achievements": achievements,
+		"delivery_count": delivery_count,
+		"leaderboard": leaderboard,
 		"fuel": fuel,
 		"damage": damage,
 		"distance": distance,
@@ -378,7 +378,7 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	material.texture = RAIN_STREAK_TEXTURE if name == "RainParticles" else SNOW_FLAKE_TEXTURE
 	quad.material = material
@@ -418,7 +418,7 @@ func _collision_particles(name: String, color: Color, amount: int, lifetime: flo
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if color.a < 0.9 else BaseMaterial3D.TRANSPARENCY_DISABLED
-	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mesh.material = material
 	particles.draw_pass_1 = mesh
 	particles.visibility_aabb = AABB(Vector3(-6, -3, -6), Vector3(12, 10, 12))
@@ -555,12 +555,12 @@ func _add_city_block(z: float) -> void:
 		var block := Node3D.new()
 		block.position = Vector3(side * (11.0 + fmod(abs(z), 3.0)), 0, z)
 		add_child(block)
-			_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
-			_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
-			for balcony_y in [1.0, 2.8, 4.6]:
-				_box(block, Vector3(6.4, 0.12, 0.52), Vector3(0, balcony_y, -3.72), Color("#f5d3a4"), "CityBalcony")
-				_box(block, Vector3(0.12, 0.5, 0.52), Vector3(-3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
-				_box(block, Vector3(0.12, 0.5, 0.52), Vector3(3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
+		_box(block, Vector3(7.0, 6.0 + fmod(abs(z), 5.0), 7.0), Vector3.ZERO, Color("#e58c78"), "CityBuilding")
+		_box(block, Vector3(7.2, 0.35, 7.2), Vector3(0, 3.2 + fmod(abs(z), 5.0), 0), Color("#53617d"), "CityRoof")
+		for balcony_y in [1.0, 2.8, 4.6]:
+			_box(block, Vector3(6.4, 0.12, 0.52), Vector3(0, balcony_y, -3.72), Color("#f5d3a4"), "CityBalcony")
+			_box(block, Vector3(0.12, 0.5, 0.52), Vector3(-3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
+			_box(block, Vector3(0.12, 0.5, 0.52), Vector3(3.0, balcony_y + 0.22, -3.72), INK, "BalconyRail")
 		for window_y in [1.2, 3.0, 4.8]:
 			for window_x in [-2.0, 0.0, 2.0]:
 				var window := _box(block, Vector3(1.1, 0.65, 0.18), Vector3(window_x, window_y, -3.55), Color("#9fe3ff"), "CityWindow")
@@ -616,11 +616,11 @@ func _add_city_intersection(z: float) -> void:
 	for stripe in range(-4, 5):
 		_box(self, Vector3(0.45, 0.025, 7.0), Vector3(float(stripe) * 0.65, 0.08, z), CREAM, "CrosswalkStripe")
 	for side in [-1.0, 1.0]:
-		var signal := Node3D.new()
-		signal.position = Vector3(side * 6.9, 0, z - 2.0)
-		add_child(signal)
-		_box(signal, Vector3(0.18, 4.0, 0.18), Vector3(0, 2.0, 0), INK, "TrafficPole")
-		var red := _box(signal, Vector3(0.42, 0.42, 0.25), Vector3(0, 4.2, 0), CORAL, "TrafficRed")
+		var signal_root := Node3D.new()
+		signal_root.position = Vector3(side * 6.9, 0, z - 2.0)
+		add_child(signal_root)
+		_box(signal_root, Vector3(0.18, 4.0, 0.18), Vector3(0, 2.0, 0), INK, "TrafficPole")
+		var red := _box(signal_root, Vector3(0.42, 0.42, 0.25), Vector3(0, 4.2, 0), CORAL, "TrafficRed")
 		var red_material := red.material_override as StandardMaterial3D
 		red_material.emission_enabled = true
 		red_material.emission = CORAL
@@ -822,12 +822,12 @@ func _build_truck() -> void:
 		headlight.light_energy = 0.0
 		headlight.omni_range = 18.0
 		headlight.shadow_enabled = false
-			truck.add_child(headlight)
-			headlight_nodes.append(headlight)
-			var brake_lamp := _box(truck, Vector3(0.32, 0.26, 0.16), Vector3(lamp_x, 1.65, 4.58), CORAL, "BrakeLamp")
-			brake_lamps.append(brake_lamp)
-			var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
-			signal_lamps.append(signal_lamp)
+		truck.add_child(headlight)
+		headlight_nodes.append(headlight)
+		var brake_lamp := _box(truck, Vector3(0.32, 0.26, 0.16), Vector3(lamp_x, 1.65, 4.58), CORAL, "BrakeLamp")
+		brake_lamps.append(brake_lamp)
+		var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
+		signal_lamps.append(signal_lamp)
 	# Exterior refinement pass: door seams, handles, wheel arches, tanks and trailer hardware.
 	for side in [-1.0, 1.0]:
 		truck_detail_nodes.append(_box(truck, Vector3(0.07, 1.55, 0.08), Vector3(side * 2.08, 1.45, -3.18), INK, "CabDoorSeam"))
@@ -976,7 +976,7 @@ func _build_cockpit_interior() -> void:
 		mirror_camera.current = true
 		var mirror_material := StandardMaterial3D.new()
 		mirror_material.albedo_texture = mirror_viewport.get_texture()
-		mirror_material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+		mirror_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mirror_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mirror_material.roughness = 0.18
 		mirror.material_override = mirror_material
@@ -992,10 +992,10 @@ func _build_cockpit_interior() -> void:
 	# Warm cabin lamps are dimmed at daytime and brightened at night.
 	for side in [-1.0, 1.0]:
 		var lamp := _box(cabin, Vector3(0.22, 0.06, 0.16), Vector3(side * 0.8, 2.35, -1.7), Color("#ffd166"), "CabinLamp")
-			var lamp_material := lamp.material_override as StandardMaterial3D
-			lamp_material.emission_enabled = true
-			lamp_material.emission = Color("#ffd166")
-			interior_lamps.append(lamp)
+		var lamp_material := lamp.material_override as StandardMaterial3D
+		lamp_material.emission_enabled = true
+		lamp_material.emission = Color("#ffd166")
+		interior_lamps.append(lamp)
 	_apply_livery(cargo_index)
 
 func _apply_livery(index: int) -> void:
@@ -1025,7 +1025,7 @@ func _apply_livery(index: int) -> void:
 				authored_material.albedo_color = palette[0] if part.name == "Cab_Body" else palette[1]
 				authored_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 		if interior_nav_display:
-		interior_nav_display.modulate = palette[2]
+			interior_nav_display.modulate = palette[2]
 
 func _build_exhaust_particles() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
@@ -1047,7 +1047,7 @@ func _build_exhaust_particles() -> GPUParticles3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.55, 0.58, 0.64, 0.28)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	quad.material = material
 	particles.draw_pass_1 = quad
@@ -1090,19 +1090,19 @@ func _build_traffic() -> void:
 		var head_lamp := _box(car, Vector3(0.30, 0.24, 0.12), Vector3(body_size.x * 0.32, body_size.y * 0.12, -body_size.z * 0.5), Color("#fff0a7"), "TrafficHeadLamp")
 		var head_material := head_lamp.material_override as StandardMaterial3D
 		head_material.emission_enabled = true
-			head_material.emission = Color("#fff0a7")
-			head_material.emission_energy_multiplier = 1.8
-			traffic_lights.append(head_lamp)
-			var turn_lamp := _box(car, Vector3(0.18, 0.16, 0.10), Vector3(-body_size.x * 0.36, body_size.y * 0.18, body_size.z * 0.5), Color("#ffb35c"), "TrafficTurnLamp")
-			var turn_material := turn_lamp.material_override as StandardMaterial3D
-			turn_material.emission_enabled = true
-			turn_material.emission = Color("#ffb35c")
-			turn_material.emission_energy_multiplier = 2.0
-			turn_lamp.visible = false
-			traffic_turn_lamps.append(turn_lamp)
-			traffic_lane_targets.append(traffic_lanes[i])
-			traffic_lane_cooldowns.append(0.0)
-			traffic.append(car)
+		head_material.emission = Color("#fff0a7")
+		head_material.emission_energy_multiplier = 1.8
+		traffic_lights.append(head_lamp)
+		var turn_lamp := _box(car, Vector3(0.18, 0.16, 0.10), Vector3(-body_size.x * 0.36, body_size.y * 0.18, body_size.z * 0.5), Color("#ffb35c"), "TrafficTurnLamp")
+		var turn_material := turn_lamp.material_override as StandardMaterial3D
+		turn_material.emission_enabled = true
+		turn_material.emission = Color("#ffb35c")
+		turn_material.emission_energy_multiplier = 2.0
+		turn_lamp.visible = false
+		traffic_turn_lamps.append(turn_lamp)
+		traffic_lane_targets.append(traffic_lanes[i])
+		traffic_lane_cooldowns.append(0.0)
+		traffic.append(car)
 		FreeAssetCatalog.add_lod_visibility(car, 45.0, 130.0)
 
 func _build_camera() -> void:
@@ -1352,10 +1352,10 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"tire": tire_level += 1
 			"tank": tank_level += 1
 			"armor": armor_level += 1
-			toast = "升级完成：" + upgrade_id
-			toast_time = 2.0
-			_save_game()
-			_haptic(80, 0.45)
+		toast = "升级完成：" + upgrade_id
+		toast_time = 2.0
+		_save_game()
+		_haptic(80, 0.45)
 	_update_garage_label()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
@@ -2372,7 +2372,7 @@ func _add_landmark_sign(root: Node3D, texture: Texture2D, pos: Vector3) -> void:
 	mesh.size = Vector2(8.0, 2.25)
 	var material := StandardMaterial3D.new()
 	material.albedo_texture = texture
-	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh.material = material
 	sign.mesh = mesh

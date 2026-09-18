@@ -1504,12 +1504,17 @@ func _on_touch_brake(value: float) -> void:
 
 func _build_audio() -> void:
 	engine_player = AudioStreamPlayer.new()
-	engine_player.stream = load("res://audio/engine_loop.wav")
+	var engine_stream: Variant = load("res://audio/engine_loop.wav")
+	if engine_stream is AudioStream:
+		engine_player.stream = engine_stream
 	engine_player.volume_db = -10.0
 	add_child(engine_player)
-	engine_player.play()
+	if engine_player.stream:
+		engine_player.play()
 	brake_player = AudioStreamPlayer.new()
-	brake_player.stream = load("res://audio/air_brake.wav")
+	var brake_stream: Variant = load("res://audio/air_brake.wav")
+	if brake_stream is AudioStream:
+		brake_player.stream = brake_stream
 	brake_player.volume_db = -4.0
 	add_child(brake_player)
 	rain_player = _loop_audio("res://audio/rain_ambient.wav", -28.0)
@@ -1517,21 +1522,27 @@ func _build_audio() -> void:
 	wet_tire_player = _loop_audio("res://audio/tire_wet.wav", -32.0)
 	snow_tire_player = _loop_audio("res://audio/tire_snow.wav", -32.0)
 	thunder_player = AudioStreamPlayer.new()
-	thunder_player.stream = load("res://audio/thunder_rumble.wav")
+	var thunder_stream: Variant = load("res://audio/thunder_rumble.wav")
+	if thunder_stream is AudioStream:
+		thunder_player.stream = thunder_stream
 	thunder_player.volume_db = -9.0
 	add_child(thunder_player)
 	for sfx_name in ["reverse_beeper", "turn_signal", "gear_shift", "tire_skid", "collision_metal", "guardrail_scrape", "water_splash", "wiper_swipe", "refuel_start", "repair_start", "delivery_complete", "upgrade_purchase", "ui_click", "warning_alert"]:
 		var sfx_player: Variant = AudioStreamPlayer.new()
-		sfx_player.stream = load("res://audio/" + sfx_name + ".wav")
-		sfx_player.volume_db = -8.0
+		var sfx_stream: Variant = load("res://audio/" + sfx_name + ".wav")
+		if sfx_stream is AudioStream:
+			sfx_player.stream = sfx_stream
+			sfx_player.volume_db = -8.0
 		add_child(sfx_player)
 		sfx_players[sfx_name] = sfx_player
 	if sfx_players.has("ui_click"):
-		sfx_players["ui_click"].stream = load("res://assets/audio_sources/kenney_ui_audio/click1.wav")
+		var click_stream: Variant = load("res://assets/audio_sources/kenney_ui_audio/click1.wav")
+		if click_stream is AudioStream:
+			sfx_players["ui_click"].stream = click_stream
 
 func _play_sfx(sfx_name: String, volume_db := -8.0) -> void:
 	var player: Variant = sfx_players.get(sfx_name)
-	if player:
+	if player and player.stream:
 		player.volume_db = volume_db
 		player.play()
 
@@ -1540,10 +1551,12 @@ func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
 	var stream: Variant = load(path)
 	if stream is AudioStreamWAV:
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	player.stream = stream
+	if stream is AudioStream:
+		player.stream = stream
 	player.volume_db = volume
 	add_child(player)
-	player.play()
+	if player.stream:
+		player.play()
 	return player
 
 func _process(delta: float) -> void:

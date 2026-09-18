@@ -151,6 +151,8 @@ const CORAL := Color("#ef6f61")
 const MINT := Color("#74d0ad")
 const SKY := Color("#86d6e8")
 const SAVE_PATH := "user://anime_haul_save.json"
+const SAVE_BACKUP_PATH := "user://anime_haul_save.backup.json"
+const SAVE_TEMP_PATH := "user://anime_haul_save.tmp.json"
 var ROAD_CLEAR_TEXTURE = load("res://art/runtime/road_surface.png")
 var ROAD_WET_TEXTURE = load("res://art/runtime/road_wet.png")
 var ROAD_SNOW_TEXTURE = load("res://art/runtime/road_snow.png")
@@ -195,9 +197,12 @@ func _notification(what: int) -> void:
 		_save_game()
 
 func _load_save() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var load_path: String = SAVE_PATH
+	if not FileAccess.file_exists(load_path) and FileAccess.file_exists(SAVE_BACKUP_PATH):
+		load_path = SAVE_BACKUP_PATH
+	if not FileAccess.file_exists(load_path):
 		return
-	var file: Variant = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file: Variant = FileAccess.open(load_path, FileAccess.READ)
 	if file == null:
 		return
 	var data = JSON.parse_string(file.get_as_text())
@@ -246,8 +251,20 @@ func _save_game() -> void:
 		"steering_sensitivity": steering_sensitivity,
 		"master_volume": master_volume
 	}
-	var file: Variant = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	file.store_string(JSON.stringify(data))
+	if FileAccess.file_exists(SAVE_TEMP_PATH):
+		DirAccess.remove_absolute(SAVE_TEMP_PATH)
+	var temp_file: Variant = FileAccess.open(SAVE_TEMP_PATH, FileAccess.WRITE)
+	if temp_file == null:
+		return
+	temp_file.store_string(JSON.stringify(data))
+	temp_file.close()
+	if FileAccess.file_exists(SAVE_PATH):
+		var previous_bytes: PackedByteArray = FileAccess.get_file_as_bytes(SAVE_PATH)
+		var backup_file: Variant = FileAccess.open(SAVE_BACKUP_PATH, FileAccess.WRITE)
+		if backup_file:
+			backup_file.store_buffer(previous_bytes)
+			backup_file.close()
+	DirAccess.rename_absolute(SAVE_TEMP_PATH, SAVE_PATH)
 
 func _haptic(duration_ms: int, amplitude: float) -> void:
 	if OS.has_feature("mobile"):

@@ -29,6 +29,7 @@ var traffic_types := ["car", "van", "bus", "wagon", "coach", "service"]
 var traffic_lights: Array[MeshInstance3D] = []
 var traffic_tail_lamps: Array[MeshInstance3D] = []
 var traffic_signal_lamps: Array[MeshInstance3D] = []
+var pedestrian_nodes: Array[Node3D] = []
 var toast := "READY TO HAUL"
 var toast_time := 3.0
 var ui_speed: Label
@@ -1446,6 +1447,7 @@ func _process(delta: float) -> void:
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_streaming()
+	_update_pedestrians(delta)
 	_update_refueling(delta)
 	_update_repairing(delta)
 	var fuel_capacity := 100.0 + float(tank_level) * 10.0
@@ -1866,6 +1868,18 @@ func _update_streaming() -> void:
 		old_root.queue_free()
 		stream_chunks.erase(old_index)
 
+func _update_pedestrians(delta: float) -> void:
+	var now := Time.get_ticks_msec() * 0.001
+	for person in pedestrian_nodes:
+		if not is_instance_valid(person):
+			continue
+		var phase := float(person.get_meta("walk_phase", 0.0))
+		var side := float(person.get_meta("walk_side", 1.0))
+		person.position.z += side * delta * 0.55
+		person.position.x += sin(now * 0.8 + phase) * delta * 0.18
+		if abs(person.position.z) > 36.0:
+			person.position.z = -sign(person.position.z) * 34.0
+
 func _ensure_stream_chunk(chunk_index: int) -> void:
 	if stream_chunks.has(chunk_index):
 		return
@@ -2095,9 +2109,32 @@ func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumber
 			lamp_material.emission_energy_multiplier = 2.2
 	if district == 2:
 		_box(detail, Vector3(1.2, 0.12, 70.0), Vector3(0, 0.22, 0), Color("#66728b"), "IndustrialMedian")
-	if rng.randf() > (0.15 + district * 0.12):
-		for stripe in range(-4, 5):
-			_box(detail, Vector3(0.42, 0.025, 7.0), Vector3(float(stripe) * 0.62, 0.22, 0), CREAM, "CityCrosswalk")
+		if rng.randf() > (0.15 + district * 0.12):
+			for stripe in range(-4, 5):
+				_box(detail, Vector3(0.42, 0.025, 7.0), Vector3(float(stripe) * 0.62, 0.22, 0), CREAM, "CityCrosswalk")
+	_add_city_pedestrians(detail, district, rng)
+
+func _add_city_pedestrians(parent: Node3D, district: int, rng: RandomNumberGenerator) -> void:
+	var palette := [Color("#ef6f61"), Color("#74d0ad"), Color("#ffd166"), Color("#8fa8ff")]
+	for i in 4:
+		var person := Node3D.new()
+		person.name = "CityPedestrian_%d_%d" % [district, i]
+		var side := -1.0 if i % 2 == 0 else 1.0
+		person.position = Vector3(side * rng.randf_range(6.8, 8.4), 0.0, rng.randf_range(-32.0, 32.0))
+		person.set_meta("walk_phase", rng.randf_range(0.0, TAU))
+		person.set_meta("walk_side", side)
+		parent.add_child(person)
+		_box(person, Vector3(0.34, 0.9, 0.28), Vector3(0, 0.55, 0), palette[(district + i) % palette.size()], "PedestrianBody")
+		var head := SphereMesh.new()
+		head.radius = 0.18
+		head.height = 0.36
+		var head_node := MeshInstance3D.new()
+		head_node.name = "PedestrianHead"
+		head_node.mesh = head
+		head_node.material_override = _mat(Color("#ffd8b0"))
+		head_node.position = Vector3(0, 1.15, 0)
+		person.add_child(head_node)
+		pedestrian_nodes.append(person)
 
 func _add_chunk_city_signal(root: Node3D, local_z: float) -> void:
 	var signal_root := Node3D.new()

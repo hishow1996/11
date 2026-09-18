@@ -1518,6 +1518,14 @@ func _add_chunk_road_network(root: Node3D, biome: int, rng: RandomNumberGenerato
 			root.add_child(connector)
 			_box(connector, Vector3(0.9, 0.12, secondary_offset), Vector3(secondary_offset * 0.5, 0, 0), ASPHALT, road_name + "ConnectorSurface")
 			_box(connector, Vector3(0.12, 0.18, secondary_offset), Vector3(secondary_offset * 0.5, 0.12, -road_width * 0.5), CREAM, road_name + "ConnectorMark")
+	# Route signage makes each road leg legible instead of decorative geometry only.
+	var sign := Node3D.new()
+	sign.name = road_name + "RouteSign"
+	sign.position = Vector3(secondary_offset * (-1.0 if chunk_index % 2 == 0 else 1.0), 0.0, -455.0)
+	root.add_child(sign)
+	_box(sign, Vector3(0.16, 2.4, 0.16), Vector3.ZERO + Vector3(0, 1.2, 0), INK, road_name + "SignPost")
+	_box(sign, Vector3(2.8, 0.9, 0.14), Vector3(0, 2.45, 0), Color("#3478a8"), road_name + "RoutePanel")
+	_box(sign, Vector3(1.55, 0.10, 0.08), Vector3(0.3, 2.45, -0.1), CREAM, road_name + "RouteArrow")
 
 func _road_center_at(world_z: float) -> float:
 	var macro := sin(world_z * 0.0027 + 0.8) * 3.0

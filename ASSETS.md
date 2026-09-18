@@ -55,6 +55,8 @@ Each streamed kilometer now also receives a biome-specific secondary road and se
 
 The minimap now renders the same network language: one highlighted main route, two muted parallel roads and yellow junction markers when a branch is available.
 
+Secondary roads also receive biome-specific route signs and arrows, so the city ring, farm side road, forest service road, mountain view road and plains frontage road are visually distinguishable in the world.
+
 ## Generated files
 
 - `art/visual_target_city.png`

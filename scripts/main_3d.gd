@@ -198,25 +198,31 @@ func _load_save() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return
 	var file: Variant = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return
 	var data = JSON.parse_string(file.get_as_text())
 	if data is Dictionary:
-		money = int(data.get("money", money))
-		best_distance = float(data.get("best_distance", best_distance))
+		money = max(0, int(data.get("money", money)))
+		best_distance = max(0.0, float(data.get("best_distance", best_distance)))
 		achievements = data.get("achievements", {})
-		delivery_count = int(data.get("delivery_count", delivery_count))
+		if not achievements is Dictionary:
+			achievements = {}
+		delivery_count = max(0, int(data.get("delivery_count", delivery_count)))
 		leaderboard = data.get("leaderboard", leaderboard)
-		fuel = float(data.get("fuel", fuel))
-		damage = float(data.get("damage", damage))
-		distance = float(data.get("distance", distance))
-		cargo_index = int(data.get("cargo_index", cargo_index))
-		game_hour = float(data.get("game_hour", game_hour))
-		engine_level = int(data.get("engine_level", engine_level))
-		tire_level = int(data.get("tire_level", tire_level))
-		tank_level = int(data.get("tank_level", tank_level))
-		armor_level = int(data.get("armor_level", armor_level))
-		quality_mode = int(data.get("quality_mode", quality_mode))
-		steering_sensitivity = float(data.get("steering_sensitivity", steering_sensitivity))
-		master_volume = float(data.get("master_volume", master_volume))
+		if not leaderboard is Array:
+			leaderboard = []
+		fuel = clamp(float(data.get("fuel", fuel)), 0.0, 200.0)
+		damage = clamp(float(data.get("damage", damage)), 0.0, 100.0)
+		distance = max(0.0, float(data.get("distance", distance)))
+		cargo_index = clamp(int(data.get("cargo_index", cargo_index)), 0, 2)
+		game_hour = fmod(max(0.0, float(data.get("game_hour", game_hour))), 24.0)
+		engine_level = clamp(int(data.get("engine_level", engine_level)), 0, 5)
+		tire_level = clamp(int(data.get("tire_level", tire_level)), 0, 5)
+		tank_level = clamp(int(data.get("tank_level", tank_level)), 0, 5)
+		armor_level = clamp(int(data.get("armor_level", armor_level)), 0, 5)
+		quality_mode = clamp(int(data.get("quality_mode", quality_mode)), 0, 2)
+		steering_sensitivity = clamp(float(data.get("steering_sensitivity", steering_sensitivity)), 0.55, 1.6)
+		master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 		route_goal = 10.0 + float(cargo_index * 2)
 		destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 

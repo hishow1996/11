@@ -110,4 +110,6 @@
 
 美术资源的获取和授权方案已整理到 `ART_ASSET_ACQUISITION_PLAN.md`。推荐玩家卡车和核心地标定制或外包，普通道路、建筑、树木和交通车辆优先购买可商用低模资源后统一材质，天气、HUD 和大规模组合继续由 Godot 程序化生成；文档同时包含购买授权检查、外包交付要求、版权记录和资源替换顺序。
 
+本轮已将可直接下载的免费资源包收集进 `assets/free_source_packs/`，包括 Kenney 城市道路、自然、UI、粒子资源和 OpenGameArt 公交车模型，并解压到 `assets/free_source_import/` 供后续 Godot 导入。来源、许可证、已下载状态和尚未下载的大型资源入口记录在 `assets/free_source_packs/RESOURCE_MANIFEST.md` 和 `licenses/free_sources/LICENSE_SOURCES.md` 中。
+
 第三十六轮 UI 升级按城市参考图重构了驾驶 HUD：左上为路线小地图，中央上方为路线和目的地卡片，右上为速度、燃油、目的地、时间和状态信息卡片，底部继续保留大尺寸虚拟方向盘、BRAKE 和 GAS 踏板。暂停、视角、车库、设置和升级按钮统一使用深蓝紫半透明底、圆角、细描边和暖黄色悬停高亮；设置面板与车库面板也使用同一套视觉规范，避免打开菜单后风格割裂。

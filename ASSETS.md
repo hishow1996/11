@@ -45,6 +45,8 @@ The long-distance map production strategy is maintained in [`WORLD_ART_PRODUCTIO
 
 The acquisition and licensing strategy is maintained in [`ART_ASSET_ACQUISITION_PLAN.md`](ART_ASSET_ACQUISITION_PLAN.md). It maps each asset category to purchase, outsourcing, procedural generation or generated-reference workflows, and includes commercial-license checks and a staged replacement order.
 
+Free source packs collected for the project are stored under `assets/free_source_packs/` with extracted files in `assets/free_source_import/`. The manifest and source/license links are recorded in `assets/free_source_packs/RESOURCE_MANIFEST.md` and `licenses/free_sources/LICENSE_SOURCES.md`.
+
 ## Generated files
 
 - `art/visual_target_city.png`

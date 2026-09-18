@@ -39,6 +39,8 @@ A screenshot should read immediately as an anime 3D long-haul truck game, with t
 
 The complete production-facing inventory is maintained in [`ART_ASSET_MASTER_LIST.md`](ART_ASSET_MASTER_LIST.md). It covers models, textures, materials, animations, VFX, UI, LOD, collision, naming, priority and Android budgets.
 
+The long-distance map production strategy is maintained in [`WORLD_ART_PRODUCTION_PLAN.md`](WORLD_ART_PRODUCTION_PLAN.md). It explains how a finite modular asset library, seeded 1 km streaming chunks, five biome families, sub-biomes and landmark cooldowns can create a varied 20,000 km route without authoring 20,000 km of unique meshes.
+
 ## Generated files
 
 - `art/visual_target_city.png`

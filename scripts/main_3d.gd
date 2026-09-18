@@ -23,6 +23,15 @@ var route_goal := 12.0
 var cargo_index := 0
 var livery_index := 0
 var destination := "LUCERNE"
+var task_index := 0
+var task_distance_goal := 12.0
+var task_time_limit := 184.0
+var task_title := "普通货运"
+var task_condition := "delivery"
+var task_time_remaining := 184.0
+var task_reward := 640
+var task_active := false
+var task_button: Button
 var time_left := 184.0
 var paused := false
 var camera_toggle_cooldown := 0.0
@@ -249,6 +258,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	control_opacity = clamp(float(data.get("control_opacity", control_opacity)), 0.35, 1.0)
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
+	task_index = clamp(int(data.get("task_index", task_index)), 0, 3)
+	_setup_task(task_index)
+	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
+	task_active = bool(data.get("task_active", task_active))
 
 func _save_game() -> void:
 	var data: Variant = {
@@ -262,6 +275,9 @@ func _save_game() -> void:
 		"distance": distance,
 		"cargo_index": cargo_index,
 		"livery_index": livery_index,
+		"task_index": task_index,
+		"task_time_remaining": task_time_remaining,
+		"task_active": task_active,
 		"game_hour": game_hour,
 		"engine_level": engine_level,
 		"tire_level": tire_level,
@@ -1270,6 +1286,13 @@ func _build_ui() -> void:
 	ui_toast = _label(layer, Vector2(470, 145), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	task_button = Button.new()
+	task_button.position = Vector2(650, 24)
+	task_button.size = Vector2(150, 48)
+	task_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(task_button)
+	task_button.pressed.connect(_accept_task)
+	layer.add_child(task_button)
 	minimap = Control.new()
 	minimap.name = "RouteMinimap"
 	minimap.position = Vector2(24, 22)
@@ -1853,8 +1876,7 @@ func _process(delta: float) -> void:
 				impact_tween.tween_property(impact_label, "position", impact_label.position + Vector3(0, 1.4, 0), 0.45)
 				impact_tween.parallel().tween_property(impact_label, "modulate:a", 0.0, 0.45)
 				impact_tween.tween_callback(impact_label.queue_free)
-	if distance >= route_goal:
-		_complete_delivery()
+		_update_task(delta)
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
 	_update_scene_name()
@@ -2209,7 +2231,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 			interior_warning_display.text = "SYSTEMS OK"
 			interior_warning_display.modulate = MINT
 	if interior_nav_display:
-		interior_nav_display.text = "ROUTE AHEAD\n%s\n%.1f km" % [destination, max(route_goal - distance, 0.0)]
+		interior_nav_display.text = "%s\n%s\n%.1f km\n%s" % ["JOB ACCEPTED" if task_active else "JOB AVAILABLE", destination, max(task_distance_goal - distance, 0.0), task_title]
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
 	if mirrors_enabled:
@@ -2244,8 +2266,8 @@ func _update_cockpit_instruments(delta: float) -> void:
 		reflector_material.emission_energy_multiplier = cabin_brightness * (1.8 + reflector_damage * 2.4)
 
 func _complete_delivery() -> void:
-	money += 640
-	toast = "DELIVERY COMPLETE   +€640"
+	money += task_reward
+	toast = "任务完成   +€%d" % task_reward
 	toast_time = 4.0
 	_play_sfx("delivery_complete", -5.0)
 	delivery_camera_boost = 1.0
@@ -2263,6 +2285,58 @@ func _complete_delivery() -> void:
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
 	_apply_livery(livery_index)
 	_unlock_achievement("FIRST_DELIVERY", "完成第一单货物运输")
+	task_index = (task_index + 1) % 4
+	_setup_task(task_index)
+	_save_game()
+
+func _setup_task(index: int) -> void:
+	var tasks: Array = [
+		{"title": "限时货运", "condition": "delivery", "distance": 12.0, "time": 184.0, "reward": 640},
+		{"title": "夜行急件", "condition": "night", "distance": 6.0, "time": 150.0, "reward": 820},
+		{"title": "暴雨护送", "condition": "rain", "distance": 6.0, "time": 165.0, "reward": 900},
+		{"title": "无损运输", "condition": "clean", "distance": 10.0, "time": 210.0, "reward": 760}
+	]
+	var task: Dictionary = tasks[clampi(index, 0, tasks.size() - 1)]
+	task_title = str(task["title"])
+	task_condition = str(task["condition"])
+	task_distance_goal = float(task["distance"])
+	task_time_limit = float(task["time"])
+	task_time_remaining = task_time_limit
+	task_reward = int(task["reward"])
+	toast = "新任务：" + task_title
+	toast_time = 3.0
+
+func _task_condition_met() -> bool:
+	if task_condition == "night":
+		return game_hour < 6.0 or game_hour >= 19.0
+	if task_condition == "rain":
+		return current_weather == "rain" and weather_intensity > 0.45
+	if task_condition == "clean":
+		return damage <= 20.0
+	return true
+
+func _update_task(delta: float) -> void:
+	if not task_active:
+		return
+	task_time_remaining = max(0.0, task_time_remaining - delta)
+	if task_time_remaining <= 0.0:
+		toast = "任务失败：时间耗尽"
+		toast_time = 2.5
+		_setup_task(task_index)
+		return
+	if distance >= task_distance_goal and _task_condition_met():
+		task_active = false
+		_complete_delivery()
+
+func _accept_task() -> void:
+	if task_active:
+		return
+	task_active = true
+	task_time_remaining = task_time_limit
+	distance = 0.0
+	toast = "已接取任务：" + task_title
+	toast_time = 2.8
+	_play_sfx("ui_click", -10.0)
 	_save_game()
 
 func _unlock_achievement(key: String, description: String) -> void:
@@ -2291,12 +2365,15 @@ func _update_ui() -> void:
 		return
 	var cargo: Variant = ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
 	var branch_hint: Variant = _get_branch_hint()
-	ui_route.text = "↗ %s\n%s\n%s  →  %s" % [branch_hint if branch_hint != "" else "ROUTE AHEAD", current_scene, cargo, destination]
+	ui_route.text = "%s：%s\n↗ %s\n%s  →  %s" % ["运输中" if task_active else "可接任务", task_title, branch_hint if branch_hint != "" else "ROUTE AHEAD", cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
-	ui_stats.text = "DEST  %s   %.1f km\nTIME  %s   %s   FUEL %d%%\nSLOPE %+d%%   DAMAGE %d%%   € %d" % [destination, max(route_goal - distance, 0.0), _format_clock(), weather_name, int(fuel), int(slope_percent), int(damage), money]
+	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\nTIME  %s   %s   FUEL %d%%\nDAMAGE %d%%   奖励 €%d   余额 €%d" % [distance, task_distance_goal, int(task_time_remaining), _format_clock(), weather_name, int(fuel), int(damage), task_reward, money]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
+	if task_button:
+		task_button.text = "运输中" if task_active else "接任务"
+		task_button.modulate = MINT if task_active else Color("#ffd166")
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	ui_toast.modulate = Color("#ffd166") if toast.find("完成") >= 0 or toast.find("DELIVERY") >= 0 else CREAM
 	if minimap:

@@ -1420,15 +1420,18 @@ func _process(delta: float) -> void:
 	var throttle := max(keyboard_throttle, touch_throttle)
 	var braking := max(keyboard_brake, touch_brake)
 	var steer_input := touch_steer if abs(touch_steer) > 0.01 else keyboard_steer
-	steer = lerp(steer, steer_input, delta * 7.0)
 	var max_speed := 21.0 + float(engine_level) * 2.5
+	var speed_ratio := clamp(speed / max(max_speed, 1.0), 0.0, 1.0)
+	var steering_response := lerp(5.0, 9.0, speed_ratio)
+	steer = lerp(steer, steer_input, clamp(delta * steering_response, 0.0, 1.0))
 	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
 	var slope_drag := slope_percent * 0.055
 	var target_speed := throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	var steering_grip := 1.0 + float(tire_level) * 0.08
 	var road_center := _road_center_at(truck.position.z)
-	truck.position.x = clamp(truck.position.x + steer * delta * 6.4 * steering_grip + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
+	var lateral_rate := lerp(5.8, 3.2, speed_ratio) * steering_grip
+	truck.position.x = clamp(truck.position.x + steer * delta * lateral_rate + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
 	var road_pitch := atan2(_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z), 8.0)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
@@ -1566,6 +1569,12 @@ func _update_day_night() -> void:
 		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
 	for headlight in headlight_nodes:
 		headlight.light_energy = clamp((1.0 - daylight) * 2.8, 0.0, 2.8)
+	for lamp in authored_headlamps:
+		var head_material := lamp.material_override as StandardMaterial3D
+		if head_material:
+			head_material.emission_enabled = true
+			head_material.emission = Color("#ffd166")
+			head_material.emission_energy_multiplier = lerp(0.35, 2.4, 1.0 - daylight)
 	for traffic_lamp in traffic_lights:
 		var traffic_material := traffic_lamp.material_override as StandardMaterial3D
 		traffic_material.emission_energy_multiplier = lerp(0.8, 2.2, 1.0 - daylight)

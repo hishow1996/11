@@ -87,6 +87,14 @@ var master_volume := 0.8
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
+var interior_steering_wheel: MeshInstance3D
+var interior_speed_display: Label3D
+var interior_fuel_display: Label3D
+var interior_nav_display: Label3D
+var interior_mirrors: Array[MeshInstance3D] = []
+var interior_wipers: Array[MeshInstance3D] = []
+var interior_lamps: Array[MeshInstance3D] = []
+var wiper_phase := 0.0
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -706,12 +714,72 @@ func _build_truck() -> void:
 		headlight.light_energy = 0.0
 		headlight.omni_range = 18.0
 		headlight.shadow_enabled = false
-		truck.add_child(headlight)
-		headlight_nodes.append(headlight)
-		var brake_lamp := _box(truck, Vector3(0.32, 0.26, 0.16), Vector3(lamp_x, 1.65, 4.58), CORAL, "BrakeLamp")
-		brake_lamps.append(brake_lamp)
-		var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
-		signal_lamps.append(signal_lamp)
+			truck.add_child(headlight)
+			headlight_nodes.append(headlight)
+			var brake_lamp := _box(truck, Vector3(0.32, 0.26, 0.16), Vector3(lamp_x, 1.65, 4.58), CORAL, "BrakeLamp")
+			brake_lamps.append(brake_lamp)
+			var signal_lamp := _box(truck, Vector3(0.22, 0.22, 0.16), Vector3(lamp_x, 1.95, 4.58), Color("#ff9a42"), "SignalLamp")
+			signal_lamps.append(signal_lamp)
+	_build_cockpit_interior()
+
+func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
+	var label := Label3D.new()
+	label.text = text_value
+	label.position = pos
+	label.modulate = color
+	label.font_size = size
+	label.outline_size = 8
+	label.outline_modulate = INK
+	label.pixel_size = 0.0028
+	label.no_depth_test = true
+	parent.add_child(label)
+	return label
+
+func _build_cockpit_interior() -> void:
+	var cabin := Node3D.new()
+	cabin.name = "DetailedCockpitInterior"
+	truck.add_child(cabin)
+	# Driver and passenger seats with headrests and colored piping.
+	for side in [-1.0, 1.0]:
+		_box(cabin, Vector3(1.25, 0.38, 1.1), Vector3(side * 0.9, 0.78, -2.0), Color("#39445e"), "SeatBase")
+		_box(cabin, Vector3(1.15, 1.3, 0.42), Vector3(side * 0.9, 1.38, -2.22), Color("#53617d"), "SeatBack")
+		_box(cabin, Vector3(0.82, 0.12, 0.08), Vector3(side * 0.9, 1.98, -2.42), CORAL, "SeatHeadrestTrim")
+		_box(cabin, Vector3(0.12, 0.75, 0.12), Vector3(side * 1.55, 1.0, -1.92), INK, "SeatBelt")
+	# Dashboard shell, instrument hood and central navigation console.
+	_box(cabin, Vector3(3.65, 0.32, 0.95), Vector3(0, 1.65, -3.95), Color("#303950"), "Dashboard")
+	_box(cabin, Vector3(3.15, 0.16, 0.32), Vector3(0, 1.88, -4.18), INK, "InstrumentHood")
+	_box(cabin, Vector3(1.35, 0.58, 0.12), Vector3(0.75, 1.9, -4.22), Color("#1d263b"), "NavigationConsole")
+	interior_nav_display = _label3d(cabin, "ROUTE AHEAD\nLUCERNE", Vector3(0.75, 1.94, -4.3), MINT, 24)
+	interior_nav_display.rotation_degrees = Vector3(0, 180, 0)
+	# Analog-style speed and fuel displays are readable in cockpit view.
+	interior_speed_display = _label3d(cabin, "00 km/h", Vector3(-0.78, 1.93, -4.28), CREAM, 30)
+	interior_speed_display.rotation_degrees = Vector3(0, 180, 0)
+	interior_fuel_display = _label3d(cabin, "FUEL 78%", Vector3(-0.78, 1.67, -4.28), Color("#9fe3ff"), 20)
+	interior_fuel_display.rotation_degrees = Vector3(0, 180, 0)
+	# Steering wheel, center badge and two control stalks.
+	interior_steering_wheel = _cylinder(cabin, 0.62, 0.12, Vector3(-1.0, 1.35, -3.6), INK, "InteriorSteeringWheel")
+	interior_steering_wheel.rotation_degrees.x = 90.0
+	_cylinder(cabin, 0.24, 0.14, Vector3(-1.0, 1.35, -3.68), Color("#66728b"), "SteeringHub").rotation_degrees.x = 90.0
+	_box(cabin, Vector3(0.08, 0.52, 0.08), Vector3(-1.42, 1.48, -3.62), CORAL, "TurnSignalStalk")
+	_box(cabin, Vector3(0.08, 0.52, 0.08), Vector3(-0.58, 1.48, -3.62), Color("#74d0ad"), "WiperStalk")
+	# Functional mirror surfaces; their yaw is adjusted with steering in _process.
+	for side in [-1.0, 1.0]:
+		var mirror := _box(cabin, Vector3(0.72, 0.42, 0.08), Vector3(side * 2.0, 2.25, -3.55), Color("#74a9c4"), "InteriorMirror")
+		mirror.rotation_degrees.y = side * 12.0
+		interior_mirrors.append(mirror)
+		_box(cabin, Vector3(0.10, 0.62, 0.10), Vector3(side * 1.72, 1.95, -3.48), INK, "MirrorMount")
+	# Twin windshield wiper arms visibly sweep in rain and snow.
+	for side in [-1.0, 1.0]:
+		var wiper := _box(cabin, Vector3(0.10, 0.92, 0.08), Vector3(side * 0.86, 1.98, -4.48), INK, "WindshieldWiper")
+		wiper.rotation_degrees.z = side * 18.0
+		interior_wipers.append(wiper)
+	# Warm cabin lamps are dimmed at daytime and brightened at night.
+	for side in [-1.0, 1.0]:
+		var lamp := _box(cabin, Vector3(0.22, 0.06, 0.16), Vector3(side * 0.8, 2.35, -1.7), Color("#ffd166"), "CabinLamp")
+		var lamp_material := lamp.material_override as StandardMaterial3D
+		lamp_material.emission_enabled = true
+		lamp_material.emission = Color("#ffd166")
+		interior_lamps.append(lamp)
 
 func _build_exhaust_particles() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
@@ -1143,6 +1211,7 @@ func _process(delta: float) -> void:
 	_update_day_night()
 	_update_weather_visuals()
 	_update_weather_audio(delta)
+	_update_cockpit_instruments(delta)
 	_update_ui()
 
 func _update_day_night() -> void:
@@ -1347,6 +1416,32 @@ func _update_camera(delta: float) -> void:
 	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
 	camera_look_target = camera_look_target.lerp(look_target, delta * 5.5)
 	camera.look_at(camera_look_target, Vector3.UP)
+
+func _update_cockpit_instruments(delta: float) -> void:
+	if not interior_steering_wheel:
+		return
+	interior_steering_wheel.rotation_degrees.x = 90.0
+	interior_steering_wheel.rotation_degrees.y = steer * 28.0
+	if interior_speed_display:
+		interior_speed_display.text = "%02d km/h" % int(speed * 4.4)
+	if interior_fuel_display:
+		interior_fuel_display.text = "FUEL %02d%%" % int(fuel)
+	if interior_nav_display:
+		interior_nav_display.text = "ROUTE AHEAD\n%s\n%.1f km" % [destination, max(route_goal - distance, 0.0)]
+	for mirror in interior_mirrors:
+		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
+	var wiper_active := current_weather == "rain" or current_weather == "snow"
+	if wiper_active:
+		wiper_phase = fmod(wiper_phase + delta * (3.0 + speed * 0.08), TAU)
+		for i in interior_wipers.size():
+			interior_wipers[i].rotation_degrees.z = (18.0 if i == 1 else -18.0) + sin(wiper_phase) * (24.0 if i == 1 else -24.0)
+	else:
+		for i in interior_wipers.size():
+			interior_wipers[i].rotation_degrees.z = 18.0 if i == 1 else -18.0
+	var cabin_brightness := clamp(1.2 - sin((game_hour - 6.0) / 12.0 * PI) * 1.2, 0.12, 1.0)
+	for lamp in interior_lamps:
+		var lamp_material := lamp.material_override as StandardMaterial3D
+		lamp_material.emission_energy_multiplier = cabin_brightness * 1.6
 
 func _complete_delivery() -> void:
 	money += 640

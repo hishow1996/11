@@ -57,6 +57,8 @@ The minimap now renders the same network language: one highlighted main route, t
 
 Secondary roads also receive biome-specific route signs and arrows, so the city ring, farm side road, forest service road, mountain view road and plains frontage road are visually distinguishable in the world.
 
+The player truck now has a generated cockpit interior under `DetailedCockpitInterior`, including seats, belts, dashboard, steering wheel, navigation display, speed/fuel displays, mirrors, wipers, stalks and cabin lamps. Runtime updates are tied to driving speed, fuel, destination, steering, weather and time of day.
+
 ## Generated files
 
 - `art/visual_target_city.png`

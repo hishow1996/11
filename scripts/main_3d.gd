@@ -142,6 +142,8 @@ var manual_turn_right := false
 var hazard_lights := false
 var horn_active := false
 var high_beam := false
+var reverse_mode := false
+var brake_input_was_active := false
 var interior_steering_wheel: MeshInstance3D
 var interior_speed_display: Label3D
 var interior_fuel_display: Label3D
@@ -1724,7 +1726,12 @@ func _process(delta: float) -> void:
 	steer = lerp(steer, steer_input, clamp(delta * steering_response, 0.0, 1.0))
 	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
 	var slope_drag: Variant = slope_percent * 0.055
-	var reverse_active: Variant = throttle < 0.05 and braking > 0.15 and speed < 0.8
+	var brake_pressed: Variant = braking > 0.15 and not brake_input_was_active
+	if brake_pressed and throttle < 0.05 and abs(speed) < 0.8:
+		reverse_mode = true
+	if braking < 0.05 or throttle > 0.05:
+		reverse_mode = false
+	var reverse_active: Variant = reverse_mode and braking > 0.15
 	var target_speed: Variant = -braking * 5.5 if reverse_active else throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	if reverse_active:
@@ -1824,6 +1831,7 @@ func _process(delta: float) -> void:
 	camera_toggle_cooldown = max(0.0, camera_toggle_cooldown - delta)
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
+		brake_input_was_active = braking > 0.15
 	traffic_ai_frame = (traffic_ai_frame + 1) % 60
 	var traffic_ai_stride: Variant = 1 if quality_mode >= 2 else (2 if quality_mode == 1 else 3)
 	for i in traffic.size():

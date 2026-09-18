@@ -78,3 +78,11 @@ The generated completion set and its production notes are cataloged in [`GENERAT
 - `art/generated_road_material_atlas.png`
 - `art/generated_vehicle_detail_atlas.png`
 - `art/generated_assets.sha256`
+
+The final gap-audit report is [`ART_AUDIT_AND_RECOVERY.md`](ART_AUDIT_AND_RECOVERY.md). The audit-added completion atlases are:
+
+- `art/generated_weather_vfx_atlas.png`
+- `art/generated_hud_icon_atlas.png`
+- `art/generated_service_facility_atlas.png`
+- `art/generated_vegetation_lod_atlas.png`
+- `art/generated_truck_livery_texture_atlas.png`

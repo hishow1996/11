@@ -59,3 +59,9 @@
 ## 仍保留官方入口的资源
 
 Quaternius 自然包、Quaternius 风格化自然包、Quaternius 模块化街道、Poly Haven Nature、ambientCG 和 Poly Haven Snow 01 的官方页面及授权信息已经收录，但由于下载接口需要页面交互或按单个材质选择，未伪造直链文件。入口见上方“推荐下载入口”表格。
+
+## Final audit additions
+
+The optional `ground-grass-road-floor.zip` exceeded GitHub's 100 MB single-file limit and is preserved as split parts under `optional/ground-grass-road-floor_parts/`; reconstruction steps and the original archive checksum are documented in `ART_AUDIT_AND_RECOVERY.md`.
+
+Generated completion atlases are stored under `art/` for weather VFX, HUD icons, service facilities, vegetation LOD, and truck livery texture direction.

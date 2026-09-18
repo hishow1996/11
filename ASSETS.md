@@ -59,6 +59,8 @@ Secondary roads also receive biome-specific route signs and arrows, so the city 
 
 The player truck now has a generated cockpit interior under `DetailedCockpitInterior`, including seats, belts, dashboard, steering wheel, navigation display, speed/fuel displays, mirrors, wipers, stalks and cabin lamps. Runtime updates are tied to driving speed, fuel, destination, steering, weather and time of day.
 
+The two cockpit mirrors use low-resolution live `SubViewport` cameras and textured unshaded mirror surfaces. They follow the truck and render the rear road/traffic direction without adding full-resolution shadow-casting cameras.
+
 ## Generated files
 
 - `art/visual_target_city.png`

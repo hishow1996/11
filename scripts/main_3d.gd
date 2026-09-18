@@ -92,6 +92,8 @@ var interior_speed_display: Label3D
 var interior_fuel_display: Label3D
 var interior_nav_display: Label3D
 var interior_mirrors: Array[MeshInstance3D] = []
+var mirror_viewports: Array[SubViewport] = []
+var mirror_cameras: Array[Camera3D] = []
 var interior_wipers: Array[MeshInstance3D] = []
 var interior_lamps: Array[MeshInstance3D] = []
 var wiper_phase := 0.0
@@ -765,8 +767,34 @@ func _build_cockpit_interior() -> void:
 	# Functional mirror surfaces; their yaw is adjusted with steering in _process.
 	for side in [-1.0, 1.0]:
 		var mirror := _box(cabin, Vector3(0.72, 0.42, 0.08), Vector3(side * 2.0, 2.25, -3.55), Color("#74a9c4"), "InteriorMirror")
+		var mirror_mesh := PlaneMesh.new()
+		mirror_mesh.size = Vector2(0.72, 0.42)
+		mirror.mesh = mirror_mesh
+		mirror.rotation_degrees.x = 90.0
 		mirror.rotation_degrees.y = side * 12.0
+		var mirror_viewport := SubViewport.new()
+		mirror_viewport.name = "MirrorViewport_%s" % ("L" if side < 0.0 else "R")
+		mirror_viewport.size = Vector2i(256, 128)
+		mirror_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		mirror_viewport.handle_input_locally = false
+		mirror_viewport.world_3d = get_viewport().world_3d
+		cabin.add_child(mirror_viewport)
+		var mirror_camera := Camera3D.new()
+		mirror_camera.name = "MirrorCamera"
+		mirror_camera.fov = 62.0
+		mirror_camera.near = 0.2
+		mirror_camera.far = 90.0
+		mirror_viewport.add_child(mirror_camera)
+		mirror_camera.current = true
+		var mirror_material := StandardMaterial3D.new()
+		mirror_material.albedo_texture = mirror_viewport.get_texture()
+		mirror_material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+		mirror_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mirror_material.roughness = 0.18
+		mirror.material_override = mirror_material
 		interior_mirrors.append(mirror)
+		mirror_viewports.append(mirror_viewport)
+		mirror_cameras.append(mirror_camera)
 		_box(cabin, Vector3(0.10, 0.62, 0.10), Vector3(side * 1.72, 1.95, -3.48), INK, "MirrorMount")
 	# Twin windshield wiper arms visibly sweep in rain and snow.
 	for side in [-1.0, 1.0]:
@@ -1430,6 +1458,11 @@ func _update_cockpit_instruments(delta: float) -> void:
 		interior_nav_display.text = "ROUTE AHEAD\n%s\n%.1f km" % [destination, max(route_goal - distance, 0.0)]
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
+	for i in mirror_cameras.size():
+		var mirror_camera := mirror_cameras[i]
+		var side := -1.0 if i == 0 else 1.0
+		mirror_camera.global_position = truck.global_position + Vector3(side * 1.7, 2.25, -2.8)
+		mirror_camera.look_at(truck.global_position + Vector3(side * 3.0, 1.4, 18.0), Vector3.UP)
 	var wiper_active := current_weather == "rain" or current_weather == "snow"
 	if wiper_active:
 		wiper_phase = fmod(wiper_phase + delta * (3.0 + speed * 0.08), TAU)

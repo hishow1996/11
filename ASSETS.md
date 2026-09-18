@@ -35,6 +35,10 @@ Vehicle and weather sound remains realistic-style: diesel engine loop, air brake
 
 A screenshot should read immediately as an anime 3D long-haul truck game, with the truck as the focal point, a clearly modeled road, a coherent biome, visible route depth, and lighting that supports gameplay readability on a mobile display.
 
+## Production checklist
+
+The complete production-facing inventory is maintained in [`ART_ASSET_MASTER_LIST.md`](ART_ASSET_MASTER_LIST.md). It covers models, textures, materials, animations, VFX, UI, LOD, collision, naming, priority and Android budgets.
+
 ## Generated files
 
 - `art/visual_target_city.png`

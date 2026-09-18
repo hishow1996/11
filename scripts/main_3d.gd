@@ -14,6 +14,8 @@ var steer := 0.0
 var distance := 0.0
 var fuel := 78.0
 var money := 1250
+var best_distance := 0.0
+var achievements: Dictionary = {}
 var damage := 0.0
 var route_goal := 12.0
 var cargo_index := 0
@@ -56,6 +58,9 @@ var moon: DirectionalLight3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
 var lightning_light: OmniLight3D
+var collision_sparks: GPUParticles3D
+var collision_smoke: GPUParticles3D
+var collision_debris: GPUParticles3D
 var sky_material: ProceduralSkyMaterial
 var road_surface: MeshInstance3D
 var city_lights: Array[OmniLight3D] = []
@@ -69,6 +74,7 @@ var authored_signal_lamps: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
+var collision_effect_cooldown := 0.0
 var exhaust_particles: GPUParticles3D
 var brake_lamps: Array[MeshInstance3D] = []
 var signal_lamps: Array[MeshInstance3D] = []
@@ -153,6 +159,7 @@ func _ready() -> void:
 	_load_save()
 	_build_environment()
 	_build_weather_effects()
+	_build_collision_effects()
 	_build_world()
 	_build_truck()
 	_build_traffic()
@@ -173,7 +180,9 @@ func _load_save() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	var data = JSON.parse_string(file.get_as_text())
 	if data is Dictionary:
-		money = int(data.get("money", money))
+			money = int(data.get("money", money))
+			best_distance = float(data.get("best_distance", best_distance))
+			achievements = data.get("achievements", {})
 		fuel = float(data.get("fuel", fuel))
 		damage = float(data.get("damage", damage))
 		distance = float(data.get("distance", distance))
@@ -191,7 +200,9 @@ func _load_save() -> void:
 
 func _save_game() -> void:
 	var data := {
-		"money": money,
+			"money": money,
+			"best_distance": best_distance,
+			"achievements": achievements,
 		"fuel": fuel,
 		"damage": damage,
 		"distance": distance,
@@ -360,6 +371,43 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 	particles.draw_pass_1 = quad
 	particles.position = Vector3(0, 10, 0)
 	particles.visibility_aabb = AABB(Vector3(-18, -2, -24), Vector3(36, 22, 48))
+	add_child(particles)
+	return particles
+
+func _build_collision_effects() -> void:
+	collision_sparks = _collision_particles("CollisionSparks", Color("#ffd166"), 28, 0.7, 8.0, 0.05)
+	collision_smoke = _collision_particles("CollisionSmoke", Color(0.45, 0.48, 0.56, 0.42), 18, 1.6, 1.5, 0.22)
+	collision_debris = _collision_particles("CollisionDebris", Color("#66728b"), 18, 1.1, 4.0, 0.12)
+
+func _collision_particles(name: String, color: Color, amount: int, lifetime: float, velocity: float, size: float) -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = name
+	particles.amount = amount
+	particles.lifetime = lifetime
+	particles.emitting = false
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3(0, 0.7, 1)
+	process_material.spread = 55.0
+	process_material.initial_velocity_min = velocity * 0.45
+	process_material.initial_velocity_max = velocity
+	process_material.gravity = Vector3(0, -5.0 if name != "CollisionSmoke" else 0.8, 0)
+	process_material.scale_min = 0.5
+	process_material.scale_max = 1.2
+	process_material.color = color
+	particles.process_material = process_material
+	var mesh: PrimitiveMesh = SphereMesh.new() if name == "CollisionSmoke" else BoxMesh.new()
+	if mesh is SphereMesh:
+		(mesh as SphereMesh).radius = size
+		(mesh as SphereMesh).height = size * 2.0
+	else:
+		(mesh as BoxMesh).size = Vector3.ONE * size
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if color.a < 0.9 else BaseMaterial3D.TRANSPARENCY_DISABLED
+	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	mesh.material = material
+	particles.draw_pass_1 = mesh
+	particles.visibility_aabb = AABB(Vector3(-6, -3, -6), Vector3(12, 10, 12))
 	add_child(particles)
 	return particles
 
@@ -1341,6 +1389,9 @@ func _process(delta: float) -> void:
 	if save_timer >= 10.0:
 		save_timer = 0.0
 		_save_game()
+	best_distance = max(best_distance, distance)
+	if distance >= 50.0:
+		_unlock_achievement("LONG_HAUL", "完成 50 公里长途驾驶")
 	game_hour = fmod(game_hour + 24.0 * delta / day_length_seconds, 24.0)
 	var keyboard_throttle := Input.get_action_strength("accelerate")
 	var keyboard_brake := Input.get_action_strength("brake")
@@ -1360,24 +1411,24 @@ func _process(delta: float) -> void:
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
 	var road_pitch := atan2(_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z), 8.0)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
-		for lamp in brake_lamps:
+	for lamp in brake_lamps:
 		var brake_material := lamp.material_override as StandardMaterial3D
 		brake_material.emission_enabled = true
 		brake_material.emission = CORAL
-			brake_material.emission_energy_multiplier = brake_glow * 2.8
-		for lamp in authored_brake_lamps:
-			var authored_brake_material := lamp.material_override as StandardMaterial3D
-			if authored_brake_material:
-				authored_brake_material.emission_enabled = true
-				authored_brake_material.emission = CORAL
-				authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
-		var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
-		for lamp in signal_lamps:
-			lamp.visible = signal_on
-		for lamp in authored_signal_lamps:
-			lamp.visible = signal_on
-		for lamp in authored_headlamps:
-			lamp.visible = true
+		brake_material.emission_energy_multiplier = brake_glow * 2.8
+	for lamp in authored_brake_lamps:
+		var authored_brake_material := lamp.material_override as StandardMaterial3D
+		if authored_brake_material:
+			authored_brake_material.emission_enabled = true
+			authored_brake_material.emission = CORAL
+			authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
+	var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+	for lamp in signal_lamps:
+		lamp.visible = signal_on
+	for lamp in authored_signal_lamps:
+		lamp.visible = signal_on
+	for lamp in authored_headlamps:
+		lamp.visible = true
 	if exhaust_particles:
 		exhaust_particles.amount_ratio = clamp(0.18 + throttle * 0.72, 0.18, 1.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)
@@ -1386,12 +1437,12 @@ func _process(delta: float) -> void:
 		var engine_load := clamp(throttle + max(0.0, slope_percent) * 0.035, 0.0, 1.0)
 		engine_player.pitch_scale = 0.82 + speed / max(max_speed, 1.0) * 0.32 + engine_load * 0.16
 		engine_player.volume_db = -12.0 + engine_load * 4.0
-		for wheel in wheel_nodes:
-			wheel.rotation.x -= speed * delta * 1.8
-		for wheel in authored_wheel_nodes:
-			wheel.rotation.x -= speed * delta * 1.8
-		for wheel in authored_front_wheels:
-			wheel.rotation.y = steer * 0.22
+	for wheel in wheel_nodes:
+		wheel.rotation.x -= speed * delta * 1.8
+	for wheel in authored_wheel_nodes:
+		wheel.rotation.x -= speed * delta * 1.8
+	for wheel in authored_front_wheels:
+		wheel.rotation.y = steer * 0.22
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_streaming()
@@ -1401,19 +1452,21 @@ func _process(delta: float) -> void:
 	fuel = max(0.0, fuel - speed * delta * 0.0014)
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
-	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
-		brake_player.play()
+	collision_effect_cooldown = max(0.0, collision_effect_cooldown - delta)
+		if braking > 0.2 and speed > 2.0 and not brake_player.playing:
+			brake_player.play()
 		for i in traffic.size():
 			var car := traffic[i]
 			var traffic_factor := traffic_speeds[i]
-				if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
-					traffic_factor = 0.08
-				var traffic_braking := traffic_factor < 0.45
-				var traffic_tail_material := traffic_tail_lamps[i].material_override as StandardMaterial3D
-				traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
-				car.position.z += speed * delta * 0.7 * traffic_factor
+			if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
+				traffic_factor = 0.08
+			var traffic_braking := traffic_factor < 0.45
+			var traffic_tail_material := traffic_tail_lamps[i].material_override as StandardMaterial3D
+			traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
+			car.position.z += speed * delta * 0.7 * traffic_factor
 			var car_center := _road_center_at(car.position.z)
-			var car_target_x := car_center + traffic_lanes[i]
+			var target_lane := _traffic_target_lane(i, car)
+			var car_target_x := car_center + target_lane
 			car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
 			car.position.y = 0.55 + _road_height_at(car.position.z)
 			car.rotation.y = atan2(_road_center_at(car.position.z - 8.0) - car_center, 8.0)
@@ -1428,6 +1481,12 @@ func _process(delta: float) -> void:
 				toast = "轻微碰撞！请注意车距"
 				toast_time = 2.2
 				_haptic(130, 0.75)
+				if collision_effect_cooldown <= 0.0:
+					collision_effect_cooldown = 0.35
+					var impact_position := truck.global_position + Vector3(0, 0.9, -2.8)
+					for effect in [collision_sparks, collision_smoke, collision_debris]:
+						effect.global_position = impact_position
+						effect.restart()
 	if distance >= route_goal:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
@@ -1646,6 +1705,36 @@ func _update_camera(delta: float) -> void:
 	camera_look_target = camera_look_target.lerp(look_target, delta * 5.5)
 	camera.look_at(camera_look_target, Vector3.UP)
 
+func _traffic_target_lane(index: int, car: Node3D) -> float:
+	var preferred := traffic_lanes[index]
+	var blocked := false
+	for other_index in traffic.size():
+		if other_index == index:
+			continue
+		var other := traffic[other_index]
+		var same_lane := abs((other.position.x - car.position.x)) < 1.35
+		var ahead := other.position.z < car.position.z and car.position.z - other.position.z < 16.0
+		if same_lane and ahead:
+			blocked = true
+			break
+	if abs(car.position.z - truck.position.z) < 18.0 and abs(car.position.x - truck.position.x) < 1.7:
+		blocked = true
+	if not blocked:
+		return preferred
+	var alternatives := [-3.2, 0.0, 3.2]
+	for candidate in alternatives:
+		if abs(candidate - preferred) < 0.1:
+			continue
+		var clear := true
+		for other in traffic:
+			var other_lane := traffic_lanes[traffic.find(other)]
+			if abs(other_lane - candidate) < 0.1 and abs(other.position.z - car.position.z) < 18.0:
+				clear = false
+				break
+		if clear:
+			return candidate
+	return preferred
+
 func _update_cockpit_instruments(delta: float) -> void:
 	if not interior_steering_wheel:
 		return
@@ -1714,7 +1803,15 @@ func _complete_delivery() -> void:
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
 	_apply_livery(cargo_index)
+	_unlock_achievement("FIRST_DELIVERY", "完成第一单货物运输")
 	_save_game()
+
+func _unlock_achievement(key: String, description: String) -> void:
+	if achievements.has(key):
+		return
+	achievements[key] = {"description": description, "time": Time.get_datetime_string_from_system()}
+	toast = "成就解锁：" + description
+	toast_time = 3.2
 
 func _toggle_pause() -> void:
 	paused = not paused
@@ -1811,7 +1908,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_branch(root, -80.0, 1.0, 0.62, "MountainViewRoad")
 	if chunk_index % 4 == 0:
 		_add_chunk_rest_area(root, rng)
-		stream_chunks[chunk_index] = root
+	stream_chunks[chunk_index] = root
 
 func _add_chunk_free_assets(root: Node3D, biome: int, rng: RandomNumberGenerator, chunk_index: int) -> void:
 	# Use collected GLB assets as authored accents while procedural geometry remains the fallback.

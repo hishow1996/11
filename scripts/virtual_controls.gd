@@ -201,16 +201,16 @@ func _brake_rect() -> Rect2:
 	return Rect2(size.x - 176 * layout_scale + control_offset.x, size.y - 260 * layout_scale + control_offset.y, 78 * layout_scale, 188 * layout_scale)
 
 func _left_signal_rect() -> Rect2:
-	return Rect2(size.x - 370 * layout_scale + control_offset.x, size.y - 118 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
+	return Rect2(wheel_center + Vector2(-112.0 * layout_scale, -wheel_radius - 68.0 * layout_scale), Vector2(70.0 * layout_scale, 58.0 * layout_scale))
 
 func _right_signal_rect() -> Rect2:
-	return Rect2(size.x - 292 * layout_scale + control_offset.x, size.y - 118 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
+	return Rect2(wheel_center + Vector2(42.0 * layout_scale, -wheel_radius - 68.0 * layout_scale), Vector2(70.0 * layout_scale, 58.0 * layout_scale))
 
 func _hazard_rect() -> Rect2:
-	return Rect2(size.x - 370 * layout_scale + control_offset.x, size.y - 186 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
+	return Rect2(size.x - 86.0 * layout_scale + control_offset.x, size.y * 0.5 - 29.0 * layout_scale + control_offset.y, 70.0 * layout_scale, 58.0 * layout_scale)
 
 func _horn_rect() -> Rect2:
-	return Rect2(size.x - 292 * layout_scale + control_offset.x, size.y - 186 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
+	return Rect2(wheel_center - Vector2(35.0 * layout_scale, 29.0 * layout_scale), Vector2(70.0 * layout_scale, 58.0 * layout_scale))
 
 func _draw() -> void:
 	if wheel_center == Vector2.ZERO:

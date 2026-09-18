@@ -119,6 +119,16 @@ const CORAL := Color("#ef6f61")
 const MINT := Color("#74d0ad")
 const SKY := Color("#86d6e8")
 const SAVE_PATH := "user://anime_haul_save.json"
+const ROAD_CLEAR_TEXTURE = preload("res://art/runtime/road_surface.svg")
+const ROAD_WET_TEXTURE = preload("res://art/runtime/road_wet.svg")
+const ROAD_SNOW_TEXTURE = preload("res://art/runtime/road_snow.svg")
+const RAIN_STREAK_TEXTURE = preload("res://art/runtime/rain_streak.svg")
+const SNOW_FLAKE_TEXTURE = preload("res://art/runtime/snow_flake.svg")
+const ORANGE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_orange.svg")
+const BLUE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_blue.svg")
+const UI_FUEL_TEXTURE = preload("res://art/runtime/ui_fuel.svg")
+const UI_WEATHER_TEXTURE = preload("res://art/runtime/ui_weather.svg")
+const UI_ROUTE_TEXTURE = preload("res://art/runtime/ui_route.svg")
 
 func _ready() -> void:
 	_load_save()
@@ -326,6 +336,7 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.texture = RAIN_STREAK_TEXTURE if name == "RainParticles" else SNOW_FLAKE_TEXTURE
 	quad.material = material
 	particles.draw_pass_1 = quad
 	particles.position = Vector3(0, 10, 0)
@@ -874,9 +885,11 @@ func _apply_livery(index: int) -> void:
 		[Color("#a88bd8"), Color("#6f5ca8"), Color("#9fe3ff")]
 	]
 	var palette: Array = liveries[abs(index) % liveries.size()]
+	var livery_texture: Texture2D = ORANGE_LIVERY_TEXTURE if abs(index) % 2 == 0 else BLUE_LIVERY_TEXTURE
 	for part_index in truck_livery_parts.size():
 		var part_material := truck_livery_parts[part_index].material_override as StandardMaterial3D
 		part_material.albedo_color = palette[part_index % palette.size()]
+		part_material.albedo_texture = livery_texture if part_index < 2 else null
 		part_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	var cargo_names := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"]
 	for label in cargo_decal_labels:
@@ -972,6 +985,9 @@ func _build_ui() -> void:
 	_hud_card(layer, Vector2(970, 22), Vector2(112, 92), Color("#211c37", 0.94))
 	_hud_card(layer, Vector2(1090, 22), Vector2(166, 92), Color("#211c37", 0.94))
 	_hud_card(layer, Vector2(970, 124), Vector2(286, 70), Color("#211c37", 0.90))
+	_hud_icon(layer, UI_ROUTE_TEXTURE, Vector2(332, 42), Vector2(28, 28))
+	_hud_icon(layer, UI_FUEL_TEXTURE, Vector2(978, 70), Vector2(24, 24))
+	_hud_icon(layer, UI_WEATHER_TEXTURE, Vector2(1100, 70), Vector2(24, 24))
 	ui_route = _label(layer, Vector2(350, 40), 18, CREAM)
 	ui_route.size = Vector2(252, 82)
 	ui_route.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1071,6 +1087,16 @@ func _hud_card(layer: CanvasLayer, pos: Vector2, card_size: Vector2, color: Colo
 	card.add_theme_stylebox_override("panel", style)
 	layer.add_child(card)
 	return card
+
+func _hud_icon(layer: CanvasLayer, texture: Texture2D, pos: Vector2, icon_size: Vector2) -> void:
+	var icon := TextureRect.new()
+	icon.texture = texture
+	icon.position = pos
+	icon.size = icon_size
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(icon)
 
 func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel = Panel.new()
@@ -1398,14 +1424,17 @@ func _update_weather_visuals() -> void:
 	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
 	var road_material := road_surface.material_override as StandardMaterial3D
 	if current_weather == "rain":
+		road_material.albedo_texture = ROAD_WET_TEXTURE
 		road_material.albedo_color = road_material.albedo_color.lerp(Color("#29364d"), 0.12)
 		road_material.roughness = lerp(road_material.roughness, 0.18, 0.08)
 		road_material.metallic = lerp(road_material.metallic, 0.22, 0.08)
 	elif current_weather == "snow":
+		road_material.albedo_texture = ROAD_SNOW_TEXTURE
 		road_material.albedo_color = road_material.albedo_color.lerp(Color("#8d9caf"), 0.10)
 		road_material.roughness = lerp(road_material.roughness, 0.68, 0.08)
 		road_material.metallic = lerp(road_material.metallic, 0.04, 0.08)
 	else:
+		road_material.albedo_texture = ROAD_CLEAR_TEXTURE
 		road_material.albedo_color = road_material.albedo_color.lerp(ASPHALT, 0.08)
 		road_material.roughness = lerp(road_material.roughness, 0.82, 0.08)
 		road_material.metallic = lerp(road_material.metallic, 0.0, 0.08)

@@ -23,3 +23,7 @@ steer_right={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":68
 
 [audio]
 default_bus_layout="res://default_bus_layout.tres"
+
+[debug]
+gdscript/warnings/inferred_declaration=0
+gdscript/warnings/untyped_declaration=0

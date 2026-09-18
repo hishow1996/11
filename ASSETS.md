@@ -43,6 +43,8 @@ The current runtime HUD follows the city reference composition: route map at upp
 
 The long-distance map production strategy is maintained in [`WORLD_ART_PRODUCTION_PLAN.md`](WORLD_ART_PRODUCTION_PLAN.md). It explains how a finite modular asset library, seeded 1 km streaming chunks, five biome families, sub-biomes and landmark cooldowns can create a varied 20,000 km route without authoring 20,000 km of unique meshes.
 
+The acquisition and licensing strategy is maintained in [`ART_ASSET_ACQUISITION_PLAN.md`](ART_ASSET_ACQUISITION_PLAN.md). It maps each asset category to purchase, outsourcing, procedural generation or generated-reference workflows, and includes commercial-license checks and a staged replacement order.
+
 ## Generated files
 
 - `art/visual_target_city.png`

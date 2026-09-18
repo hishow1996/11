@@ -136,6 +136,9 @@ const LANDMARK_MOUNTAIN_TEXTURE = preload("res://art/runtime/landmark_mountain.s
 const LANDMARK_PLAINS_TEXTURE = preload("res://art/runtime/landmark_plains.svg")
 const FACILITY_FUEL_TEXTURE = preload("res://art/runtime/facility_fuel.svg")
 const FACILITY_REPAIR_TEXTURE = preload("res://art/runtime/facility_repair.svg")
+const TRAFFIC_CAR_TEXTURE = preload("res://art/runtime/traffic_car.svg")
+const TRAFFIC_VAN_TEXTURE = preload("res://art/runtime/traffic_van.svg")
+const TRAFFIC_BUS_TEXTURE = preload("res://art/runtime/traffic_bus.svg")
 
 func _ready() -> void:
 	_load_save()
@@ -950,7 +953,14 @@ func _build_traffic() -> void:
 		elif traffic_types[i] == "wagon":
 			body_size = Vector3(2.55, 1.35, 4.8)
 		var traffic_colors := [MINT, Color("#f4b86b"), Color("#bb86fc"), Color("#ef6f61"), Color("#9fe3ff"), Color("#ffd166")]
-		_box(car, body_size, Vector3.ZERO, traffic_colors[i], "Body")
+		var traffic_body := _box(car, body_size, Vector3.ZERO, traffic_colors[i], "Body")
+		var traffic_material := traffic_body.material_override as StandardMaterial3D
+		if traffic_types[i] == "van" or traffic_types[i] == "service":
+			traffic_material.albedo_texture = TRAFFIC_VAN_TEXTURE
+		elif traffic_types[i] == "bus" or traffic_types[i] == "coach":
+			traffic_material.albedo_texture = TRAFFIC_BUS_TEXTURE
+		else:
+			traffic_material.albedo_texture = TRAFFIC_CAR_TEXTURE
 		_box(car, Vector3(body_size.x * 0.72, body_size.y * 0.52, 1.2), Vector3(0, body_size.y * 0.48, -body_size.z * 0.16), Color("#9fe3ff"), "Glass")
 		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(-body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")
 		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")

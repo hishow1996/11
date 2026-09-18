@@ -1576,6 +1576,14 @@ func _process(delta: float) -> void:
 			authored_brake_material.emission_enabled = true
 			authored_brake_material.emission = CORAL
 			authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
+	var damage_warning: Variant = clamp((damage - 45.0) / 55.0, 0.0, 1.0)
+	var warning_pulse: Variant = 0.65 + sin(Time.get_ticks_msec() * 0.012) * 0.35
+	for reflector in safety_reflectors:
+		var reflector_material: Variant = reflector.material_override as StandardMaterial3D
+		if reflector_material:
+			reflector_material.emission_enabled = damage_warning > 0.01
+			reflector_material.emission = CORAL
+			reflector_material.emission_energy_multiplier = damage_warning * warning_pulse * 2.4
 	var signal_on: Variant = abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 	if signal_on and not last_indicator_on:
 		_play_sfx("turn_signal", -13.0)
@@ -2067,7 +2075,10 @@ func _update_cockpit_instruments(delta: float) -> void:
 		badge_material.emission_energy_multiplier = cabin_brightness * 1.4
 	for reflector in safety_reflectors:
 		var reflector_material: Variant = reflector.material_override as StandardMaterial3D
-		reflector_material.emission_energy_multiplier = cabin_brightness * 1.8
+		var reflector_damage: Variant = clamp((damage - 45.0) / 55.0, 0.0, 1.0)
+		reflector_material.emission_enabled = reflector_damage > 0.01
+		reflector_material.emission = CORAL
+		reflector_material.emission_energy_multiplier = cabin_brightness * (1.8 + reflector_damage * 2.4)
 
 func _complete_delivery() -> void:
 	money += 640

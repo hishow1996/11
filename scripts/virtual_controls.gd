@@ -21,6 +21,9 @@ func _ready() -> void:
 	set_process_input(true)
 	queue_redraw()
 
+func set_sensitivity(value: float) -> void:
+	sensitivity = clampf(value, 0.55, 1.6)
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		wheel_center = Vector2(150, size.y - 150)
@@ -99,7 +102,7 @@ func _handle_mouse_drag(position: Vector2) -> void:
 
 func _update_wheel(position: Vector2) -> void:
 	var offset := position - wheel_center
-	var normalized := clamp(offset.x / (wheel_radius * 0.78), -1.0, 1.0)
+	var normalized: float = clampf(offset.x / (wheel_radius * 0.78), -1.0, 1.0)
 	# Deadzone removes tiny finger tremors; cubic response gives precision near center.
 	if abs(normalized) < 0.08:
 		normalized = 0.0

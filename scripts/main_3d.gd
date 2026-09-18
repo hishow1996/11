@@ -111,7 +111,7 @@ var tank_level := 0
 var armor_level := 0
 var garage_panel: Panel
 var garage_label: Label
-var settings_panel: Panel
+var settings_panel: Variant
 var quality_mode := 1
 var traffic_ai_frame := 0
 var steering_sensitivity := 1.0
@@ -948,7 +948,10 @@ func _attach_authored_truck_lods() -> void:
 	var lods: Variant = [PLAYER_TRUCK_LOD0, PLAYER_TRUCK_LOD1, PLAYER_TRUCK_LOD2]
 	var ranges: Variant = [[0.0, 18.0], [18.0, 55.0], [55.0, 130.0]]
 	for i in lods.size():
-		var authored: Variant = (lods[i] as PackedScene).instantiate() as Node3D
+		var lod_scene: Variant = lods[i] as PackedScene
+		if lod_scene == null:
+			continue
+		var authored: Variant = lod_scene.instantiate() as Node3D
 		if authored == null:
 			continue
 		authored.name = "AuthoredTruckLOD%d" % i
@@ -1394,8 +1397,8 @@ func _apply_quality(mode: int) -> void:
 
 func _apply_sensitivity(value: float) -> void:
 	steering_sensitivity = value
-	if virtual_controls:
-		virtual_controls.sensitivity = value
+	if virtual_controls and virtual_controls.has_method("set_sensitivity"):
+		virtual_controls.set_sensitivity(value)
 	_save_game()
 
 func _apply_volume(value: float) -> void:

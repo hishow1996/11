@@ -78,5 +78,5 @@ func _change_volume(amount: float) -> void:
 	_update_status()
 
 func _update_status() -> void:
-	var quality_name := ["低", "中", "高"][quality_mode]
+	var quality_name: String = ["低", "中", "高"][quality_mode]
 	status_label.text = "画质：%s\n方向盘灵敏度：%.1f   音量：%d%%" % [quality_name, sensitivity, int(volume * 100.0)]

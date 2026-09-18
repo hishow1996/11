@@ -21,6 +21,7 @@ var leaderboard: Array = []
 var damage := 0.0
 var route_goal := 12.0
 var cargo_index := 0
+var livery_index := 0
 var destination := "LUCERNE"
 var time_left := 184.0
 var paused := false
@@ -233,6 +234,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	damage = clamp(float(data.get("damage", damage)), 0.0, 100.0)
 	distance = max(0.0, float(data.get("distance", distance)))
 	cargo_index = clamp(int(data.get("cargo_index", cargo_index)), 0, 2)
+	livery_index = clamp(int(data.get("livery_index", livery_index)), 0, 1)
 	game_hour = fmod(max(0.0, float(data.get("game_hour", game_hour))), 24.0)
 	engine_level = clamp(int(data.get("engine_level", engine_level)), 0, 5)
 	tire_level = clamp(int(data.get("tire_level", tire_level)), 0, 5)
@@ -259,6 +261,7 @@ func _save_game() -> void:
 		"damage": damage,
 		"distance": distance,
 		"cargo_index": cargo_index,
+		"livery_index": livery_index,
 		"game_hour": game_hour,
 		"engine_level": engine_level,
 		"tire_level": tire_level,
@@ -1005,7 +1008,7 @@ func _attach_authored_truck_lods() -> void:
 				authored_brake_lamps.append(instance)
 			if instance.name == "Signal_Lamp" and instance is MeshInstance3D:
 				authored_signal_lamps.append(instance)
-	_apply_livery(cargo_index)
+	_apply_livery(livery_index)
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
 	var label: Variant = Label3D.new()
@@ -1121,7 +1124,7 @@ func _build_cockpit_interior() -> void:
 	_box(driver, Vector3(0.18, 0.05, 0.04), Vector3(0, 1.82, -0.32), CORAL, "DriverMouth")
 	_box(driver, Vector3(0.18, 0.66, 0.18), Vector3(-0.62, 1.28, -0.65), INK, "DriverArm")
 	_box(driver, Vector3(0.18, 0.66, 0.18), Vector3(0.18, 1.28, -0.65), INK, "DriverArm")
-	_apply_livery(cargo_index)
+	_apply_livery(livery_index)
 
 func _apply_livery(index: int) -> void:
 	var liveries: Variant = [
@@ -1461,7 +1464,7 @@ func _apply_control_layout(scale_value: float, opacity_value: float) -> void:
 func _build_garage_panel(layer: CanvasLayer) -> void:
 	garage_panel = Panel.new()
 	garage_panel.position = Vector2(850, 112)
-	garage_panel.size = Vector2(390, 300)
+	garage_panel.size = Vector2(390, 420)
 	garage_panel.visible = false
 	garage_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	var garage_style: Variant = StyleBoxFlat.new()
@@ -1480,7 +1483,7 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 	garage_label.add_theme_constant_override("shadow_offset_x", 2)
 	garage_label.add_theme_constant_override("shadow_offset_y", 2)
 	garage_panel.add_child(garage_label)
-	var upgrades: Variant = ["发动机", "轮胎", "油箱", "装甲"]
+	var upgrades: Variant = ["发动机", "轮胎", "油箱", "装甲", "橙色涂装", "蓝色涂装"]
 	for i in upgrades.size():
 		var button: Variant = Button.new()
 		button.text = upgrades[i] + "升级  €" + str(500 + i * 150)
@@ -1488,7 +1491,7 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 		button.size = Vector2(350, 40)
 		button.add_theme_font_size_override("font_size", 16)
 		_style_ui_button(button)
-		var upgrade_id: Variant = ["engine", "tire", "tank", "armor"][i]
+		var upgrade_id: Variant = ["engine", "tire", "tank", "armor", "livery_orange", "livery_blue"][i]
 		button.pressed.connect(func(): _buy_upgrade(upgrade_id))
 		garage_panel.add_child(button)
 	_update_garage_label()
@@ -1503,7 +1506,7 @@ func _update_garage_label() -> void:
 		garage_label.text = "车库升级   € %d\n发动机 %d   轮胎 %d   油箱 %d   装甲 %d" % [money, engine_level, tire_level, tank_level, armor_level]
 
 func _buy_upgrade(upgrade_id: String) -> void:
-	var price: Variant = {"engine": 500, "tire": 650, "tank": 800, "armor": 950}.get(upgrade_id, 9999)
+	var price: Variant = {"engine": 500, "tire": 650, "tank": 800, "armor": 950, "livery_orange": 300, "livery_blue": 300}.get(upgrade_id, 9999)
 	if money < price:
 		toast = "运费不足"
 		_play_sfx("warning_alert", -10.0)
@@ -1514,6 +1517,9 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"tire": tire_level += 1
 			"tank": tank_level += 1
 			"armor": armor_level += 1
+			"livery_orange": livery_index = 0
+			"livery_blue": livery_index = 1
+		_apply_livery(livery_index)
 		toast = "升级完成：" + upgrade_id
 		toast_time = 2.0
 		_play_sfx("upgrade_purchase", -7.0)
@@ -1659,6 +1665,12 @@ func _process(delta: float) -> void:
 	best_distance = max(best_distance, distance)
 	if distance >= 50.0:
 		_unlock_achievement("LONG_HAUL", "完成 50 公里长途驾驶")
+	if distance >= 100.0:
+		_unlock_achievement("ULTRA_HAUL", "完成 100 公里超长运输")
+	if game_hour < 6.0 or game_hour >= 19.0:
+		_unlock_achievement("NIGHT_DRIVER", "完成夜间驾驶")
+	if current_weather == "rain" and weather_intensity > 0.5:
+		_unlock_achievement("RAIN_RUNNER", "在暴雨中坚持驾驶")
 	game_hour = fmod(game_hour + 24.0 * delta / day_length_seconds, 24.0)
 	var keyboard_throttle: Variant = Input.get_action_strength("accelerate")
 	var keyboard_brake: Variant = Input.get_action_strength("brake")
@@ -1780,7 +1792,15 @@ func _process(delta: float) -> void:
 			continue
 		var traffic_factor: Variant = traffic_speeds[i]
 		if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
-			traffic_factor = 0.08
+			traffic_factor = 0.0
+		for other_index in traffic.size():
+			if other_index == i:
+				continue
+			var ahead_car: Variant = traffic[other_index]
+			var same_lane_ahead: Variant = abs(ahead_car.position.x - car.position.x) < 1.25 and ahead_car.position.z < car.position.z and car.position.z - ahead_car.position.z < 8.0
+			if same_lane_ahead:
+				traffic_factor = min(traffic_factor, 0.12)
+				break
 		var traffic_braking: Variant = traffic_factor < 0.45
 		var traffic_tail_material: Variant = traffic_tail_lamps[i].material_override as StandardMaterial3D
 		traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
@@ -2236,12 +2256,12 @@ func _complete_delivery() -> void:
 		delivery_tween.tween_property(delivery_flash, "light_energy", 0.0, 0.45)
 	_haptic(220, 0.9)
 	delivery_count += 1
-	_record_leaderboard_entry()
+
 	distance = 0.0
 	cargo_index = (cargo_index + 1) % 3
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
-	_apply_livery(cargo_index)
+	_apply_livery(livery_index)
 	_unlock_achievement("FIRST_DELIVERY", "完成第一单货物运输")
 	_save_game()
 
@@ -2251,12 +2271,6 @@ func _unlock_achievement(key: String, description: String) -> void:
 	achievements[key] = {"description": description, "time": Time.get_datetime_string_from_system()}
 	toast = "成就解锁：" + description
 	toast_time = 3.2
-
-func _record_leaderboard_entry() -> void:
-	leaderboard.append({"score": money, "deliveries": delivery_count, "distance": best_distance})
-	leaderboard.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("score", 0)) > int(b.get("score", 0)))
-	if leaderboard.size() > 10:
-		leaderboard.resize(10)
 
 func _toggle_pause() -> void:
 	paused = not paused

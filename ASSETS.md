@@ -53,6 +53,8 @@ Runtime integration is implemented through `scripts/free_asset_catalog.gd`: sele
 
 Each streamed kilometer now also receives a biome-specific secondary road and seeded connector ramps. The network includes city ring roads, farm side roads, forest service roads, mountain view roads and plains frontage roads rather than presenting only one continuous road ribbon.
 
+The minimap now renders the same network language: one highlighted main route, two muted parallel roads and yellow junction markers when a branch is available.
+
 ## Generated files
 
 - `art/visual_target_city.png`

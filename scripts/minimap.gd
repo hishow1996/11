@@ -41,9 +41,22 @@ func _draw() -> void:
 		Vector2(28, size.y - 22), Vector2(42, size.y - 48), Vector2(26, size.y - 74),
 		Vector2(54, size.y - 101), Vector2(40, size.y - 130), Vector2(size.x - 22, 24)
 	])
+	# Secondary roads keep the map readable as a network instead of a single route.
+	var side_road_left := PackedVector2Array([
+		Vector2(16, size.y - 18), Vector2(78, size.y - 54), Vector2(68, size.y - 96),
+		Vector2(104, size.y - 132), Vector2(size.x - 54, 26)
+	])
+	var side_road_right := PackedVector2Array([
+		Vector2(42, size.y - 12), Vector2(96, size.y - 42), Vector2(124, size.y - 82),
+		Vector2(152, size.y - 112), Vector2(size.x - 10, 48)
+	])
+	draw_polyline(side_road_left, Color("#75809a", 0.72), 2.0, true)
+	draw_polyline(side_road_right, Color("#75809a", 0.72), 2.0, true)
 	draw_polyline(points, Color("#6ba8ff"), 6.0, true)
 	if branch_hint != "":
 		draw_polyline(PackedVector2Array([Vector2(112, size.y - 76), Vector2(178, size.y - 92), Vector2(232, size.y - 58)]), Color("#ffd166"), 3.0, true)
+		for junction in [Vector2(78, size.y - 54), Vector2(178, size.y - 92)]:
+			draw_circle(junction, 4.0, Color("#ffd166"))
 	for i in points.size():
 		if i % 2 == 0:
 			draw_circle(points[i], 4.0, scene_color)

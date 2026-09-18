@@ -60,6 +60,8 @@ var sky_material: ProceduralSkyMaterial
 var road_surface: MeshInstance3D
 var city_lights: Array[OmniLight3D] = []
 var wheel_nodes: Array[MeshInstance3D] = []
+var authored_wheel_nodes: Array[Node3D] = []
+var authored_front_wheels: Array[Node3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
@@ -818,6 +820,10 @@ func _attach_authored_truck_lods() -> void:
 			instance.visibility_range_begin = ranges[i][0]
 			instance.visibility_range_end = ranges[i][1]
 			instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+			if instance.name.begins_with("Wheel_"):
+				authored_wheel_nodes.append(instance)
+				if instance.name in ["Wheel_1", "Wheel_2"]:
+					authored_front_wheels.append(instance)
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
 	var label := Label3D.new()
@@ -1348,8 +1354,12 @@ func _process(delta: float) -> void:
 		var engine_load := clamp(throttle + max(0.0, slope_percent) * 0.035, 0.0, 1.0)
 		engine_player.pitch_scale = 0.82 + speed / max(max_speed, 1.0) * 0.32 + engine_load * 0.16
 		engine_player.volume_db = -12.0 + engine_load * 4.0
-	for wheel in wheel_nodes:
-		wheel.rotation.x -= speed * delta * 1.8
+		for wheel in wheel_nodes:
+			wheel.rotation.x -= speed * delta * 1.8
+		for wheel in authored_wheel_nodes:
+			wheel.rotation.x -= speed * delta * 1.8
+		for wheel in authored_front_wheels:
+			wheel.rotation.y = steer * 0.22
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_streaming()

@@ -32,6 +32,7 @@ var task_time_remaining := 184.0
 var task_reward := 640
 var task_active := false
 var task_button: Button
+var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
 var camera_toggle_cooldown := 0.0
@@ -140,6 +141,7 @@ var manual_turn_left := false
 var manual_turn_right := false
 var hazard_lights := false
 var horn_active := false
+var high_beam := false
 var interior_steering_wheel: MeshInstance3D
 var interior_speed_display: Label3D
 var interior_fuel_display: Label3D
@@ -263,6 +265,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	_setup_task(task_index)
 	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
 	task_active = bool(data.get("task_active", task_active))
+	high_beam = bool(data.get("high_beam", high_beam))
 
 func _save_game() -> void:
 	var data: Variant = {
@@ -279,6 +282,7 @@ func _save_game() -> void:
 		"task_index": task_index,
 		"task_time_remaining": task_time_remaining,
 		"task_active": task_active,
+		"high_beam": high_beam,
 		"game_hour": game_hour,
 		"engine_level": engine_level,
 		"tire_level": tire_level,
@@ -1299,6 +1303,13 @@ func _build_ui() -> void:
 	_style_ui_button(task_button)
 	task_button.pressed.connect(_accept_task)
 	layer.add_child(task_button)
+	headlight_mode_button = Button.new()
+	headlight_mode_button.position = Vector2(810, 24)
+	headlight_mode_button.size = Vector2(108, 48)
+	headlight_mode_button.add_theme_font_size_override("font_size", 15)
+	_style_ui_button(headlight_mode_button)
+	headlight_mode_button.pressed.connect(_toggle_high_beam)
+	layer.add_child(headlight_mode_button)
 	minimap = Control.new()
 	minimap.name = "RouteMinimap"
 	minimap.position = Vector2(24, 22)
@@ -1940,13 +1951,15 @@ func _update_day_night() -> void:
 	for city_light in city_lights:
 		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
 	for headlight in headlight_nodes:
-		headlight.light_energy = clamp((1.0 - daylight) * 2.8, 0.0, 2.8)
+		var beam_factor: float = 1.65 if high_beam else 1.0
+		headlight.light_energy = clamp((1.0 - daylight) * 2.8 * beam_factor, 0.0, 5.0)
+		headlight.omni_range = 30.0 if high_beam else 18.0
 	for lamp in authored_headlamps:
 		var head_material: Variant = lamp.material_override as StandardMaterial3D
 		if head_material:
 			head_material.emission_enabled = true
 			head_material.emission = Color("#ffd166")
-			head_material.emission_energy_multiplier = lerp(0.35, 2.4, 1.0 - daylight)
+			head_material.emission_energy_multiplier = lerp(0.35, 2.4, 1.0 - daylight) * (1.18 if high_beam else 1.0)
 	for traffic_lamp in traffic_lights:
 		var traffic_material: Variant = traffic_lamp.material_override as StandardMaterial3D
 		traffic_material.emission_energy_multiplier = lerp(0.8, 2.2, 1.0 - daylight)
@@ -2244,7 +2257,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 		var indicator_on: Variant = fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 		var direction: Variant = "L" if steer < -0.14 else ("R" if steer > 0.14 else "○")
 		var night_lights: Variant = game_hour < 6.0 or game_hour >= 19.0
-		interior_indicator_display.text = "%s  %s" % [direction if indicator_on else "○", "LIGHTS ON" if night_lights else "LIGHTS"]
+		interior_indicator_display.text = "%s  %s%s" % [direction if indicator_on else "○", "HIGH BEAM" if high_beam else ("LIGHTS ON" if night_lights else "LIGHTS"), "" ]
 	if interior_warning_display:
 		if damage >= 70.0:
 			interior_warning_display.text = "DAMAGE HIGH"
@@ -2386,6 +2399,12 @@ func _toggle_camera_mode() -> void:
 	toast = "驾驶舱视角" if cockpit_mode else "第三人称视角"
 	toast_time = 2.0
 
+func _toggle_high_beam() -> void:
+	high_beam = not high_beam
+	_play_sfx("ui_click", -10.0)
+	toast = "远光灯开启" if high_beam else "近光灯开启"
+	toast_time = 1.8
+
 func _update_ui() -> void:
 	if not ui_speed:
 		return
@@ -2401,6 +2420,9 @@ func _update_ui() -> void:
 	if task_button:
 		task_button.text = "运输中" if task_active else "接任务"
 		task_button.modulate = MINT if task_active else Color("#ffd166")
+	if headlight_mode_button:
+		headlight_mode_button.text = "远光 ON" if high_beam else "近光灯"
+		headlight_mode_button.modulate = Color("#fff0a7") if high_beam else CREAM
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	ui_toast.modulate = Color("#ffd166") if toast.find("完成") >= 0 or toast.find("DELIVERY") >= 0 else CREAM
 	if minimap:

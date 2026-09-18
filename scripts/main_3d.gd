@@ -103,6 +103,7 @@ var wiper_phase := 0.0
 var mirrors_enabled := true
 var interior_warning_display: Label3D
 var truck_detail_nodes: Array[MeshInstance3D] = []
+var truck_livery_parts: Array[MeshInstance3D] = []
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -665,15 +666,19 @@ func _build_truck() -> void:
 	truck.name = "PlayerTruck"
 	truck.position = Vector3(0, 0.65, 95)
 	add_child(truck)
-	_box(truck, Vector3(4.9, 2.25, 7.2), Vector3(0, 1.35, 0.9), CREAM, "Trailer")
-	_box(truck, Vector3(4.98, 0.36, 7.0), Vector3(0, 2.28, 0.9), CORAL, "TrailerStripe")
-	_box(truck, Vector3(4.0, 2.7, 2.7), Vector3(0, 1.55, -3.25), Color("#ff9c65"), "Cab")
+	var trailer_body := _box(truck, Vector3(4.9, 2.25, 7.2), Vector3(0, 1.35, 0.9), CREAM, "Trailer")
+	var trailer_stripe := _box(truck, Vector3(4.98, 0.36, 7.0), Vector3(0, 2.28, 0.9), CORAL, "TrailerStripe")
+	var cab_body := _box(truck, Vector3(4.0, 2.7, 2.7), Vector3(0, 1.55, -3.25), Color("#ff9c65"), "Cab")
+	truck_livery_parts.append(trailer_body)
+	truck_livery_parts.append(trailer_stripe)
+	truck_livery_parts.append(cab_body)
 	_box(truck, Vector3(3.2, 1.0, 0.15), Vector3(0, 2.15, -4.65), Color("#9fe3ff"), "Windshield")
 	_box(truck, Vector3(4.2, 0.18, 0.18), Vector3(0, 0.35, -4.7), INK, "FrontBumper")
 	_box(truck, Vector3(3.5, 0.12, 0.22), Vector3(0, 2.55, -3.45), Color("#ffd166"), "AnimeRoofStripe")
 	_box(truck, Vector3(0.55, 0.5, 0.22), Vector3(-1.5, 2.72, -3.55), CORAL, "RoofLamp")
 	_box(truck, Vector3(0.55, 0.5, 0.22), Vector3(1.5, 2.72, -3.55), CORAL, "RoofLamp")
-	_box(truck, Vector3(1.8, 0.8, 0.16), Vector3(0, 1.45, 4.52), Color("#ffcf5c"), "AnimeCargoBadge")
+	var cargo_badge := _box(truck, Vector3(1.8, 0.8, 0.16), Vector3(0, 1.45, 4.52), Color("#ffcf5c"), "AnimeCargoBadge")
+	truck_livery_parts.append(cargo_badge)
 	_box(truck, Vector3(0.22, 1.4, 0.22), Vector3(-1.25, 3.1, -3.45), INK, "Antenna")
 	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(-2.25, 1.85, -3.72), INK, "MirrorArm")
 	_box(truck, Vector3(0.28, 0.62, 0.42), Vector3(2.25, 1.85, -3.72), INK, "MirrorArm")
@@ -828,10 +833,26 @@ func _build_cockpit_interior() -> void:
 	# Warm cabin lamps are dimmed at daytime and brightened at night.
 	for side in [-1.0, 1.0]:
 		var lamp := _box(cabin, Vector3(0.22, 0.06, 0.16), Vector3(side * 0.8, 2.35, -1.7), Color("#ffd166"), "CabinLamp")
-		var lamp_material := lamp.material_override as StandardMaterial3D
-		lamp_material.emission_enabled = true
-		lamp_material.emission = Color("#ffd166")
-		interior_lamps.append(lamp)
+			var lamp_material := lamp.material_override as StandardMaterial3D
+			lamp_material.emission_enabled = true
+			lamp_material.emission = Color("#ffd166")
+			interior_lamps.append(lamp)
+	_apply_livery(cargo_index)
+
+func _apply_livery(index: int) -> void:
+	var liveries := [
+		[Color("#ff9c65"), CORAL, Color("#ffcf5c")],
+		[Color("#6f9fe8"), Color("#536fc2"), MINT],
+		[Color("#6bbf91"), Color("#397a68"), Color("#ffd166")],
+		[Color("#a88bd8"), Color("#6f5ca8"), Color("#9fe3ff")]
+	]
+	var palette: Array = liveries[abs(index) % liveries.size()]
+	for part_index in truck_livery_parts.size():
+		var part_material := truck_livery_parts[part_index].material_override as StandardMaterial3D
+		part_material.albedo_color = palette[part_index % palette.size()]
+		part_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	if interior_nav_display:
+		interior_nav_display.modulate = palette[2]
 
 func _build_exhaust_particles() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
@@ -1533,6 +1554,7 @@ func _complete_delivery() -> void:
 	cargo_index = (cargo_index + 1) % 3
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
+	_apply_livery(cargo_index)
 	_save_game()
 
 func _toggle_pause() -> void:

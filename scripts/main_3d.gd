@@ -28,8 +28,11 @@ var traffic: Array[Node3D] = []
 var traffic_lanes := [-3.2, 0.0, 3.2, -3.2, 3.2, 0.0]
 var traffic_speeds := [0.82, 1.05, 0.68, 0.92, 0.76, 1.12]
 var traffic_types := ["car", "van", "bus", "wagon", "coach", "service"]
+var traffic_lane_targets: Array[float] = []
+var traffic_lane_cooldowns: Array[float] = []
 var traffic_lights: Array[MeshInstance3D] = []
 var traffic_tail_lamps: Array[MeshInstance3D] = []
+var traffic_turn_lamps: Array[MeshInstance3D] = []
 var traffic_signal_lamps: Array[MeshInstance3D] = []
 var pedestrian_nodes: Array[Node3D] = []
 var toast := "READY TO HAUL"
@@ -1086,10 +1089,19 @@ func _build_traffic() -> void:
 		var head_lamp := _box(car, Vector3(0.30, 0.24, 0.12), Vector3(body_size.x * 0.32, body_size.y * 0.12, -body_size.z * 0.5), Color("#fff0a7"), "TrafficHeadLamp")
 		var head_material := head_lamp.material_override as StandardMaterial3D
 		head_material.emission_enabled = true
-		head_material.emission = Color("#fff0a7")
-		head_material.emission_energy_multiplier = 1.8
-		traffic_lights.append(head_lamp)
-		traffic.append(car)
+			head_material.emission = Color("#fff0a7")
+			head_material.emission_energy_multiplier = 1.8
+			traffic_lights.append(head_lamp)
+			var turn_lamp := _box(car, Vector3(0.18, 0.16, 0.10), Vector3(-body_size.x * 0.36, body_size.y * 0.18, body_size.z * 0.5), Color("#ffb35c"), "TrafficTurnLamp")
+			var turn_material := turn_lamp.material_override as StandardMaterial3D
+			turn_material.emission_enabled = true
+			turn_material.emission = Color("#ffb35c")
+			turn_material.emission_energy_multiplier = 2.0
+			turn_lamp.visible = false
+			traffic_turn_lamps.append(turn_lamp)
+			traffic_lane_targets.append(traffic_lanes[i])
+			traffic_lane_cooldowns.append(0.0)
+			traffic.append(car)
 		FreeAssetCatalog.add_lod_visibility(car, 45.0, 130.0)
 
 func _build_camera() -> void:
@@ -1490,7 +1502,14 @@ func _process(delta: float) -> void:
 		traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
 		car.position.z += speed * delta * 0.7 * traffic_factor
 		var car_center := _road_center_at(car.position.z)
-		var target_lane := _traffic_target_lane(i, car)
+		traffic_lane_cooldowns[i] = max(0.0, traffic_lane_cooldowns[i] - delta)
+		var proposed_lane := _traffic_target_lane(i, car)
+		if abs(proposed_lane - traffic_lane_targets[i]) > 0.1 and traffic_lane_cooldowns[i] <= 0.0:
+			traffic_lane_targets[i] = proposed_lane
+			traffic_lane_cooldowns[i] = 3.0
+		var target_lane := traffic_lane_targets[i]
+		var changing_lane := abs(target_lane - traffic_lanes[i]) > 0.1
+		traffic_turn_lamps[i].visible = changing_lane and fmod(Time.get_ticks_msec() / 1000.0, 0.7) < 0.35
 		var car_target_x := car_center + target_lane
 		car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
 		car.position.y = 0.55 + _road_height_at(car.position.z)
@@ -1499,6 +1518,9 @@ func _process(delta: float) -> void:
 		if car.position.z > truck.position.z + 22.0:
 			car.position.z = truck.position.z - 100.0 - float(i) * 20.0
 			car.position.x = _road_center_at(car.position.z) + traffic_lanes[i]
+			traffic_lane_targets[i] = traffic_lanes[i]
+			traffic_lane_cooldowns[i] = 1.5
+			traffic_turn_lamps[i].visible = false
 		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
 			var impact_speed := clamp(speed * (1.0 + traffic_speeds[i] * 0.25), 0.0, 30.0)
 			var impact_intensity := clamp(impact_speed / 24.0, 0.15, 1.0)

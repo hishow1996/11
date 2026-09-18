@@ -51,6 +51,8 @@ The remaining-gap closure sequence is documented in [`ART_GAP_CLOSURE_PLAN.md`](
 
 Runtime integration is implemented through `scripts/free_asset_catalog.gd`: selected collected GLB assets are instantiated in streamed chunks, given the shared Toon material settings and visibility-range LOD. This is intentionally additive, so the procedural 20,000 km route remains the fallback when an external asset is unavailable.
 
+Each streamed kilometer now also receives a biome-specific secondary road and seeded connector ramps. The network includes city ring roads, farm side roads, forest service roads, mountain view roads and plains frontage roads rather than presenting only one continuous road ribbon.
+
 ## Generated files
 
 - `art/visual_target_city.png`

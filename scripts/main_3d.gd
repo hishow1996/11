@@ -1427,6 +1427,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		if biome == 0 and abs(local_z) % 160 == 0:
 			_add_chunk_city_road_detail(root, local_z, rng, chunk_index % 4)
 			_add_chunk_city_signal(root, local_z)
+	_add_chunk_road_network(root, biome, rng, chunk_index)
 	for prop_index in range(8):
 		var local_z := -500.0 + float(prop_index) * 125.0 + rng.randf_range(-28.0, 28.0)
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
@@ -1482,6 +1483,41 @@ func _add_chunk_free_assets(root: Node3D, biome: int, rng: RandomNumberGenerator
 		primary_scale = 0.8
 	var instance := FreeAssetCatalog.instantiate(root, primary_path, primary_pos, primary_scale, rng.randf_range(-0.18, 0.18))
 	FreeAssetCatalog.add_lod_visibility(instance, 50.0, 135.0)
+
+func _add_chunk_road_network(root: Node3D, biome: int, rng: RandomNumberGenerator, chunk_index: int) -> void:
+	# Every streamed kilometer gets at least one visible secondary road.
+	# The road type changes by biome so the world reads as a network, not a single ribbon.
+	var secondary_offset := 15.0 if biome == 0 or biome == 4 else 12.0
+	var road_width := 6.0 if biome == 0 or biome == 4 else 4.2
+	var road_name := ["CityRingRoad", "FarmSideRoad", "ForestServiceRoad", "MountainViewRoad", "PlainsFrontageRoad"][biome]
+	for segment_index in range(5):
+		var local_z := -400.0 + float(segment_index) * 200.0
+		var world_z := root.position.z + local_z
+		var base_center := _road_center_at(world_z)
+		var bend := sin(world_z * 0.0017 + float(chunk_index) * 0.7) * 1.4
+		var branch := Node3D.new()
+		branch.name = road_name + "_%02d" % segment_index
+		branch.position = Vector3(base_center + secondary_offset * (-1.0 if chunk_index % 2 == 0 else 1.0) + bend, _road_height_at(world_z) + 0.03, local_z)
+		branch.rotation.y = atan2(_road_center_at(world_z + 10.0) - base_center, 10.0)
+		root.add_child(branch)
+		_box(branch, Vector3(road_width, 0.14, 170.0), Vector3.ZERO, Color("#52586c"), road_name + "Surface")
+		_box(branch, Vector3(0.14, 0.22, 170.0), Vector3(-road_width * 0.5, 0.13, 0), INK, road_name + "Edge")
+		_box(branch, Vector3(0.14, 0.22, 170.0), Vector3(road_width * 0.5, 0.13, 0), INK, road_name + "Edge")
+		for marker_z in [-52.0, 0.0, 52.0]:
+			_box(branch, Vector3(0.16, 0.035, 4.2), Vector3(0, 0.11, marker_z), CREAM, road_name + "LaneMark")
+		if biome == 3:
+			for marker_z in [-65.0, 65.0]:
+				_box(branch, Vector3(0.12, 1.6, 0.12), Vector3(-road_width * 0.5 - 0.2, 0.8, marker_z), Color("#ef6f61"), road_name + "SnowPole")
+	# Add explicit connectors so secondary roads read as connected routes.
+	if chunk_index % 2 == 0 or biome == 0:
+		for connector_z in [-300.0, 300.0]:
+			var connector := Node3D.new()
+			connector.name = road_name + "Connector"
+			connector.position = Vector3(_road_center_at(root.position.z + connector_z), _road_height_at(root.position.z + connector_z) + 0.08, connector_z)
+			connector.rotation.z = deg_to_rad(90.0)
+			root.add_child(connector)
+			_box(connector, Vector3(0.9, 0.12, secondary_offset), Vector3(secondary_offset * 0.5, 0, 0), ASPHALT, road_name + "ConnectorSurface")
+			_box(connector, Vector3(0.12, 0.18, secondary_offset), Vector3(secondary_offset * 0.5, 0.12, -road_width * 0.5), CREAM, road_name + "ConnectorMark")
 
 func _road_center_at(world_z: float) -> float:
 	var macro := sin(world_z * 0.0027 + 0.8) * 3.0

@@ -62,6 +62,9 @@ var city_lights: Array[OmniLight3D] = []
 var wheel_nodes: Array[MeshInstance3D] = []
 var authored_wheel_nodes: Array[Node3D] = []
 var authored_front_wheels: Array[Node3D] = []
+var authored_livery_parts: Array[MeshInstance3D] = []
+var authored_headlamps: Array[MeshInstance3D] = []
+var authored_brake_lamps: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
@@ -817,6 +820,10 @@ func _attach_authored_truck_lods() -> void:
 		truck.add_child(authored)
 		for geometry in authored.find_children("*", "GeometryInstance3D", true, false):
 			var instance := geometry as GeometryInstance3D
+			if instance is MeshInstance3D and instance.material_override == null:
+				var source_material := (instance as MeshInstance3D).get_active_material(0)
+				if source_material:
+					instance.material_override = source_material.duplicate()
 			instance.visibility_range_begin = ranges[i][0]
 			instance.visibility_range_end = ranges[i][1]
 			instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -824,6 +831,13 @@ func _attach_authored_truck_lods() -> void:
 				authored_wheel_nodes.append(instance)
 				if instance.name in ["Wheel_1", "Wheel_2"]:
 					authored_front_wheels.append(instance)
+			if instance.name in ["Cab_Body", "Trailer_Body"] and instance is MeshInstance3D:
+				authored_livery_parts.append(instance)
+			if instance.name == "Headlight" and instance is MeshInstance3D:
+				authored_headlamps.append(instance)
+			if instance.name == "Brake_Lamp" and instance is MeshInstance3D:
+				authored_brake_lamps.append(instance)
+	_apply_livery(cargo_index)
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
 	var label := Label3D.new()
@@ -936,11 +950,16 @@ func _apply_livery(index: int) -> void:
 	var cargo_names := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"]
 	for label in cargo_decal_labels:
 		label.text = cargo_names[abs(index) % cargo_names.size()]
-	for badge_light in cargo_badge_lights:
-		var badge_material := badge_light.material_override as StandardMaterial3D
-		badge_material.albedo_color = palette[2]
-		badge_material.emission = palette[2]
-	if interior_nav_display:
+		for badge_light in cargo_badge_lights:
+			var badge_material := badge_light.material_override as StandardMaterial3D
+			badge_material.albedo_color = palette[2]
+			badge_material.emission = palette[2]
+		for part in authored_livery_parts:
+			var authored_material := part.material_override as StandardMaterial3D
+			if authored_material:
+				authored_material.albedo_color = palette[0] if part.name == "Cab_Body" else palette[1]
+				authored_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+		if interior_nav_display:
 		interior_nav_display.modulate = palette[2]
 
 func _build_exhaust_particles() -> GPUParticles3D:
@@ -1338,14 +1357,22 @@ func _process(delta: float) -> void:
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
 	var road_pitch := atan2(_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z), 8.0)
 	var brake_glow := 1.0 if braking > 0.15 else 0.35
-	for lamp in brake_lamps:
+		for lamp in brake_lamps:
 		var brake_material := lamp.material_override as StandardMaterial3D
 		brake_material.emission_enabled = true
 		brake_material.emission = CORAL
-		brake_material.emission_energy_multiplier = brake_glow * 2.8
-	var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
-	for lamp in signal_lamps:
-		lamp.visible = signal_on
+			brake_material.emission_energy_multiplier = brake_glow * 2.8
+		for lamp in authored_brake_lamps:
+			var authored_brake_material := lamp.material_override as StandardMaterial3D
+			if authored_brake_material:
+				authored_brake_material.emission_enabled = true
+				authored_brake_material.emission = CORAL
+				authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
+		var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+		for lamp in signal_lamps:
+			lamp.visible = signal_on
+		for lamp in authored_headlamps:
+			lamp.visible = true
 	if exhaust_particles:
 		exhaust_particles.amount_ratio = clamp(0.18 + throttle * 0.72, 0.18, 1.0)
 	truck.rotation.z = lerp(truck.rotation.z, -steer * 0.075, delta * 8.0)

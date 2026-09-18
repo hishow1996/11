@@ -134,6 +134,8 @@ const LANDMARK_RURAL_TEXTURE = preload("res://art/runtime/landmark_rural.svg")
 const LANDMARK_FOREST_TEXTURE = preload("res://art/runtime/landmark_forest.svg")
 const LANDMARK_MOUNTAIN_TEXTURE = preload("res://art/runtime/landmark_mountain.svg")
 const LANDMARK_PLAINS_TEXTURE = preload("res://art/runtime/landmark_plains.svg")
+const FACILITY_FUEL_TEXTURE = preload("res://art/runtime/facility_fuel.svg")
+const FACILITY_REPAIR_TEXTURE = preload("res://art/runtime/facility_repair.svg")
 
 func _ready() -> void:
 	_load_save()
@@ -2108,6 +2110,8 @@ func _add_chunk_rest_area(root: Node3D, rng: RandomNumberGenerator) -> void:
 	_box(root, Vector3(7.5, 0.25, 4.3), Vector3(rest_x, 2.95, rest_z - 8.0), Color("#ffd166"), "RestAreaRoof")
 	for parking in [-5.0, 0.0, 5.0]:
 		_box(root, Vector3(3.6, 0.04, 7.0), Vector3(rest_x + side * 3.0, 0.08, rest_z + parking), CREAM, "RestParkingBay")
+	_add_landmark_sign(root, FACILITY_FUEL_TEXTURE, Vector3(rest_x - side * 2.8, 3.4, rest_z - 8.0))
+	_add_landmark_sign(root, FACILITY_REPAIR_TEXTURE, Vector3(rest_x + side * 2.8, 3.4, rest_z - 8.0))
 
 func _add_chunk_branch(root: Node3D, local_z: float, side: float, angle: float, branch_name: String) -> void:
 	var world_z := root.position.z + local_z

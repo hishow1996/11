@@ -12,5 +12,8 @@
     "forest": "res://art/runtime/landmark_forest.svg",
     "mountain": "res://art/runtime/landmark_mountain.svg",
     "plains": "res://art/runtime/landmark_plains.svg"
-  }
+  },
+  "facilities": {"fuel": "res://art/runtime/facility_fuel.svg", "repair": "res://art/runtime/facility_repair.svg"},
+  "traffic_variants": ["res://art/runtime/traffic_car.svg", "res://art/runtime/traffic_van.svg", "res://art/runtime/traffic_bus.svg"],
+  "environment_details": ["res://art/runtime/foliage_pine.svg", "res://art/runtime/foliage_bush.svg", "res://art/runtime/mountain_ice.svg", "res://art/runtime/road_tunnel.svg", "res://art/runtime/road_bridge.svg"]
 }

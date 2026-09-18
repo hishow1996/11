@@ -50,6 +50,9 @@ var current_scene := "乡村公路"
 var current_weather := "clear"
 var weather_intensity := 0.0
 var thunder_cooldown := 18.0
+var weather_event_cooldown := 24.0
+var weather_event_remaining := 0.0
+var weather_event_type := ""
 var game_hour := 8.0
 var day_length_seconds := 420.0
 var world_environment: WorldEnvironment
@@ -1507,6 +1510,7 @@ func _process(delta: float) -> void:
 	_update_scene_name()
 	_update_signal_visuals()
 	_update_day_night()
+	_update_weather_event(delta)
 	_update_weather_visuals()
 	_update_weather_audio(delta)
 	_update_cockpit_instruments(delta)
@@ -1578,6 +1582,8 @@ func _update_weather_visuals() -> void:
 		base_fog += weather_intensity * 0.012
 	elif current_weather == "snow":
 		base_fog += weather_intensity * 0.018
+	if weather_event_type == "大雾":
+		base_fog += 0.075
 	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
 	var road_material := road_surface.material_override as StandardMaterial3D
 	if current_weather == "rain":
@@ -1602,23 +1608,53 @@ func _update_weather_visuals() -> void:
 		var flash := create_tween()
 		flash.tween_property(lightning_light, "light_energy", 0.0, 0.16)
 
+func _update_weather_event(delta: float) -> void:
+	weather_event_cooldown = max(0.0, weather_event_cooldown - delta)
+	if weather_event_remaining > 0.0:
+		weather_event_remaining = max(0.0, weather_event_remaining - delta)
+		if weather_event_remaining <= 0.0:
+			weather_event_type = ""
+			weather_event_cooldown = 32.0
+			toast = "突发天气结束，视线恢复"
+			toast_time = 2.4
+		return
+	if weather_event_cooldown > 0.0 or speed < 4.0:
+		return
+	var event_roll := int(abs(truck.position.z)) % 3
+	weather_event_remaining = 14.0 + float(event_roll) * 4.0
+	if event_roll == 0:
+		weather_event_type = "暴雨"
+		current_weather = "rain"
+		weather_intensity = 0.92
+	elif event_roll == 1:
+		weather_event_type = "大雾"
+		current_weather = "rain"
+		weather_intensity = 0.48
+	else:
+		weather_event_type = "降雪"
+		current_weather = "snow"
+		weather_intensity = 0.86
+	toast = "突发天气：" + weather_event_type
+	toast_time = 3.0
+
 func _format_clock() -> String:
 	return "%02d:%02d" % [int(game_hour), int((game_hour - int(game_hour)) * 60.0)]
 
 func _update_weather_audio(delta: float) -> void:
 	# Weather is biome-driven for the prototype; later it can be replaced by a forecast manager.
-	if current_scene == "山区雪岭":
-		current_weather = "snow"
-		weather_intensity = 0.78
-	elif current_scene == "深山老林":
-		current_weather = "rain"
-		weather_intensity = 0.62
-	elif current_scene == "动漫城市" and int(distance) % 3 == 0:
-		current_weather = "rain"
-		weather_intensity = 0.38
-	else:
-		current_weather = "clear"
-		weather_intensity = 0.0
+	if weather_event_remaining <= 0.0:
+		if current_scene == "山区雪岭":
+			current_weather = "snow"
+			weather_intensity = 0.78
+		elif current_scene == "深山老林":
+			current_weather = "rain"
+			weather_intensity = 0.62
+		elif current_scene == "动漫城市" and int(distance) % 3 == 0:
+			current_weather = "rain"
+			weather_intensity = 0.38
+		else:
+			current_weather = "clear"
+			weather_intensity = 0.0
 	var speed_factor := clamp(speed / 21.0, 0.0, 1.0)
 	var master_db := linear_to_db(max(master_volume, 0.001))
 	rain_player.volume_db = master_db + lerp(-42.0, -12.0, weather_intensity)

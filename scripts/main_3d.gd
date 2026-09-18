@@ -25,6 +25,7 @@ var traffic_lanes := [-3.2, 0.0, 3.2]
 var traffic_speeds := [0.82, 1.05, 0.68]
 var traffic_types := ["car", "van", "bus"]
 var traffic_lights: Array[MeshInstance3D] = []
+var traffic_tail_lamps: Array[MeshInstance3D] = []
 var traffic_signal_lamps: Array[MeshInstance3D] = []
 var toast := "READY TO HAUL"
 var toast_time := 3.0
@@ -760,6 +761,7 @@ func _build_traffic() -> void:
 		tail_material.emission = CORAL
 		tail_material.emission_energy_multiplier = 1.6
 		traffic_lights.append(tail_lamp)
+		traffic_tail_lamps.append(tail_lamp)
 		var head_lamp := _box(car, Vector3(0.30, 0.24, 0.12), Vector3(body_size.x * 0.32, body_size.y * 0.12, -body_size.z * 0.5), Color("#fff0a7"), "TrafficHeadLamp")
 		var head_material := head_lamp.material_override as StandardMaterial3D
 		head_material.emission_enabled = true
@@ -1050,9 +1052,12 @@ func _process(delta: float) -> void:
 		for i in traffic.size():
 			var car := traffic[i]
 			var traffic_factor := traffic_speeds[i]
-			if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
-				traffic_factor = 0.08
-			car.position.z += speed * delta * 0.7 * traffic_factor
+				if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
+					traffic_factor = 0.08
+				var traffic_braking := traffic_factor < 0.45
+				var traffic_tail_material := traffic_tail_lamps[i].material_override as StandardMaterial3D
+				traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
+				car.position.z += speed * delta * 0.7 * traffic_factor
 			var car_center := _road_center_at(car.position.z)
 			var car_target_x := car_center + traffic_lanes[i]
 			car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
@@ -1421,10 +1426,16 @@ func _add_chunk_road_segment(root: Node3D, local_z: float, biome: int, rng: Rand
 	elif biome == 3 and rng.randf() > 0.55:
 		road_width = 9.5
 	_box(segment, Vector3(road_width, 0.18, 90.0), Vector3.ZERO, ASPHALT, "ChunkRoadSurface")
-	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, -30.0), CREAM, "ChunkLaneMarker")
-	_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, 28.0), CREAM, "ChunkLaneMarker")
+	for marker_z in [-30.0, 0.0, 28.0]:
+		_box(segment, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.12, marker_z), CREAM, "ChunkLaneMarker")
 	for side in [-1.0, 1.0]:
 		_box(segment, Vector3(0.16, 0.32, 90.0), Vector3(side * road_width * 0.5, 0.15, 0), INK, "ChunkRoadEdge")
+		for marker_z in [-30.0, 0.0, 30.0]:
+			var edge_marker := _box(segment, Vector3(0.12, 0.18, 0.16), Vector3(side * (road_width * 0.5 + 0.12), 0.38, marker_z), Color("#ffd166"), "ChunkEdgeReflector")
+			var edge_material := edge_marker.material_override as StandardMaterial3D
+			edge_material.emission_enabled = true
+			edge_material.emission = Color("#ffb84d")
+			edge_material.emission_energy_multiplier = 1.4
 	_add_chunk_biome_road_detail(segment, biome, road_width, rng, int(root.name.trim_prefix("RouteChunk_")) % 4)
 
 func _add_chunk_biome_road_detail(segment: Node3D, biome: int, road_width: float, rng: RandomNumberGenerator, district: int = 0) -> void:

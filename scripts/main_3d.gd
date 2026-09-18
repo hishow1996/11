@@ -69,6 +69,7 @@ var moon: DirectionalLight3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
 var lightning_light: OmniLight3D
+var delivery_flash: OmniLight3D
 var collision_sparks: GPUParticles3D
 var collision_smoke: GPUParticles3D
 var collision_debris: GPUParticles3D
@@ -362,6 +363,13 @@ func _build_weather_effects() -> void:
 	lightning_light.omni_range = 55.0
 	lightning_light.position = Vector3(0, 12, -20)
 	add_child(lightning_light)
+	delivery_flash = OmniLight3D.new()
+	delivery_flash.name = "DeliveryAnimeFlash"
+	delivery_flash.light_color = Color("#ffd166")
+	delivery_flash.light_energy = 0.0
+	delivery_flash.omni_range = 14.0
+	delivery_flash.position = Vector3(0, 3.0, -4.0)
+	add_child(delivery_flash)
 
 func _weather_particles(name: String, color: Color, amount: int, lifetime: float, velocity: float) -> GPUParticles3D:
 	var particles: Variant = GPUParticles3D.new()
@@ -1002,6 +1010,28 @@ func _build_cockpit_interior() -> void:
 		lamp_material.emission_enabled = true
 		lamp_material.emission = Color("#ffd166")
 		interior_lamps.append(lamp)
+	# Anime driver: readable silhouette, hair, face highlights and uniform trim.
+	var driver: Variant = Node3D.new()
+	driver.name = "AnimeDriver"
+	driver.position = Vector3(-0.92, 0.0, -2.05)
+	cabin.add_child(driver)
+	_box(driver, Vector3(0.88, 1.05, 0.52), Vector3(0, 1.05, 0), Color("#4f78bd"), "DriverBody")
+	_box(driver, Vector3(0.94, 0.16, 0.58), Vector3(0, 1.58, -0.02), CORAL, "DriverScarf")
+	var driver_head: Variant = SphereMesh.new()
+	driver_head.radius = 0.34
+	driver_head.height = 0.68
+	var driver_head_node: Variant = MeshInstance3D.new()
+	driver_head_node.name = "DriverHead"
+	driver_head_node.mesh = driver_head
+	driver_head_node.material_override = _mat(Color("#ffd8b0"))
+	driver_head_node.position = Vector3(0, 1.88, -0.04)
+	driver.add_child(driver_head_node)
+	_cone(driver, 0.42, 0.32, Vector3(0, 2.25, -0.02), Color("#263456"), "DriverHair")
+	_box(driver, Vector3(0.08, 0.08, 0.04), Vector3(-0.13, 1.95, -0.31), INK, "DriverEye")
+	_box(driver, Vector3(0.08, 0.08, 0.04), Vector3(0.13, 1.95, -0.31), INK, "DriverEye")
+	_box(driver, Vector3(0.18, 0.05, 0.04), Vector3(0, 1.82, -0.32), CORAL, "DriverMouth")
+	_box(driver, Vector3(0.18, 0.66, 0.18), Vector3(-0.62, 1.28, -0.65), INK, "DriverArm")
+	_box(driver, Vector3(0.18, 0.66, 0.18), Vector3(0.18, 1.28, -0.65), INK, "DriverArm")
 	_apply_livery(cargo_index)
 
 func _apply_livery(index: int) -> void:
@@ -1597,6 +1627,11 @@ func _process(delta: float) -> void:
 					effect.global_position = impact_position
 					effect.amount_ratio = impact_intensity
 					effect.restart()
+				var impact_label: Variant = _label3d(self, "!!", impact_position + Vector3(0, 1.2, 0), Color("#ffd166"), 48)
+				var impact_tween: Variant = create_tween()
+				impact_tween.tween_property(impact_label, "position", impact_label.position + Vector3(0, 1.4, 0), 0.45)
+				impact_tween.parallel().tween_property(impact_label, "modulate:a", 0.0, 0.45)
+				impact_tween.tween_callback(impact_label.queue_free)
 	if distance >= route_goal:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
@@ -1650,6 +1685,7 @@ func _update_day_night() -> void:
 		environment.ambient_light_energy += night * 0.12
 	elif current_scene == "深山老林":
 		environment.ambient_light_energy -= night * 0.08
+	_apply_region_palette()
 	for city_light in city_lights:
 		city_light.light_energy = clamp((1.0 - daylight) * 1.8, 0.0, 1.8) if current_scene == "动漫城市" else 0.0
 	for headlight in headlight_nodes:
@@ -1663,6 +1699,28 @@ func _update_day_night() -> void:
 	for traffic_lamp in traffic_lights:
 		var traffic_material: Variant = traffic_lamp.material_override as StandardMaterial3D
 		traffic_material.emission_energy_multiplier = lerp(0.8, 2.2, 1.0 - daylight)
+
+func _apply_region_palette() -> void:
+	var palette: Variant = {
+		"city": [Color("#cfe5ff"), Color("#a7c5e8"), Color("#9bb0cf")],
+		"rural": [Color("#fff0c7"), Color("#b9d88c"), Color("#a8c46f")],
+		"forest": [Color("#ccebd8"), Color("#79bfa2"), Color("#477f72")],
+		"mountain": [Color("#e4efff"), Color("#aec7e8"), Color("#8d9caf")],
+		"plains": [Color("#ffe6b0"), Color("#e6c87b"), Color("#c99d58")]
+	}
+	var key: Variant = "rural"
+	if current_scene.find("城市") >= 0:
+		key = "city"
+	elif current_scene.find("森林") >= 0 or current_scene.find("深山") >= 0:
+		key = "forest"
+	elif current_scene.find("雪") >= 0 or current_scene.find("山区") >= 0:
+		key = "mountain"
+	elif current_scene.find("平原") >= 0:
+		key = "plains"
+	var colors: Variant = palette[key]
+	environment.ambient_light_color = environment.ambient_light_color.lerp(colors[0], 0.06)
+	environment.fog_light_color = environment.fog_light_color.lerp(colors[1], 0.05)
+	sky_material.ground_horizon_color = sky_material.ground_horizon_color.lerp(colors[2], 0.05)
 
 func _update_weather_visuals() -> void:
 	var rain_strength: Variant = weather_intensity if current_weather == "rain" else 0.0
@@ -1953,6 +2011,11 @@ func _complete_delivery() -> void:
 	toast = "DELIVERY COMPLETE   +€640"
 	toast_time = 4.0
 	_play_sfx("delivery_complete", -5.0)
+	if delivery_flash:
+		delivery_flash.global_position = truck.global_position + Vector3(0, 3.0, -4.0)
+		delivery_flash.light_energy = 6.0
+		var delivery_tween: Variant = create_tween()
+		delivery_tween.tween_property(delivery_flash, "light_energy", 0.0, 0.45)
 	_haptic(220, 0.9)
 	delivery_count += 1
 	_record_leaderboard_entry()
@@ -2277,6 +2340,17 @@ func _add_chunk_city_road_detail(root: Node3D, local_z: float, rng: RandomNumber
 			lamp_material.emission_enabled = true
 			lamp_material.emission = Color("#ffb35c")
 			lamp_material.emission_energy_multiplier = 2.2
+			for building_index in range(2):
+				var building_z: Variant = -24.0 + float(building_index) * 48.0
+				var facade_color: Variant = [Color("#6d79b8"), Color("#d47783"), Color("#5a9fb0")][(district + building_index) % 3]
+				_box(detail, Vector3(4.2, 5.5 + rng.randf_range(0.0, 3.0), 10.0), Vector3(side * 12.2, 3.0, building_z), facade_color, "AnimeCityFacade")
+				var sign_panel: Variant = _box(detail, Vector3(3.0, 0.62, 0.12), Vector3(side * 9.9, 4.0, building_z - 4.2), Color("#ffd166" if building_index == 0 else "#8fa8ff"), "NeonShopSign")
+				var sign_material: Variant = sign_panel.material_override as StandardMaterial3D
+				sign_material.emission_enabled = true
+				sign_material.emission = sign_material.albedo_color
+				sign_material.emission_energy_multiplier = 2.8
+				for window_index in range(3):
+					_box(detail, Vector3(0.9, 0.72, 0.08), Vector3(side * 9.95, 2.1, building_z - 2.6 + window_index * 2.5), Color("#bfe6ff"), "AnimeWindow")
 	if district == 2:
 		_box(detail, Vector3(1.2, 0.12, 70.0), Vector3(0, 0.22, 0), Color("#66728b"), "IndustrialMedian")
 		if rng.randf() > (0.15 + district * 0.12):

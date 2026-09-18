@@ -43,11 +43,13 @@ var ui_route: Label
 var ui_stats: Label
 var ui_toast: Label
 var engine_player: AudioStreamPlayer
+var bgm_player: AudioStreamPlayer
 var brake_player: AudioStreamPlayer
 var rain_player: AudioStreamPlayer
 var wind_player: AudioStreamPlayer
 var wet_tire_player: AudioStreamPlayer
 var snow_tire_player: AudioStreamPlayer
+var spatial_tire_player: AudioStreamPlayer3D
 var thunder_player: AudioStreamPlayer
 var sfx_players: Dictionary = {}
 var virtual_controls: Control
@@ -1437,7 +1439,7 @@ func _apply_volume(value: float) -> void:
 
 func _apply_music_volume(value: float) -> void:
 	music_volume = clampf(value, 0.0, 1.0)
-	for player in [engine_player, rain_player, wind_player, wet_tire_player, snow_tire_player, thunder_player]:
+	for player in [engine_player, bgm_player, rain_player, wind_player, wet_tire_player, snow_tire_player, thunder_player, spatial_tire_player]:
 		if player:
 			player.volume_db = linear_to_db(max(music_volume * master_volume, 0.001))
 	_save_game()
@@ -1581,6 +1583,7 @@ func _build_audio() -> void:
 	add_child(engine_player)
 	if engine_player.stream:
 		engine_player.play()
+	bgm_player = _loop_audio("res://audio/bgm_route_loop.wav", -19.0)
 	brake_player = AudioStreamPlayer.new()
 	var brake_stream: Variant = load("res://audio/air_brake.wav")
 	if brake_stream is AudioStream:
@@ -1591,6 +1594,7 @@ func _build_audio() -> void:
 	wind_player = _loop_audio("res://audio/wind_ambient.wav", -24.0)
 	wet_tire_player = _loop_audio("res://audio/tire_wet.wav", -32.0)
 	snow_tire_player = _loop_audio("res://audio/tire_snow.wav", -32.0)
+	spatial_tire_player = _spatial_loop_audio("res://audio/tire_wet.wav", -34.0)
 	thunder_player = AudioStreamPlayer.new()
 	var thunder_stream: Variant = load("res://audio/thunder_rumble.wav")
 	if thunder_stream is AudioStream:
@@ -1624,6 +1628,21 @@ func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
 	if stream is AudioStream:
 		player.stream = stream
 	player.volume_db = volume
+	add_child(player)
+	if player.stream:
+		player.play()
+	return player
+
+func _spatial_loop_audio(path: String, volume: float) -> AudioStreamPlayer3D:
+	var player := AudioStreamPlayer3D.new()
+	var stream: Variant = load(path)
+	if stream is AudioStreamWAV:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	if stream is AudioStream:
+		player.stream = stream
+	player.volume_db = volume
+	player.max_distance = 38.0
+	player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
 	add_child(player)
 	if player.stream:
 		player.play()
@@ -1739,6 +1758,8 @@ func _process(delta: float) -> void:
 	distance += speed * delta * 0.016
 	truck.position.z -= speed * delta * 0.7
 	_update_streaming()
+	if spatial_tire_player:
+		spatial_tire_player.global_position = truck.global_position + Vector3(0, 0.25, 0)
 	_update_pedestrians(delta)
 	_update_refueling(delta)
 	_update_repairing(delta)

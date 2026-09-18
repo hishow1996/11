@@ -21,9 +21,9 @@ var destination := "LUCERNE"
 var time_left := 184.0
 var paused := false
 var traffic: Array[Node3D] = []
-var traffic_lanes := [-3.2, 0.0, 3.2]
-var traffic_speeds := [0.82, 1.05, 0.68]
-var traffic_types := ["car", "van", "bus"]
+var traffic_lanes := [-3.2, 0.0, 3.2, -3.2, 3.2, 0.0]
+var traffic_speeds := [0.82, 1.05, 0.68, 0.92, 0.76, 1.12]
+var traffic_types := ["car", "van", "bus", "wagon", "coach", "service"]
 var traffic_lights: Array[MeshInstance3D] = []
 var traffic_tail_lamps: Array[MeshInstance3D] = []
 var traffic_signal_lamps: Array[MeshInstance3D] = []
@@ -87,6 +87,7 @@ var master_volume := 0.8
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
+const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
 const ROAD_LENGTH := 20000000.0 # 20000 km at 1 world unit = 1 meter.
@@ -741,17 +742,20 @@ func _build_exhaust_particles() -> GPUParticles3D:
 	return particles
 
 func _build_traffic() -> void:
-	for i in 3:
+	for i in traffic_types.size():
 		var car := Node3D.new()
 		car.name = "Traffic_%d" % i
 		car.position = Vector3(traffic_lanes[i], 0.55, truck.position.z - 24.0 - float(i) * 28.0)
 		add_child(car)
 		var body_size := Vector3(2.5, 1.15, 4.2)
-		if traffic_types[i] == "van":
+		if traffic_types[i] == "van" or traffic_types[i] == "service":
 			body_size = Vector3(2.65, 1.7, 5.0)
-		elif traffic_types[i] == "bus":
+		elif traffic_types[i] == "bus" or traffic_types[i] == "coach":
 			body_size = Vector3(3.0, 2.5, 7.0)
-		_box(car, body_size, Vector3.ZERO, [MINT, Color("#f4b86b"), Color("#bb86fc")][i], "Body")
+		elif traffic_types[i] == "wagon":
+			body_size = Vector3(2.55, 1.35, 4.8)
+		var traffic_colors := [MINT, Color("#f4b86b"), Color("#bb86fc"), Color("#ef6f61"), Color("#9fe3ff"), Color("#ffd166")]
+		_box(car, body_size, Vector3.ZERO, traffic_colors[i], "Body")
 		_box(car, Vector3(body_size.x * 0.72, body_size.y * 0.52, 1.2), Vector3(0, body_size.y * 0.48, -body_size.z * 0.16), Color("#9fe3ff"), "Glass")
 		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(-body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")
 		_cylinder(car, 0.36, body_size.x * 0.82, Vector3(body_size.x * 0.40, 0, -body_size.z * 0.25), INK, "Wheel")
@@ -769,6 +773,7 @@ func _build_traffic() -> void:
 		head_material.emission_energy_multiplier = 1.8
 		traffic_lights.append(head_lamp)
 		traffic.append(car)
+		FreeAssetCatalog.add_lod_visibility(car, 45.0, 130.0)
 
 func _build_camera() -> void:
 	camera = Camera3D.new()
@@ -916,6 +921,10 @@ func _apply_quality(mode: int) -> void:
 	rain_particles.amount_ratio = ratios[mode]
 	snow_particles.amount_ratio = ratios[mode]
 	camera.far = [95.0, 125.0, 155.0][mode]
+	sun.shadow_enabled = mode >= 1
+	moon.shadow_enabled = false
+	for chunk in stream_chunks.values():
+		FreeAssetCatalog.add_lod_visibility(chunk, [35.0, 50.0, 70.0][mode], [80.0, 115.0, 145.0][mode])
 	_save_game()
 
 func _apply_sensitivity(value: float) -> void:
@@ -1423,6 +1432,7 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		var side := -1.0 if prop_index % 2 == 0 else 1.0
 		var lateral := rng.randf_range(9.0, 18.0) * side
 		_add_chunk_prop(root, biome, Vector3(lateral, 0, local_z), rng, prop_index, chunk_index % 4)
+	_add_chunk_free_assets(root, biome, rng, chunk_index)
 	if biome == 0:
 		_add_chunk_city_gate(root, rng)
 	elif biome == 1:
@@ -1443,7 +1453,35 @@ func _ensure_stream_chunk(chunk_index: int) -> void:
 		_add_chunk_branch(root, -80.0, 1.0, 0.62, "MountainViewRoad")
 	if chunk_index % 4 == 0:
 		_add_chunk_rest_area(root, rng)
-	stream_chunks[chunk_index] = root
+		stream_chunks[chunk_index] = root
+
+func _add_chunk_free_assets(root: Node3D, biome: int, rng: RandomNumberGenerator, chunk_index: int) -> void:
+	# Use collected GLB assets as authored accents while procedural geometry remains the fallback.
+	var primary_path := ""
+	var primary_pos := Vector3.ZERO
+	var primary_scale := 1.0
+	if biome == 0:
+		primary_path = FreeAssetCatalog.traffic_path(chunk_index)
+		primary_pos = Vector3(9.0 + rng.randf_range(0.0, 3.0), 0.0, -260.0 + rng.randf_range(-25.0, 25.0))
+		primary_scale = 0.75
+	elif biome == 1:
+		primary_path = FreeAssetCatalog.nature_path(chunk_index + 2)
+		primary_pos = Vector3(-11.0, 0.0, -210.0 + rng.randf_range(-24.0, 24.0))
+		primary_scale = 1.1
+	elif biome == 2:
+		primary_path = FreeAssetCatalog.nature_path(chunk_index)
+		primary_pos = Vector3(11.0, 0.0, -310.0 + rng.randf_range(-25.0, 25.0))
+		primary_scale = 1.25
+	elif biome == 3:
+		primary_path = FreeAssetCatalog.nature_path(chunk_index + 1)
+		primary_pos = Vector3(-12.0, 0.0, -360.0 + rng.randf_range(-20.0, 20.0))
+		primary_scale = 1.35
+	else:
+		primary_path = FreeAssetCatalog.road_path(chunk_index + 1)
+		primary_pos = Vector3(10.0, 0.0, -240.0 + rng.randf_range(-25.0, 25.0))
+		primary_scale = 0.8
+	var instance := FreeAssetCatalog.instantiate(root, primary_path, primary_pos, primary_scale, rng.randf_range(-0.18, 0.18))
+	FreeAssetCatalog.add_lod_visibility(instance, 50.0, 135.0)
 
 func _road_center_at(world_z: float) -> float:
 	var macro := sin(world_z * 0.0027 + 0.8) * 3.0

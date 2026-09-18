@@ -1,9 +1,16 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "style": "anime-haul-alpine",
   "renderer": "Godot 4 Compatibility",
   "road": {"clear": "res://art/runtime/road_surface.svg", "wet": "res://art/runtime/road_wet.svg", "snow": "res://art/runtime/road_snow.svg"},
   "weather": {"rain": "res://art/runtime/rain_streak.svg", "snow": "res://art/runtime/snow_flake.svg", "splash": "res://art/runtime/water_splash.svg"},
   "livery": ["res://art/runtime/truck_livery_orange.svg", "res://art/runtime/truck_livery_blue.svg"],
-  "hud": {"fuel": "res://art/runtime/ui_fuel.svg", "weather": "res://art/runtime/ui_weather.svg", "route": "res://art/runtime/ui_route.svg"}
+  "hud": {"fuel": "res://art/runtime/ui_fuel.svg", "weather": "res://art/runtime/ui_weather.svg", "route": "res://art/runtime/ui_route.svg"},
+  "biome_landmarks": {
+    "city": "res://art/runtime/landmark_city.svg",
+    "rural": "res://art/runtime/landmark_rural.svg",
+    "forest": "res://art/runtime/landmark_forest.svg",
+    "mountain": "res://art/runtime/landmark_mountain.svg",
+    "plains": "res://art/runtime/landmark_plains.svg"
+  }
 }

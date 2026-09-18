@@ -129,6 +129,11 @@ const BLUE_LIVERY_TEXTURE = preload("res://art/runtime/truck_livery_blue.svg")
 const UI_FUEL_TEXTURE = preload("res://art/runtime/ui_fuel.svg")
 const UI_WEATHER_TEXTURE = preload("res://art/runtime/ui_weather.svg")
 const UI_ROUTE_TEXTURE = preload("res://art/runtime/ui_route.svg")
+const LANDMARK_CITY_TEXTURE = preload("res://art/runtime/landmark_city.svg")
+const LANDMARK_RURAL_TEXTURE = preload("res://art/runtime/landmark_rural.svg")
+const LANDMARK_FOREST_TEXTURE = preload("res://art/runtime/landmark_forest.svg")
+const LANDMARK_MOUNTAIN_TEXTURE = preload("res://art/runtime/landmark_mountain.svg")
+const LANDMARK_PLAINS_TEXTURE = preload("res://art/runtime/landmark_plains.svg")
 
 func _ready() -> void:
 	_load_save()
@@ -2014,25 +2019,44 @@ func _add_chunk_city_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	_box(root, Vector3(18.0, 0.35, 0.55), Vector3(0, 7.2, -52), Color("#66728b"), "ChunkCityArch")
 	_box(root, Vector3(0.45, 7.0, 0.55), Vector3(-8.7, 3.5, -52), CORAL, "ChunkCityPillar")
 	_box(root, Vector3(0.45, 7.0, 0.55), Vector3(8.7, 3.5, -52), CORAL, "ChunkCityPillar")
+	_add_landmark_sign(root, LANDMARK_CITY_TEXTURE, Vector3(0, 4.7, -51.6))
 
 func _add_chunk_village_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	_box(root, Vector3(0.3, 5.0, 0.3), Vector3(-8.7, 2.5, -52), INK, "ChunkFarmPole")
 	_box(root, Vector3(0.3, 5.0, 0.3), Vector3(8.7, 2.5, -52), INK, "ChunkFarmPole")
 	_box(root, Vector3(17.8, 0.28, 0.3), Vector3(0, 5.0, -52), Color("#f4b86b"), "ChunkFarmBeam")
+	_add_landmark_sign(root, LANDMARK_RURAL_TEXTURE, Vector3(0, 3.25, -51.6))
 
 func _add_chunk_forest_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	for side in [-1.0, 1.0]:
 		_add_chunk_tree(root, Vector3(side * 8.5, 0, -52), rng.randf_range(1.4, 1.9), int(rng.randi()))
+	_add_landmark_sign(root, LANDMARK_FOREST_TEXTURE, Vector3(0, 4.0, -51.6))
 
 func _add_chunk_mountain_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	_box(root, Vector3(16.0, 0.5, 0.8), Vector3(0, 5.8, -52), Color("#38405b"), "ChunkPassBeam")
 	_box(root, Vector3(0.7, 5.8, 0.8), Vector3(-7.6, 2.9, -52), Color("#59627b"), "ChunkPassPillar")
 	_box(root, Vector3(0.7, 5.8, 0.8), Vector3(7.6, 2.9, -52), Color("#59627b"), "ChunkPassPillar")
+	_add_landmark_sign(root, LANDMARK_MOUNTAIN_TEXTURE, Vector3(0, 3.65, -51.6))
 
 func _add_chunk_plain_gate(root: Node3D, rng: RandomNumberGenerator) -> void:
 	for side in [-1.0, 1.0]:
 		_box(root, Vector3(0.22, 8.0, 0.22), Vector3(side * 12.0, 4.0, -52), Color("#d5dded"), "ChunkWindPole")
 		_box(root, Vector3(0.14, 3.5, 0.14), Vector3(side * 12.0, 8.0, -52), CREAM, "ChunkWindBlade")
+	_add_landmark_sign(root, LANDMARK_PLAINS_TEXTURE, Vector3(0, 4.7, -51.6))
+
+func _add_landmark_sign(root: Node3D, texture: Texture2D, pos: Vector3) -> void:
+	var sign := MeshInstance3D.new()
+	sign.name = "BiomeLandmarkSign"
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(8.0, 2.25)
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = texture
+	material.shading_mode = BaseMaterial3D.SHADING_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.material = material
+	sign.mesh = mesh
+	sign.position = pos
+	root.add_child(sign)
 
 func _add_chunk_event_landmark(root: Node3D, biome: int, rng: RandomNumberGenerator) -> void:
 	if biome == 0:

@@ -16,5 +16,11 @@
   "facilities": {"fuel": "res://art/runtime/facility_fuel.svg", "repair": "res://art/runtime/facility_repair.svg"},
   "traffic_variants": ["res://art/runtime/traffic_car.svg", "res://art/runtime/traffic_van.svg", "res://art/runtime/traffic_bus.svg"],
   "collision": {"player_truck": "res://art/runtime/player_truck_collision.tres"},
+  "player_truck_glb": {
+    "lod0": "res://assets/vehicles/player_truck/player_truck_lod0.glb",
+    "lod1": "res://assets/vehicles/player_truck/player_truck_lod1.glb",
+    "lod2": "res://assets/vehicles/player_truck/player_truck_lod2.glb",
+    "source_license": "res://assets/vehicles/source/SOURCE_LICENSE.md"
+  },
   "environment_details": ["res://art/runtime/foliage_pine.svg", "res://art/runtime/foliage_bush.svg", "res://art/runtime/mountain_ice.svg", "res://art/runtime/road_tunnel.svg", "res://art/runtime/road_bridge.svg"]
 }

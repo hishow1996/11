@@ -197,39 +197,41 @@ func _notification(what: int) -> void:
 		_save_game()
 
 func _load_save() -> void:
-	var load_path: String = SAVE_PATH
-	if not FileAccess.file_exists(load_path) and FileAccess.file_exists(SAVE_BACKUP_PATH):
-		load_path = SAVE_BACKUP_PATH
-	if not FileAccess.file_exists(load_path):
-		return
-	var file: Variant = FileAccess.open(load_path, FileAccess.READ)
-	if file == null:
-		return
-	var data = JSON.parse_string(file.get_as_text())
-	if data is Dictionary:
-		money = max(0, int(data.get("money", money)))
-		best_distance = max(0.0, float(data.get("best_distance", best_distance)))
-		achievements = data.get("achievements", {})
-		if not achievements is Dictionary:
-			achievements = {}
-		delivery_count = max(0, int(data.get("delivery_count", delivery_count)))
-		leaderboard = data.get("leaderboard", leaderboard)
-		if not leaderboard is Array:
-			leaderboard = []
-		fuel = clamp(float(data.get("fuel", fuel)), 0.0, 200.0)
-		damage = clamp(float(data.get("damage", damage)), 0.0, 100.0)
-		distance = max(0.0, float(data.get("distance", distance)))
-		cargo_index = clamp(int(data.get("cargo_index", cargo_index)), 0, 2)
-		game_hour = fmod(max(0.0, float(data.get("game_hour", game_hour))), 24.0)
-		engine_level = clamp(int(data.get("engine_level", engine_level)), 0, 5)
-		tire_level = clamp(int(data.get("tire_level", tire_level)), 0, 5)
-		tank_level = clamp(int(data.get("tank_level", tank_level)), 0, 5)
-		armor_level = clamp(int(data.get("armor_level", armor_level)), 0, 5)
-		quality_mode = clamp(int(data.get("quality_mode", quality_mode)), 0, 2)
-		steering_sensitivity = clamp(float(data.get("steering_sensitivity", steering_sensitivity)), 0.55, 1.6)
-		master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
-		route_goal = 10.0 + float(cargo_index * 2)
-		destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
+	for load_path in [SAVE_PATH, SAVE_BACKUP_PATH]:
+		if not FileAccess.file_exists(load_path):
+			continue
+		var file: Variant = FileAccess.open(load_path, FileAccess.READ)
+		if file == null:
+			continue
+		var data = JSON.parse_string(file.get_as_text())
+		if data is Dictionary:
+			_apply_save_data(data)
+			return
+
+func _apply_save_data(data: Dictionary) -> void:
+	money = max(0, int(data.get("money", money)))
+	best_distance = max(0.0, float(data.get("best_distance", best_distance)))
+	achievements = data.get("achievements", {})
+	if not achievements is Dictionary:
+		achievements = {}
+	delivery_count = max(0, int(data.get("delivery_count", delivery_count)))
+	leaderboard = data.get("leaderboard", leaderboard)
+	if not leaderboard is Array:
+		leaderboard = []
+	fuel = clamp(float(data.get("fuel", fuel)), 0.0, 200.0)
+	damage = clamp(float(data.get("damage", damage)), 0.0, 100.0)
+	distance = max(0.0, float(data.get("distance", distance)))
+	cargo_index = clamp(int(data.get("cargo_index", cargo_index)), 0, 2)
+	game_hour = fmod(max(0.0, float(data.get("game_hour", game_hour))), 24.0)
+	engine_level = clamp(int(data.get("engine_level", engine_level)), 0, 5)
+	tire_level = clamp(int(data.get("tire_level", tire_level)), 0, 5)
+	tank_level = clamp(int(data.get("tank_level", tank_level)), 0, 5)
+	armor_level = clamp(int(data.get("armor_level", armor_level)), 0, 5)
+	quality_mode = clamp(int(data.get("quality_mode", quality_mode)), 0, 2)
+	steering_sensitivity = clamp(float(data.get("steering_sensitivity", steering_sensitivity)), 0.55, 1.6)
+	master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
+	route_goal = 10.0 + float(cargo_index * 2)
+	destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 
 func _save_game() -> void:
 	var data: Variant = {

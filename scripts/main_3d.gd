@@ -104,6 +104,8 @@ var mirrors_enabled := true
 var interior_warning_display: Label3D
 var truck_detail_nodes: Array[MeshInstance3D] = []
 var truck_livery_parts: Array[MeshInstance3D] = []
+var cargo_decal_labels: Array[Label3D] = []
+var cargo_badge_lights: Array[MeshInstance3D] = []
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -743,6 +745,17 @@ func _build_truck() -> void:
 	for trailer_x in [-1.45, 1.45]:
 		truck_detail_nodes.append(_box(truck, Vector3(0.12, 1.55, 0.12), Vector3(trailer_x, 1.25, 4.63), INK, "TrailerDoorLockBar"))
 		truck_detail_nodes.append(_box(truck, Vector3(0.30, 0.18, 0.16), Vector3(trailer_x, 2.02, 4.62), Color("#ffd166"), "TrailerDoorHandle"))
+	for side in [-1.0, 1.0]:
+		var cargo_label := _label3d(truck, "MOUNTAIN TEA", Vector3(side * 2.57, 1.48, 0.9), CREAM, 26)
+		cargo_label.rotation_degrees = Vector3(0, 90.0 if side < 0.0 else -90.0, 0)
+		cargo_label.modulate = Color("#fff1cf")
+		cargo_decal_labels.append(cargo_label)
+		var badge_light := _box(truck, Vector3(0.06, 0.24, 0.65), Vector3(side * 2.63, 1.52, 0.9), Color("#ffd166"), "CargoBadgeLight")
+		var badge_material := badge_light.material_override as StandardMaterial3D
+		badge_material.emission_enabled = true
+		badge_material.emission = Color("#ffd166")
+		badge_material.emission_energy_multiplier = 0.0
+		cargo_badge_lights.append(badge_light)
 	_build_cockpit_interior()
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
@@ -851,6 +864,13 @@ func _apply_livery(index: int) -> void:
 		var part_material := truck_livery_parts[part_index].material_override as StandardMaterial3D
 		part_material.albedo_color = palette[part_index % palette.size()]
 		part_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	var cargo_names := ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"]
+	for label in cargo_decal_labels:
+		label.text = cargo_names[abs(index) % cargo_names.size()]
+	for badge_light in cargo_badge_lights:
+		var badge_material := badge_light.material_override as StandardMaterial3D
+		badge_material.albedo_color = palette[2]
+		badge_material.emission = palette[2]
 	if interior_nav_display:
 		interior_nav_display.modulate = palette[2]
 
@@ -1544,6 +1564,9 @@ func _update_cockpit_instruments(delta: float) -> void:
 	for lamp in interior_lamps:
 		var lamp_material := lamp.material_override as StandardMaterial3D
 		lamp_material.emission_energy_multiplier = cabin_brightness * 1.6
+	for badge_light in cargo_badge_lights:
+		var badge_material := badge_light.material_override as StandardMaterial3D
+		badge_material.emission_energy_multiplier = cabin_brightness * 1.4
 
 func _complete_delivery() -> void:
 	money += 640

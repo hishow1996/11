@@ -47,6 +47,8 @@ The acquisition and licensing strategy is maintained in [`ART_ASSET_ACQUISITION_
 
 Free source packs collected for the project are stored under `assets/free_source_packs/` with extracted files in `assets/free_source_import/`. The manifest and source/license links are recorded in `assets/free_source_packs/RESOURCE_MANIFEST.md` and `licenses/free_sources/LICENSE_SOURCES.md`.
 
+The remaining-gap closure sequence is documented in [`ART_GAP_CLOSURE_PLAN.md`](ART_GAP_CLOSURE_PLAN.md). It prioritizes the player truck, driving-distance road assets, five biome landmarks, style unification, LOD, collision and Android integration instead of collecting unlimited additional packs.
+
 ## Generated files
 
 - `art/visual_target_city.png`

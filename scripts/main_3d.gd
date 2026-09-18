@@ -16,6 +16,8 @@ var fuel := 78.0
 var money := 1250
 var best_distance := 0.0
 var achievements: Dictionary = {}
+var delivery_count := 0
+var leaderboard: Array = []
 var damage := 0.0
 var route_goal := 12.0
 var cargo_index := 0
@@ -187,6 +189,8 @@ func _load_save() -> void:
 			money = int(data.get("money", money))
 			best_distance = float(data.get("best_distance", best_distance))
 			achievements = data.get("achievements", {})
+			delivery_count = int(data.get("delivery_count", delivery_count))
+			leaderboard = data.get("leaderboard", leaderboard)
 		fuel = float(data.get("fuel", fuel))
 		damage = float(data.get("damage", damage))
 		distance = float(data.get("distance", distance))
@@ -207,6 +211,8 @@ func _save_game() -> void:
 			"money": money,
 			"best_distance": best_distance,
 			"achievements": achievements,
+			"delivery_count": delivery_count,
+			"leaderboard": leaderboard,
 		"fuel": fuel,
 		"damage": damage,
 		"distance": distance,
@@ -1847,6 +1853,8 @@ func _complete_delivery() -> void:
 	toast = "DELIVERY COMPLETE   +€640"
 	toast_time = 4.0
 	_haptic(220, 0.9)
+	delivery_count += 1
+	_record_leaderboard_entry()
 	distance = 0.0
 	cargo_index = (cargo_index + 1) % 3
 	route_goal = 10.0 + float(cargo_index * 2)
@@ -1861,6 +1869,12 @@ func _unlock_achievement(key: String, description: String) -> void:
 	achievements[key] = {"description": description, "time": Time.get_datetime_string_from_system()}
 	toast = "成就解锁：" + description
 	toast_time = 3.2
+
+func _record_leaderboard_entry() -> void:
+	leaderboard.append({"score": money, "deliveries": delivery_count, "distance": best_distance})
+	leaderboard.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("score", 0)) > int(b.get("score", 0)))
+	if leaderboard.size() > 10:
+		leaderboard.resize(10)
 
 func _toggle_pause() -> void:
 	paused = not paused
@@ -1881,6 +1895,7 @@ func _update_ui() -> void:
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	var weather_name := {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.text = "DEST  %s   %.1f km\nTIME  %s   %s   FUEL %d%%\nSLOPE %+d%%   DAMAGE %d%%   € %d" % [destination, max(route_goal - distance, 0.0), _format_clock(), weather_name, int(fuel), int(slope_percent), int(damage), money]
+	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	ui_toast.text = toast if toast_time > 0.0 else ""
 	if minimap:
 		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination, branch_hint)

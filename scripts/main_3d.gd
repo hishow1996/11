@@ -86,6 +86,11 @@ var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
 var collision_effect_cooldown := 0.0
+var guardrail_audio_cooldown := 0.0
+var puddle_audio_active := false
+var last_gear := 0
+var last_indicator_on := false
+var previous_wiper_active := false
 var exhaust_particles: GPUParticles3D
 var brake_lamps: Array[MeshInstance3D] = []
 var signal_lamps: Array[MeshInstance3D] = []
@@ -1458,8 +1463,20 @@ func _process(delta: float) -> void:
 	steer = lerp(steer, steer_input, clamp(delta * steering_response, 0.0, 1.0))
 	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
 	var slope_drag: Variant = slope_percent * 0.055
-	var target_speed: Variant = throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
+	var reverse_active: Variant = throttle < 0.05 and braking > 0.15 and speed < 0.8
+	var target_speed: Variant = -braking * 5.5 if reverse_active else throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
+	if reverse_active:
+		speed = lerp(speed, -5.5 * braking, delta * 4.5)
+		if not sfx_players["reverse_beeper"].playing:
+			_play_sfx("reverse_beeper", -8.0)
+	else:
+		sfx_players["reverse_beeper"].stop()
+	var current_gear: Variant = -1 if speed < -0.35 else (0 if abs(speed) < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12))
+	if current_gear != last_gear:
+		if last_gear != 0:
+			_play_sfx("gear_shift", -10.0)
+		last_gear = current_gear
 	var steering_grip: Variant = 1.0 + float(tire_level) * 0.08
 	var road_center: Variant = _road_center_at(truck.position.z)
 	var lateral_rate: Variant = lerp(5.8, 3.2, speed_ratio) * steering_grip
@@ -1479,10 +1496,27 @@ func _process(delta: float) -> void:
 			authored_brake_material.emission = CORAL
 			authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
 	var signal_on: Variant = abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+	if signal_on and not last_indicator_on:
+		_play_sfx("turn_signal", -13.0)
+	last_indicator_on = signal_on
 	for lamp in signal_lamps:
 		lamp.visible = signal_on
 	for lamp in authored_signal_lamps:
 		lamp.visible = signal_on
+	guardrail_audio_cooldown = max(0.0, guardrail_audio_cooldown - delta)
+	var road_offset: Variant = abs(truck.position.x - road_center)
+	if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
+		_play_sfx("guardrail_scrape", -10.0)
+		guardrail_audio_cooldown = 0.8
+		speed *= 0.92
+	var near_puddle: Variant = false
+	for puddle in road_puddles:
+		if is_instance_valid(puddle) and truck.global_position.distance_to(puddle.global_position) < 2.4:
+			near_puddle = true
+			break
+	if near_puddle and not puddle_audio_active and current_weather == "rain" and abs(speed) > 2.0:
+		_play_sfx("water_splash", -9.0)
+	puddle_audio_active = near_puddle
 	for lamp in authored_headlamps:
 		lamp.visible = true
 	if exhaust_particles:
@@ -1865,8 +1899,8 @@ func _update_cockpit_instruments(delta: float) -> void:
 	if interior_rpm_display:
 		interior_rpm_display.text = "RPM %04d" % int(800.0 + speed * 115.0 + abs(slope_percent) * 35.0)
 	if interior_gear_display:
-		var gear: Variant = 0 if speed < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12)
-		interior_gear_display.text = "GEAR N" if gear == 0 else "GEAR %02d" % gear
+		var gear: Variant = -1 if speed < -0.35 else (0 if abs(speed) < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12))
+		interior_gear_display.text = "GEAR R" if gear < 0 else ("GEAR N" if gear == 0 else "GEAR %02d" % gear)
 	if interior_indicator_display:
 		var indicator_on: Variant = fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 		var direction: Variant = "L" if steer < -0.14 else ("R" if steer > 0.14 else "○")
@@ -1893,6 +1927,9 @@ func _update_cockpit_instruments(delta: float) -> void:
 			mirror_camera.global_position = truck.global_position + Vector3(side * 1.7, 2.25, -2.8)
 			mirror_camera.look_at(truck.global_position + Vector3(side * 3.0, 1.4, 18.0), Vector3.UP)
 	var wiper_active: Variant = current_weather == "rain" or current_weather == "snow"
+	if wiper_active and not previous_wiper_active:
+		_play_sfx("wiper_swipe", -14.0)
+	previous_wiper_active = wiper_active
 	if wiper_active:
 		wiper_phase = fmod(wiper_phase + delta * (3.0 + weather_intensity * 3.0 + speed * 0.08), TAU)
 		for i in interior_wipers.size():

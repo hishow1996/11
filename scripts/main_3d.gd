@@ -1478,40 +1478,45 @@ func _process(delta: float) -> void:
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
 	collision_effect_cooldown = max(0.0, collision_effect_cooldown - delta)
-		if braking > 0.2 and speed > 2.0 and not brake_player.playing:
-			brake_player.play()
-		for i in traffic.size():
-			var car := traffic[i]
-			var traffic_factor := traffic_speeds[i]
-			if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
-				traffic_factor = 0.08
-			var traffic_braking := traffic_factor < 0.45
-			var traffic_tail_material := traffic_tail_lamps[i].material_override as StandardMaterial3D
-			traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
-			car.position.z += speed * delta * 0.7 * traffic_factor
-			var car_center := _road_center_at(car.position.z)
-			var target_lane := _traffic_target_lane(i, car)
-			var car_target_x := car_center + target_lane
-			car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
-			car.position.y = 0.55 + _road_height_at(car.position.z)
-			car.rotation.y = atan2(_road_center_at(car.position.z - 8.0) - car_center, 8.0)
-			car.rotation.x = -atan2(_road_height_at(car.position.z - 8.0) - _road_height_at(car.position.z), 8.0)
-			if car.position.z > truck.position.z + 22.0:
-				car.position.z = truck.position.z - 100.0 - float(i) * 20.0
-				car.position.x = _road_center_at(car.position.z) + traffic_lanes[i]
-			if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
-				damage = min(100.0, damage + max(5.0, 16.0 - float(armor_level) * 3.0))
-				speed *= 0.45
-				hit_shake = 0.9
-				toast = "轻微碰撞！请注意车距"
-				toast_time = 2.2
-				_haptic(130, 0.75)
-				if collision_effect_cooldown <= 0.0:
-					collision_effect_cooldown = 0.35
-					var impact_position := truck.global_position + Vector3(0, 0.9, -2.8)
-					for effect in [collision_sparks, collision_smoke, collision_debris]:
-						effect.global_position = impact_position
-						effect.restart()
+	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
+		brake_player.play()
+	for i in traffic.size():
+		var car := traffic[i]
+		var traffic_factor := traffic_speeds[i]
+		if current_scene.find("城市") >= 0 and _near_signal_intersection(car.position.z) and _signal_is_red(car.position.z):
+			traffic_factor = 0.08
+		var traffic_braking := traffic_factor < 0.45
+		var traffic_tail_material := traffic_tail_lamps[i].material_override as StandardMaterial3D
+		traffic_tail_material.emission_energy_multiplier = 2.8 if traffic_braking else 1.1
+		car.position.z += speed * delta * 0.7 * traffic_factor
+		var car_center := _road_center_at(car.position.z)
+		var target_lane := _traffic_target_lane(i, car)
+		var car_target_x := car_center + target_lane
+		car.position.x = lerp(car.position.x, car_target_x, delta * 5.0)
+		car.position.y = 0.55 + _road_height_at(car.position.z)
+		car.rotation.y = atan2(_road_center_at(car.position.z - 8.0) - car_center, 8.0)
+		car.rotation.x = -atan2(_road_height_at(car.position.z - 8.0) - _road_height_at(car.position.z), 8.0)
+		if car.position.z > truck.position.z + 22.0:
+			car.position.z = truck.position.z - 100.0 - float(i) * 20.0
+			car.position.x = _road_center_at(car.position.z) + traffic_lanes[i]
+		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
+			var impact_speed := clamp(speed * (1.0 + traffic_speeds[i] * 0.25), 0.0, 30.0)
+			var impact_intensity := clamp(impact_speed / 24.0, 0.15, 1.0)
+			var side_hit := clamp(abs(car.position.x - truck.position.x) / 2.5, 0.0, 1.0)
+			damage = min(100.0, damage + max(2.0, impact_speed * 0.58 - float(armor_level) * 2.5) * lerp(0.82, 1.18, side_hit))
+			speed *= lerp(0.82, 0.28, impact_intensity)
+			hit_shake = 0.35 + impact_intensity * 0.85
+			toast = "碰撞冲击 %.0f%%" % (impact_intensity * 100.0)
+			toast_time = 2.2
+			_haptic(130, 0.75)
+			if collision_effect_cooldown <= 0.0:
+				collision_effect_cooldown = 0.35
+				var impact_side := sign(car.position.x - truck.position.x)
+				var impact_position := truck.global_position + Vector3(impact_side * 1.5, 0.9, -2.8)
+				for effect in [collision_sparks, collision_smoke, collision_debris]:
+					effect.global_position = impact_position
+					effect.amount_ratio = impact_intensity
+					effect.restart()
 	if distance >= route_goal:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)

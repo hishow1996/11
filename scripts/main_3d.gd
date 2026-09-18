@@ -2168,7 +2168,7 @@ func _get_branch_hint() -> String:
 func _update_streaming() -> void:
 	var traveled: Variant = max(0.0, -truck.position.z - 120.0)
 	var next_chunk: Variant = max(0, int(floor(traveled / CHUNK_LENGTH)))
-	if next_chunk == active_chunk and stream_chunks.size() >= 5:
+	if next_chunk == active_chunk and stream_chunks.size() >= 6:
 		return
 	active_chunk = next_chunk
 	for chunk_index in range(active_chunk, active_chunk + 6):
@@ -2181,6 +2181,21 @@ func _update_streaming() -> void:
 		var old_root: Node3D = stream_chunks[old_index]
 		old_root.queue_free()
 		stream_chunks.erase(old_index)
+	# Keep one safety chunk behind and six chunks ahead; this hard cap prevents
+	# long-haul sessions from accumulating streamed scenery in memory.
+	while stream_chunks.size() > 7:
+		var farthest_index: Variant = -1
+		var farthest_distance: Variant = -1
+		for loaded_index in stream_chunks.keys():
+			var chunk_distance: Variant = abs(int(loaded_index) - active_chunk)
+			if chunk_distance > farthest_distance:
+				farthest_distance = chunk_distance
+				farthest_index = int(loaded_index)
+		if farthest_index < 0:
+			break
+		var farthest_root: Node3D = stream_chunks[farthest_index]
+		farthest_root.queue_free()
+		stream_chunks.erase(farthest_index)
 
 func _update_pedestrians(delta: float) -> void:
 	var now: Variant = Time.get_ticks_msec() * 0.001

@@ -1342,6 +1342,9 @@ func _apply_quality(mode: int) -> void:
 	var ratios: Variant = [0.45, 0.72, 1.0]
 	rain_particles.amount_ratio = ratios[mode]
 	snow_particles.amount_ratio = ratios[mode]
+	if speed_lines:
+		speed_lines.amount = [28, 54, 90][mode]
+		speed_lines.visible = mode > 0
 	if exhaust_particles:
 		exhaust_particles.amount = [8, 12, 18][mode]
 	if collision_sparks:
@@ -1444,6 +1447,9 @@ func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
 	label.position = pos
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color("#0d1020", 0.82))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
 	layer.add_child(label)
 	return label
 
@@ -2119,10 +2125,12 @@ func _update_ui() -> void:
 	var branch_hint: Variant = _get_branch_hint()
 	ui_route.text = "↗ %s\n%s\n%s  →  %s" % [branch_hint if branch_hint != "" else "ROUTE AHEAD", current_scene, cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
+	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.text = "DEST  %s   %.1f km\nTIME  %s   %s   FUEL %d%%\nSLOPE %+d%%   DAMAGE %d%%   € %d" % [destination, max(route_goal - distance, 0.0), _format_clock(), weather_name, int(fuel), int(slope_percent), int(damage), money]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	ui_toast.text = toast if toast_time > 0.0 else ""
+	ui_toast.modulate = Color("#ffd166") if toast.find("完成") >= 0 or toast.find("DELIVERY") >= 0 else CREAM
 	if minimap:
 		minimap.update_state(truck.position.x, distance, route_goal, current_scene, destination, branch_hint)
 

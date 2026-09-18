@@ -1042,6 +1042,7 @@ func _build_ui() -> void:
 	_update_ui()
 
 func _style_ui_button(button: Button) -> void:
+	button.focus_mode = Control.FOCUS_NONE
 	button.add_theme_color_override("font_color", CREAM)
 	button.add_theme_color_override("font_hover_color", INK)
 	var normal := StyleBoxFlat.new()
@@ -1135,7 +1136,10 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 	garage_label.position = Vector2(20, 16)
 	garage_label.size = Vector2(350, 42)
 	garage_label.add_theme_font_size_override("font_size", 18)
-	garage_label.add_theme_color_override("font_color", INK)
+	garage_label.add_theme_color_override("font_color", CREAM)
+	garage_label.add_theme_color_override("font_shadow_color", Color("#0d1020", 0.85))
+	garage_label.add_theme_constant_override("shadow_offset_x", 2)
+	garage_label.add_theme_constant_override("shadow_offset_y", 2)
 	garage_panel.add_child(garage_label)
 	var upgrades := ["发动机", "轮胎", "油箱", "装甲"]
 	for i in upgrades.size():
@@ -1189,6 +1193,7 @@ func _add_button(layer: CanvasLayer, text: String, pos: Vector2, action: String)
 	button.position = pos
 	button.size = Vector2(88, 78)
 	button.add_theme_font_size_override("font_size", 30)
+	_style_ui_button(button)
 	button.button_down.connect(func(): Input.action_press(action))
 	button.button_up.connect(func(): Input.action_release(action))
 	layer.add_child(button)

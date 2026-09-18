@@ -41,6 +41,8 @@ The complete production-facing inventory is maintained in [`ART_ASSET_MASTER_LIS
 
 The current runtime HUD follows the city reference composition: route map at upper left, route card near the upper center, compact speed/fuel cards at upper right, destination/status card below them, and large touch controls along the lower edge. Settings and garage panels share the same navy-violet translucent cards, rounded corners, thin blue borders and warm highlight states.
 
+The UI/HUD/mobile-control style audit and the remaining real-device safe-area risks are documented in [`UI_STYLE_AUDIT.md`](UI_STYLE_AUDIT.md).
+
 The long-distance map production strategy is maintained in [`WORLD_ART_PRODUCTION_PLAN.md`](WORLD_ART_PRODUCTION_PLAN.md). It explains how a finite modular asset library, seeded 1 km streaming chunks, five biome families, sub-biomes and landmark cooldowns can create a varied 20,000 km route without authoring 20,000 km of unique meshes.
 
 The acquisition and licensing strategy is maintained in [`ART_ASSET_ACQUISITION_PLAN.md`](ART_ASSET_ACQUISITION_PLAN.md). It maps each asset category to purchase, outsourcing, procedural generation or generated-reference workflows, and includes commercial-license checks and a staged replacement order.

@@ -170,7 +170,7 @@ func _mat(color: Color, roughness := 0.82) -> StandardMaterial3D:
 	return material
 
 func _box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, name := "Box") -> MeshInstance3D:
-	var outlined_parts := ["Trailer", "Cab", "Windshield", "FrontBumper", "TrailerStripe", "Body", "Glass", "Lamp"]
+	var outlined_parts := ["Trailer", "Cab", "Windshield", "FrontBumper", "TrailerStripe", "Body", "Glass", "Lamp", "CabSideWindow", "BumperLamp", "CityBalcony"]
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	if name in outlined_parts:
@@ -317,6 +317,8 @@ func _build_world() -> void:
 	road_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for z in range(-120, 110, 12):
 		_box(self, Vector3(0.22, 0.04, 5.5), Vector3(0, 0.01, z), CREAM, "LaneMarker")
+		_box(self, Vector3(1.0, 0.035, 11.5), Vector3(-7.2, -0.01, z), Color("#68775f"), "RoadShoulder")
+		_box(self, Vector3(1.0, 0.035, 11.5), Vector3(7.2, -0.01, z), Color("#68775f"), "RoadShoulder")
 		_box(self, Vector3(0.18, 0.35, 12.0), Vector3(-6.35, 0.1, z), INK, "RoadEdge")
 		_box(self, Vector3(0.18, 0.35, 12.0), Vector3(6.35, 0.1, z), INK, "RoadEdge")
 		_add_guardrail(Vector3(-7.0, 0, z), -1.0)
@@ -324,6 +326,11 @@ func _build_world() -> void:
 		_add_reflector(Vector3(-6.75, 0.32, z + 4.0))
 		_add_reflector(Vector3(6.75, 0.32, z + 4.0))
 		_add_puddle(Vector3(sin(float(z)) * 2.2, 0.06, z + 2.5), 0.7 + fmod(abs(z), 2.0) * 0.22)
+		if z % 24 == 0:
+			_add_road_crack(Vector3(-2.0 + fmod(abs(z), 3.0), 0.055, z + 3.0), 1.2)
+			_add_road_crack(Vector3(2.4 - fmod(abs(z), 2.0), 0.055, z - 2.0), 0.8)
+		if z % 48 == 0:
+			_add_chevron_pair(z)
 	for z in range(-115, 100, 18):
 		_add_mountain_cluster(Vector3(-19, 0, z), 1.0 + float(abs(z % 4)) * 0.08)
 		_add_mountain_cluster(Vector3(19, 0, z - 8), 0.8 + float(abs(z % 3)) * 0.09)
@@ -384,6 +391,19 @@ func _add_puddle(pos: Vector3, width: float) -> void:
 	puddle_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	puddle_material.albedo_color = Color(0.20, 0.32, 0.45, 0.52)
 	road_puddles.append(puddle)
+
+func _add_road_crack(pos: Vector3, length: float) -> void:
+	var crack := _box(self, Vector3(0.045, 0.012, length), pos, Color("#252b3d"), "RoadCrack")
+	crack.rotation_degrees.y = -18.0 + fmod(abs(pos.z), 36.0)
+
+func _add_chevron_pair(z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var sign_root := Node3D.new()
+		sign_root.position = Vector3(side * 7.25, 0, z)
+		add_child(sign_root)
+		_box(sign_root, Vector3(0.12, 1.7, 0.12), Vector3(0, 0.85, 0), INK, "ChevronPost")
+		var board := _box(sign_root, Vector3(0.9, 0.5, 0.10), Vector3(0, 1.8, 0), Color("#ffd166"), "ChevronBoard")
+		board.rotation_degrees.y = 0.0 if side < 0.0 else 180.0
 
 func _add_direction_sign(pos: Vector3, text_hint: String) -> void:
 	var sign_root := Node3D.new()
@@ -907,10 +927,10 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"tire": tire_level += 1
 			"tank": tank_level += 1
 			"armor": armor_level += 1
-				toast = "升级完成：" + upgrade_id
-				toast_time = 2.0
-				_save_game()
-				_haptic(80, 0.45)
+			toast = "升级完成：" + upgrade_id
+			toast_time = 2.0
+			_save_game()
+			_haptic(80, 0.45)
 	_update_garage_label()
 
 func _label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
@@ -1040,19 +1060,19 @@ func _process(delta: float) -> void:
 			if car.position.z > truck.position.z + 22.0:
 				car.position.z = truck.position.z - 100.0 - float(i) * 20.0
 				car.position.x = _road_center_at(car.position.z) + traffic_lanes[i]
-		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
-			damage = min(100.0, damage + max(5.0, 16.0 - float(armor_level) * 3.0))
-			speed *= 0.45
-			hit_shake = 0.9
-			toast = "轻微碰撞！请注意车距"
-			toast_time = 2.2
-			_haptic(130, 0.75)
+			if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
+				damage = min(100.0, damage + max(5.0, 16.0 - float(armor_level) * 3.0))
+				speed *= 0.45
+				hit_shake = 0.9
+				toast = "轻微碰撞！请注意车距"
+				toast_time = 2.2
+				_haptic(130, 0.75)
 	if distance >= route_goal:
 		_complete_delivery()
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
-		_update_scene_name()
-		_update_signal_visuals()
+	_update_scene_name()
+	_update_signal_visuals()
 	_update_day_night()
 	_update_weather_visuals()
 	_update_weather_audio(delta)

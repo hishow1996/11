@@ -25,7 +25,7 @@ These previews are retained as quick visual checkpoints for the runtime biome pa
 
 ## Runtime implementation
 
-The runtime scene uses Godot `MeshInstance3D`, `BoxMesh`, `CylinderMesh`, `StandardMaterial3D`, procedural particles, dynamic lights and seeded streaming chunks. The latest vehicle pass adds a more detailed grille, cab windows, panel seams, side accents, bumper lamps, outline silhouettes and anime material response. This keeps the reference direction while avoiding large imported assets that would exceed Android memory budgets.
+The runtime scene uses Godot `MeshInstance3D`, `BoxMesh`, `CylinderMesh`, `StandardMaterial3D`, procedural particles, dynamic lights and seeded streaming chunks. The latest vehicle pass adds a more detailed grille, cab windows, panel seams, side accents, bumper lamps, outline silhouettes and anime material response. The road pass adds shoulders, pavement cracks, reflectors and chevron boards to create readable driving rhythm. This keeps the reference direction while avoiding large imported assets that would exceed Android memory budgets.
 
 ## Audio direction
 

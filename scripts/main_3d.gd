@@ -49,6 +49,7 @@ var wind_player: AudioStreamPlayer
 var wet_tire_player: AudioStreamPlayer
 var snow_tire_player: AudioStreamPlayer
 var thunder_player: AudioStreamPlayer
+var sfx_players: Dictionary = {}
 var virtual_controls: Control
 var minimap: Control
 var scenery: Array[Node3D] = []
@@ -1258,6 +1259,7 @@ func _build_settings_panel(layer: CanvasLayer) -> void:
 
 func _toggle_settings() -> void:
 	settings_panel.visible = not settings_panel.visible
+	_play_sfx("ui_click", -10.0)
 
 func _apply_quality(mode: int) -> void:
 	quality_mode = mode
@@ -1336,6 +1338,7 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 func _toggle_garage() -> void:
 	garage_panel.visible = not garage_panel.visible
 	_update_garage_label()
+	_play_sfx("ui_click", -10.0)
 
 func _update_garage_label() -> void:
 	if garage_label:
@@ -1345,6 +1348,7 @@ func _buy_upgrade(upgrade_id: String) -> void:
 	var price: Variant = {"engine": 500, "tire": 650, "tank": 800, "armor": 950}.get(upgrade_id, 9999)
 	if money < price:
 		toast = "运费不足"
+		_play_sfx("warning_alert", -10.0)
 	else:
 		money -= price
 		match upgrade_id:
@@ -1354,6 +1358,7 @@ func _buy_upgrade(upgrade_id: String) -> void:
 			"armor": armor_level += 1
 		toast = "升级完成：" + upgrade_id
 		toast_time = 2.0
+		_play_sfx("upgrade_purchase", -7.0)
 		_save_game()
 		_haptic(80, 0.45)
 	_update_garage_label()
@@ -1404,6 +1409,20 @@ func _build_audio() -> void:
 	thunder_player.stream = load("res://audio/thunder_rumble.wav")
 	thunder_player.volume_db = -9.0
 	add_child(thunder_player)
+	for sfx_name in ["reverse_beeper", "turn_signal", "gear_shift", "tire_skid", "collision_metal", "guardrail_scrape", "water_splash", "wiper_swipe", "refuel_start", "repair_start", "delivery_complete", "upgrade_purchase", "ui_click", "warning_alert"]:
+		var sfx_player: Variant = AudioStreamPlayer.new()
+		sfx_player.stream = load("res://audio/" + sfx_name + ".wav")
+		sfx_player.volume_db = -8.0
+		add_child(sfx_player)
+		sfx_players[sfx_name] = sfx_player
+	if sfx_players.has("ui_click"):
+		sfx_players["ui_click"].stream = load("res://assets/audio_sources/kenney_ui_audio/click1.wav")
+
+func _play_sfx(sfx_name: String, volume_db := -8.0) -> void:
+	var player: Variant = sfx_players.get(sfx_name)
+	if player:
+		player.volume_db = volume_db
+		player.play()
 
 func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
 	var player: Variant = AudioStreamPlayer.new()
@@ -1533,6 +1552,9 @@ func _process(delta: float) -> void:
 			toast = "碰撞冲击 %.0f%%" % (impact_intensity * 100.0)
 			toast_time = 2.2
 			_haptic(130, 0.75)
+			_play_sfx("collision_metal", lerp(-12.0, -3.0, impact_intensity))
+			if impact_intensity > 0.55:
+				_play_sfx("tire_skid", -9.0)
 			if collision_effect_cooldown <= 0.0:
 				collision_effect_cooldown = 0.35
 				var impact_side: Variant = sign(car.position.x - truck.position.x)
@@ -1722,6 +1744,7 @@ func _update_refueling(delta: float) -> void:
 		if not refueling:
 			toast = "PARKED AT FUEL STATION"
 			toast_time = 2.5
+			_play_sfx("refuel_start", -9.0)
 			_haptic(55, 0.25)
 		refueling = true
 	else:
@@ -1741,6 +1764,7 @@ func _update_repairing(delta: float) -> void:
 		if not repairing:
 			toast = "REPAIRING TRUCK"
 			toast_time = 2.5
+			_play_sfx("repair_start", -9.0)
 			_haptic(70, 0.3)
 		repairing = true
 	elif not can_repair or money < 80:
@@ -1891,6 +1915,7 @@ func _complete_delivery() -> void:
 	money += 640
 	toast = "DELIVERY COMPLETE   +€640"
 	toast_time = 4.0
+	_play_sfx("delivery_complete", -5.0)
 	_haptic(220, 0.9)
 	delivery_count += 1
 	_record_leaderboard_entry()
@@ -1925,6 +1950,7 @@ func _toggle_camera_mode() -> void:
 		return
 	camera_toggle_cooldown = 0.45
 	cockpit_mode = not cockpit_mode
+	_play_sfx("ui_click", -10.0)
 	toast = "驾驶舱视角" if cockpit_mode else "第三人称视角"
 	toast_time = 2.0
 

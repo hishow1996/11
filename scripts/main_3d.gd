@@ -97,6 +97,8 @@ var mirror_cameras: Array[Camera3D] = []
 var interior_wipers: Array[MeshInstance3D] = []
 var interior_lamps: Array[MeshInstance3D] = []
 var wiper_phase := 0.0
+var mirrors_enabled := true
+var interior_warning_display: Label3D
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -758,6 +760,8 @@ func _build_cockpit_interior() -> void:
 	interior_speed_display.rotation_degrees = Vector3(0, 180, 0)
 	interior_fuel_display = _label3d(cabin, "FUEL 78%", Vector3(-0.78, 1.67, -4.28), Color("#9fe3ff"), 20)
 	interior_fuel_display.rotation_degrees = Vector3(0, 180, 0)
+	interior_warning_display = _label3d(cabin, "SYSTEMS OK", Vector3(0.72, 1.62, -4.28), MINT, 18)
+	interior_warning_display.rotation_degrees = Vector3(0, 180, 0)
 	# Steering wheel, center badge and two control stalks.
 	interior_steering_wheel = _cylinder(cabin, 0.62, 0.12, Vector3(-1.0, 1.35, -3.6), INK, "InteriorSteeringWheel")
 	interior_steering_wheel.rotation_degrees.x = 90.0
@@ -1019,6 +1023,9 @@ func _apply_quality(mode: int) -> void:
 	camera.far = [95.0, 125.0, 155.0][mode]
 	sun.shadow_enabled = mode >= 1
 	moon.shadow_enabled = false
+	mirrors_enabled = mode >= 1
+	for mirror_viewport in mirror_viewports:
+		mirror_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED if mode == 0 else (SubViewport.UPDATE_WHEN_VISIBLE if mode == 1 else SubViewport.UPDATE_ALWAYS)
 	for chunk in stream_chunks.values():
 		FreeAssetCatalog.add_lod_visibility(chunk, [35.0, 50.0, 70.0][mode], [80.0, 115.0, 145.0][mode])
 	_save_game()
@@ -1454,18 +1461,29 @@ func _update_cockpit_instruments(delta: float) -> void:
 		interior_speed_display.text = "%02d km/h" % int(speed * 4.4)
 	if interior_fuel_display:
 		interior_fuel_display.text = "FUEL %02d%%" % int(fuel)
+	if interior_warning_display:
+		if damage >= 70.0:
+			interior_warning_display.text = "DAMAGE HIGH"
+			interior_warning_display.modulate = CORAL
+		elif fuel <= 18.0:
+			interior_warning_display.text = "FUEL LOW"
+			interior_warning_display.modulate = Color("#ffd166")
+		else:
+			interior_warning_display.text = "SYSTEMS OK"
+			interior_warning_display.modulate = MINT
 	if interior_nav_display:
 		interior_nav_display.text = "ROUTE AHEAD\n%s\n%.1f km" % [destination, max(route_goal - distance, 0.0)]
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
-	for i in mirror_cameras.size():
-		var mirror_camera := mirror_cameras[i]
-		var side := -1.0 if i == 0 else 1.0
-		mirror_camera.global_position = truck.global_position + Vector3(side * 1.7, 2.25, -2.8)
-		mirror_camera.look_at(truck.global_position + Vector3(side * 3.0, 1.4, 18.0), Vector3.UP)
+	if mirrors_enabled:
+		for i in mirror_cameras.size():
+			var mirror_camera := mirror_cameras[i]
+			var side := -1.0 if i == 0 else 1.0
+			mirror_camera.global_position = truck.global_position + Vector3(side * 1.7, 2.25, -2.8)
+			mirror_camera.look_at(truck.global_position + Vector3(side * 3.0, 1.4, 18.0), Vector3.UP)
 	var wiper_active := current_weather == "rain" or current_weather == "snow"
 	if wiper_active:
-		wiper_phase = fmod(wiper_phase + delta * (3.0 + speed * 0.08), TAU)
+		wiper_phase = fmod(wiper_phase + delta * (3.0 + weather_intensity * 3.0 + speed * 0.08), TAU)
 		for i in interior_wipers.size():
 			interior_wipers[i].rotation_degrees.z = (18.0 if i == 1 else -18.0) + sin(wiper_phase) * (24.0 if i == 1 else -24.0)
 	else:

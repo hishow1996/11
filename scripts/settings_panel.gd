@@ -5,6 +5,7 @@ signal sensitivity_changed(value: float)
 signal volume_changed(value: float)
 signal music_volume_changed(value: float)
 signal sfx_volume_changed(value: float)
+signal control_layout_changed(scale_value: float, opacity_value: float)
 signal closed
 
 var quality_mode := 1
@@ -12,6 +13,8 @@ var sensitivity := 1.0
 var volume := 0.8
 var music_volume := 0.8
 var sfx_volume := 0.8
+var control_scale := 1.0
+var control_opacity := 0.84
 var status_label: Label
 
 func _ready() -> void:
@@ -46,7 +49,11 @@ func _ready() -> void:
 	var music_louder := _button("音乐 +", Vector2(18, 278), func(): _change_music_volume(0.1))
 	var sfx_quieter := _button("音效 −", Vector2(120, 278), func(): _change_sfx_volume(-0.1))
 	var sfx_louder := _button("音效 +", Vector2(222, 278), func(): _change_sfx_volume(0.1))
-	var close := _button("关闭", Vector2(222, 332), func(): closed.emit())
+	var control_smaller := _button("按钮 −", Vector2(18, 332), func(): _change_control_scale(-0.1))
+	var control_larger := _button("按钮 +", Vector2(120, 332), func(): _change_control_scale(0.1))
+	var opacity_less := _button("透明 −", Vector2(18, 386), func(): _change_control_opacity(-0.1))
+	var opacity_more := _button("透明 +", Vector2(120, 386), func(): _change_control_opacity(0.1))
+	var close := _button("关闭", Vector2(222, 386), func(): closed.emit())
 	_update_status()
 
 func _button(text: String, pos: Vector2, callback: Callable) -> Button:
@@ -95,6 +102,16 @@ func _change_sfx_volume(amount: float) -> void:
 	sfx_volume_changed.emit(sfx_volume)
 	_update_status()
 
+func _change_control_scale(amount: float) -> void:
+	control_scale = clampf(control_scale + amount, 0.75, 1.35)
+	control_layout_changed.emit(control_scale, control_opacity)
+	_update_status()
+
+func _change_control_opacity(amount: float) -> void:
+	control_opacity = clampf(control_opacity + amount, 0.35, 1.0)
+	control_layout_changed.emit(control_scale, control_opacity)
+	_update_status()
+
 func _update_status() -> void:
 	var quality_name: String = ["低", "中", "高"][quality_mode]
-	status_label.text = "画质：%s\n方向盘：%.1f  总音量：%d%%\n音乐：%d%%  音效：%d%%" % [quality_name, sensitivity, int(volume * 100.0), int(music_volume * 100.0), int(sfx_volume * 100.0)]
+	status_label.text = "画质：%s\n方向盘：%.1f  总音量：%d%%\n音乐：%d%%  音效：%d%%\n按钮：%.1fx 透明：%d%%" % [quality_name, sensitivity, int(volume * 100.0), int(music_volume * 100.0), int(sfx_volume * 100.0), control_scale, int(control_opacity * 100.0)]

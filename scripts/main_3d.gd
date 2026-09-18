@@ -118,6 +118,8 @@ var steering_sensitivity := 1.0
 var master_volume := 0.8
 var music_volume := 0.8
 var sfx_volume := 0.8
+var control_scale := 1.0
+var control_opacity := 0.84
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
@@ -238,6 +240,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clamp(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	sfx_volume = clamp(float(data.get("sfx_volume", sfx_volume)), 0.0, 1.0)
+	control_scale = clamp(float(data.get("control_scale", control_scale)), 0.75, 1.35)
+	control_opacity = clamp(float(data.get("control_opacity", control_opacity)), 0.35, 1.0)
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 
@@ -261,7 +265,9 @@ func _save_game() -> void:
 		"steering_sensitivity": steering_sensitivity,
 		"master_volume": master_volume,
 		"music_volume": music_volume,
-		"sfx_volume": sfx_volume
+		"sfx_volume": sfx_volume,
+		"control_scale": control_scale,
+		"control_opacity": control_opacity
 	}
 	if FileAccess.file_exists(SAVE_TEMP_PATH):
 		DirAccess.remove_absolute(SAVE_TEMP_PATH)
@@ -1278,7 +1284,7 @@ func _build_ui() -> void:
 	virtual_controls.turn_right_pressed.connect(_on_turn_right_pressed)
 	virtual_controls.hazard_pressed.connect(_on_hazard_pressed)
 	virtual_controls.horn_changed.connect(_on_horn_changed)
-	virtual_controls.set_layout(1.0, 0.84, Vector2.ZERO)
+	virtual_controls.set_layout(control_scale, control_opacity, Vector2.ZERO)
 	layer.add_child(virtual_controls)
 	var pause_button: Variant = Button.new()
 	pause_button.text = "Ⅱ"
@@ -1364,7 +1370,7 @@ func _hud_icon(layer: CanvasLayer, texture: Texture2D, pos: Vector2, icon_size: 
 func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel = Panel.new()
 	settings_panel.position = Vector2(760, 112)
-	settings_panel.size = Vector2(370, 390)
+	settings_panel.size = Vector2(370, 450)
 	settings_panel.visible = false
 	settings_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	settings_panel.set_script(load("res://scripts/settings_panel.gd"))
@@ -1373,6 +1379,7 @@ func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel.volume_changed.connect(_apply_volume)
 	settings_panel.music_volume_changed.connect(_apply_music_volume)
 	settings_panel.sfx_volume_changed.connect(_apply_sfx_volume)
+	settings_panel.control_layout_changed.connect(_apply_control_layout)
 	settings_panel.closed.connect(_toggle_settings)
 	layer.add_child(settings_panel)
 	settings_panel.quality_mode = quality_mode
@@ -1380,6 +1387,8 @@ func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel.volume = master_volume
 	settings_panel.music_volume = music_volume
 	settings_panel.sfx_volume = sfx_volume
+	settings_panel.control_scale = control_scale
+	settings_panel.control_opacity = control_opacity
 
 func _toggle_settings() -> void:
 	settings_panel.visible = not settings_panel.visible
@@ -1437,6 +1446,13 @@ func _apply_sfx_volume(value: float) -> void:
 	sfx_volume = clampf(value, 0.0, 1.0)
 	if brake_player:
 		brake_player.volume_db = linear_to_db(max(sfx_volume * master_volume, 0.001)) - 4.0
+	_save_game()
+
+func _apply_control_layout(scale_value: float, opacity_value: float) -> void:
+	control_scale = clampf(scale_value, 0.75, 1.35)
+	control_opacity = clampf(opacity_value, 0.35, 1.0)
+	if virtual_controls and virtual_controls.has_method("set_layout"):
+		virtual_controls.set_layout(control_scale, control_opacity, Vector2.ZERO)
 	_save_game()
 
 func _build_garage_panel(layer: CanvasLayer) -> void:

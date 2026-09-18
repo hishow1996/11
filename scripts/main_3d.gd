@@ -65,6 +65,7 @@ var authored_front_wheels: Array[Node3D] = []
 var authored_livery_parts: Array[MeshInstance3D] = []
 var authored_headlamps: Array[MeshInstance3D] = []
 var authored_brake_lamps: Array[MeshInstance3D] = []
+var authored_signal_lamps: Array[MeshInstance3D] = []
 var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
@@ -837,6 +838,8 @@ func _attach_authored_truck_lods() -> void:
 				authored_headlamps.append(instance)
 			if instance.name == "Brake_Lamp" and instance is MeshInstance3D:
 				authored_brake_lamps.append(instance)
+			if instance.name == "Signal_Lamp" and instance is MeshInstance3D:
+				authored_signal_lamps.append(instance)
 	_apply_livery(cargo_index)
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
@@ -1370,6 +1373,8 @@ func _process(delta: float) -> void:
 				authored_brake_material.emission_energy_multiplier = brake_glow * 2.8
 		var signal_on := abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 		for lamp in signal_lamps:
+			lamp.visible = signal_on
+		for lamp in authored_signal_lamps:
 			lamp.visible = signal_on
 		for lamp in authored_headlamps:
 			lamp.visible = true

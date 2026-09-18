@@ -15,6 +15,7 @@ COLORS = {
     'tire': [28, 31, 46, 255],
     'metal': [115, 129, 151, 255],
     'red': [239, 80, 76, 255],
+    'signal': [255, 154, 66, 255],
 }
 
 def mat(name):
@@ -69,6 +70,7 @@ def build(lod):
         for x in (-1.6,1.6):
             add(scene, box((0.3,0.3,0.2),(x,1.8,-4.65)), 'Headlight', 'gold')
             add(scene, box((0.32,0.26,0.16),(x,1.65,4.58)), 'Brake_Lamp', 'red')
+            add(scene, box((0.22,0.22,0.16),(x,1.95,4.58)), 'Signal_Lamp', 'signal')
         add(scene, cyl(0.22,0.9,(-1.55,1.15,4.65),axis=(0,0,1),sections=12), 'Exhaust', 'ink')
     return scene
 

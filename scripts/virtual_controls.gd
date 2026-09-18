@@ -22,6 +22,7 @@ var wheel_return_speed := 5.5
 var control_scale := 1.0
 var control_opacity := 0.84
 var control_offset := Vector2.ZERO
+var layout_scale := 1.0
 var horn_touch_id := -1
 var left_indicator_active := false
 var right_indicator_active := false
@@ -29,8 +30,9 @@ var hazard_active := false
 var horn_active := false
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	set_process_input(true)
+	_update_layout_metrics()
 	queue_redraw()
 
 func set_sensitivity(value: float) -> void:
@@ -41,12 +43,18 @@ func set_layout(scale_value: float, opacity_value: float, offset_value: Vector2 
 	control_opacity = clampf(opacity_value, 0.35, 1.0)
 	control_offset = offset_value
 	modulate.a = control_opacity
-	wheel_radius = 116.0 * control_scale
+	_update_layout_metrics()
 	queue_redraw()
+
+func _update_layout_metrics() -> void:
+	var viewport_scale: float = clampf(min(size.x / 1280.0, size.y / 720.0), 0.72, 1.15)
+	layout_scale = control_scale * viewport_scale
+	wheel_radius = 116.0 * layout_scale
+	wheel_center = Vector2(150.0 * layout_scale, size.y - 150.0 * layout_scale) + control_offset
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
-		wheel_center = Vector2(150 * control_scale, size.y - 150 * control_scale) + control_offset
+		_update_layout_metrics()
 		queue_redraw()
 
 func _process(delta: float) -> void:
@@ -187,26 +195,26 @@ func _set_brake(value: float) -> void:
 	queue_redraw()
 
 func _throttle_rect() -> Rect2:
-	return Rect2(size.x - 82 * control_scale + control_offset.x, size.y - 260 * control_scale + control_offset.y, 78 * control_scale, 188 * control_scale)
+	return Rect2(size.x - 82 * layout_scale + control_offset.x, size.y - 260 * layout_scale + control_offset.y, 78 * layout_scale, 188 * layout_scale)
 
 func _brake_rect() -> Rect2:
-	return Rect2(size.x - 176 * control_scale + control_offset.x, size.y - 260 * control_scale + control_offset.y, 78 * control_scale, 188 * control_scale)
+	return Rect2(size.x - 176 * layout_scale + control_offset.x, size.y - 260 * layout_scale + control_offset.y, 78 * layout_scale, 188 * layout_scale)
 
 func _left_signal_rect() -> Rect2:
-	return Rect2(size.x - 370 * control_scale + control_offset.x, size.y - 118 * control_scale + control_offset.y, 70 * control_scale, 58 * control_scale)
+	return Rect2(size.x - 370 * layout_scale + control_offset.x, size.y - 118 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
 
 func _right_signal_rect() -> Rect2:
-	return Rect2(size.x - 292 * control_scale + control_offset.x, size.y - 118 * control_scale + control_offset.y, 70 * control_scale, 58 * control_scale)
+	return Rect2(size.x - 292 * layout_scale + control_offset.x, size.y - 118 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
 
 func _hazard_rect() -> Rect2:
-	return Rect2(size.x - 370 * control_scale + control_offset.x, size.y - 186 * control_scale + control_offset.y, 70 * control_scale, 58 * control_scale)
+	return Rect2(size.x - 370 * layout_scale + control_offset.x, size.y - 186 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
 
 func _horn_rect() -> Rect2:
-	return Rect2(size.x - 292 * control_scale + control_offset.x, size.y - 186 * control_scale + control_offset.y, 70 * control_scale, 58 * control_scale)
+	return Rect2(size.x - 292 * layout_scale + control_offset.x, size.y - 186 * layout_scale + control_offset.y, 70 * layout_scale, 58 * layout_scale)
 
 func _draw() -> void:
 	if wheel_center == Vector2.ZERO:
-		wheel_center = Vector2(150 * control_scale, size.y - 150 * control_scale) + control_offset
+		_update_layout_metrics()
 	# Steering wheel shadow, rim and center hub.
 	draw_circle(wheel_center + Vector2(5, 8), wheel_radius + 8, Color(0.04, 0.04, 0.1, 0.35))
 	draw_arc(wheel_center, wheel_radius, 0, TAU, 64, Color("#211c37"), 26, true)
@@ -232,7 +240,7 @@ func _draw_pedal(rect: Rect2, text: String, value: float, color: Color) -> void:
 
 func _draw_action(rect: Rect2, text: String, color: Color, active: bool) -> void:
 	draw_style_box(_button_panel(color, active), rect)
-	draw_string(ThemeDB.fallback_font, rect.position + Vector2(6, rect.size.y * 0.62), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 12, max(14, int(17 * control_scale)), Color("#fff1cf"))
+	draw_string(ThemeDB.fallback_font, rect.position + Vector2(6, rect.size.y * 0.62), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 12, max(14, int(17 * layout_scale)), Color("#fff1cf"))
 
 func _button_panel(accent: Color, active: bool) -> StyleBoxFlat:
 	var panel := StyleBoxFlat.new()

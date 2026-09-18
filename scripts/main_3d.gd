@@ -331,6 +331,10 @@ func _build_environment() -> void:
 	environment.ambient_light_color = Color("#d8edff")
 	environment.ambient_light_energy = 0.72
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.adjustment_enabled = true
+	environment.adjustment_brightness = 1.04
+	environment.adjustment_contrast = 1.08
+	environment.adjustment_saturation = 1.12
 	environment.fog_enabled = true
 	environment.fog_light_color = Color("#bcd3dc")
 	environment.fog_light_energy = 0.45
@@ -1697,6 +1701,8 @@ func _update_day_night() -> void:
 	moon.light_energy = lerp(0.24, 0.0, daylight)
 	var night: Variant = 1.0 - daylight
 	environment.ambient_light_energy = lerp(0.16, 0.82, daylight)
+	environment.glow_intensity = lerp(0.92, 0.58, daylight)
+	environment.adjustment_contrast = lerp(1.14, 1.06, daylight)
 	if game_hour >= 5.0 and game_hour < 8.0:
 		environment.background_color = Color("#e1a77f").lerp(Color("#86d6e8"), (game_hour - 5.0) / 3.0)
 	elif game_hour >= 17.0 and game_hour < 20.0:
@@ -1787,6 +1793,10 @@ func _update_weather_visuals() -> void:
 	var weather_fog_color: Variant = Color("#7895b8") if current_weather == "rain" else (Color("#d9e7f2") if current_weather == "snow" else Color("#bcd3dc"))
 	environment.fog_light_color = environment.fog_light_color.lerp(weather_fog_color, 0.08)
 	environment.ambient_light_energy = lerp(environment.ambient_light_energy, 0.42 if current_weather == "rain" else (0.72 if current_weather == "snow" else environment.ambient_light_energy), 0.025)
+	var target_saturation: Variant = 0.82 if current_weather == "rain" else (0.96 if current_weather == "snow" else 1.12)
+	var target_brightness: Variant = 0.94 if current_weather == "rain" else (1.02 if current_weather == "snow" else 1.04)
+	environment.adjustment_saturation = lerp(environment.adjustment_saturation, target_saturation, 0.04)
+	environment.adjustment_brightness = lerp(environment.adjustment_brightness, target_brightness, 0.04)
 	var road_material: Variant = road_surface.material_override as StandardMaterial3D
 	if current_weather == "rain":
 		road_material.albedo_texture = ROAD_WET_TEXTURE

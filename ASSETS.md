@@ -67,3 +67,14 @@ The two cockpit mirrors use low-resolution live `SubViewport` cameras and textur
 - `art/visual_target_mountain.png`
 - `art/visual_target_rural.png`
 - `art/truck.svg` (editable vector fallback asset)
+
+## Generated art completion pass
+
+The generated completion set and its production notes are cataloged in [`GENERATED_ART_ASSET_CATALOG.md`](GENERATED_ART_ASSET_CATALOG.md):
+
+- `art/generated_player_truck_exterior.png`
+- `art/generated_cockpit_interior.png`
+- `art/generated_biome_landmark_atlas.png`
+- `art/generated_road_material_atlas.png`
+- `art/generated_vehicle_detail_atlas.png`
+- `art/generated_assets.sha256`

@@ -106,6 +106,7 @@ var truck_detail_nodes: Array[MeshInstance3D] = []
 var truck_livery_parts: Array[MeshInstance3D] = []
 var cargo_decal_labels: Array[Label3D] = []
 var cargo_badge_lights: Array[MeshInstance3D] = []
+var safety_reflectors: Array[MeshInstance3D] = []
 const FreeAssetCatalog = preload("res://scripts/free_asset_catalog.gd")
 
 const ROAD_WIDTH := 12.0
@@ -756,6 +757,19 @@ func _build_truck() -> void:
 		badge_material.emission = Color("#ffd166")
 		badge_material.emission_energy_multiplier = 0.0
 		cargo_badge_lights.append(badge_light)
+	for side in [-1.0, 1.0]:
+		for trailer_z in [-2.8, -1.0, 0.8, 2.6, 4.1]:
+			var reflector := _box(truck, Vector3(0.07, 0.20, 0.48), Vector3(side * 2.66, 0.82, trailer_z), Color("#ef6f61"), "TrailerReflector")
+			var reflector_material := reflector.material_override as StandardMaterial3D
+			reflector_material.emission_enabled = true
+			reflector_material.emission = Color("#ef6f61")
+			reflector_material.emission_energy_multiplier = 0.0
+			safety_reflectors.append(reflector)
+	for stripe_index in range(6):
+		var warning_stripe := _box(truck, Vector3(0.34, 0.10, 0.08), Vector3(-1.1 + stripe_index * 0.44, 0.62, 4.72), Color("#ffd166" if stripe_index % 2 == 0 else CORAL), "RearWarningStripe")
+		warning_stripe.rotation_degrees.y = 20.0 if stripe_index % 2 == 0 else -20.0
+	var plate := _label3d(truck, "AH-2048", Vector3(0, 0.68, 4.82), CREAM, 18)
+	plate.rotation_degrees = Vector3(0, 180, 0)
 	_build_cockpit_interior()
 
 func _label3d(parent: Node3D, text_value: String, pos: Vector3, color: Color, size: int = 32) -> Label3D:
@@ -1567,6 +1581,9 @@ func _update_cockpit_instruments(delta: float) -> void:
 	for badge_light in cargo_badge_lights:
 		var badge_material := badge_light.material_override as StandardMaterial3D
 		badge_material.emission_energy_multiplier = cabin_brightness * 1.4
+	for reflector in safety_reflectors:
+		var reflector_material := reflector.material_override as StandardMaterial3D
+		reflector_material.emission_energy_multiplier = cabin_brightness * 1.8
 
 func _complete_delivery() -> void:
 	money += 640

@@ -1275,7 +1275,7 @@ func _build_ui() -> void:
 	virtual_controls = Control.new()
 	virtual_controls.name = "AnalogDrivingControls"
 	virtual_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	virtual_controls.mouse_filter = Control.MOUSE_FILTER_STOP
+	virtual_controls.mouse_filter = Control.MOUSE_FILTER_PASS
 	virtual_controls.set_script(load("res://scripts/virtual_controls.gd"))
 	virtual_controls.steering_changed.connect(_on_touch_steering)
 	virtual_controls.throttle_changed.connect(_on_touch_throttle)
@@ -1288,7 +1288,7 @@ func _build_ui() -> void:
 	layer.add_child(virtual_controls)
 	var pause_button: Variant = Button.new()
 	pause_button.text = "Ⅱ"
-	pause_button.position = Vector2(1197, 18)
+	pause_button.position = Vector2(1197, 202)
 	pause_button.size = Vector2(52, 52)
 	pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_button.add_theme_font_size_override("font_size", 23)
@@ -1297,7 +1297,7 @@ func _build_ui() -> void:
 	layer.add_child(pause_button)
 	var camera_button: Variant = Button.new()
 	camera_button.text = "视角"
-	camera_button.position = Vector2(1118, 18)
+	camera_button.position = Vector2(1118, 202)
 	camera_button.size = Vector2(70, 52)
 	camera_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	camera_button.add_theme_font_size_override("font_size", 16)
@@ -1306,7 +1306,7 @@ func _build_ui() -> void:
 	layer.add_child(camera_button)
 	var garage_button: Variant = Button.new()
 	garage_button.text = "车库"
-	garage_button.position = Vector2(1035, 18)
+	garage_button.position = Vector2(1035, 202)
 	garage_button.size = Vector2(72, 52)
 	garage_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	garage_button.add_theme_font_size_override("font_size", 16)
@@ -1315,7 +1315,7 @@ func _build_ui() -> void:
 	layer.add_child(garage_button)
 	var settings_button: Variant = Button.new()
 	settings_button.text = "设置"
-	settings_button.position = Vector2(950, 18)
+	settings_button.position = Vector2(950, 202)
 	settings_button.size = Vector2(72, 52)
 	settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	settings_button.add_theme_font_size_override("font_size", 16)
@@ -1370,7 +1370,7 @@ func _hud_icon(layer: CanvasLayer, texture: Texture2D, pos: Vector2, icon_size: 
 func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel = Panel.new()
 	settings_panel.position = Vector2(760, 112)
-	settings_panel.size = Vector2(370, 450)
+	settings_panel.size = Vector2(370, 490)
 	settings_panel.visible = false
 	settings_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	settings_panel.set_script(load("res://scripts/settings_panel.gd"))

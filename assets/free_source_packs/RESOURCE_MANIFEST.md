@@ -41,3 +41,21 @@
 ## 当前状态
 
 本次已下载约 29 MB 的轻量资源包，包含道路、自然、UI、粒子和公交车。由于 Kenney Car Kit 的 itch.io 领取链接返回过期状态，本次没有伪造下载文件；车辆资源仍保留官方页面，后续可通过浏览器页面重新领取。
+
+## 本轮新增并已下载
+
+以下资源已经放入 `assets/free_source_packs/optional/`，并解压到 `assets/free_source_import/optional/`：
+
+| 资源包 | 主要用途 | 许可证 | 备注 |
+|---|---|---|---|
+| `kenney_city-kit-commercial.zip` | 商业建筑和城市街区 | CC0 | 约 4 MB |
+| `kenney_city-kit-industrial.zip` | 工厂、仓库和工业区 | CC0 | 约 4.9 MB |
+| `traffic_road_assets.zip` | 路障、交通设施、路灯和道路小物 | CC0 | 约 52 MB |
+| `Weather_Icon_Set.zip` | 晴、雨、雪和雷暴 UI 图标 | CC0 | 约 66 KB |
+| `ground-grass-road-floor.zip` | 城市地面、草地、道路、鹅卵石和雪地纹理 | CC0 | 约 120 MB，Android 使用前应筛选和压缩 |
+
+本轮新增原始包约 181 MB，解压后约 328 MB，包含约 785 个文件。它们作为完整资源库随项目保存，但不会自动全部加载到运行时，以免 Android 包体和显存超出预算。
+
+## 仍保留官方入口的资源
+
+Quaternius 自然包、Quaternius 风格化自然包、Quaternius 模块化街道、Poly Haven Nature、ambientCG 和 Poly Haven Snow 01 的官方页面及授权信息已经收录，但由于下载接口需要页面交互或按单个材质选择，未伪造直链文件。入口见上方“推荐下载入口”表格。

@@ -112,4 +112,6 @@
 
 本轮已将可直接下载的免费资源包收集进 `assets/free_source_packs/`，包括 Kenney 城市道路、自然、UI、粒子资源和 OpenGameArt 公交车模型，并解压到 `assets/free_source_import/` 供后续 Godot 导入。来源、许可证、已下载状态和尚未下载的大型资源入口记录在 `assets/free_source_packs/RESOURCE_MANIFEST.md` 和 `licenses/free_sources/LICENSE_SOURCES.md` 中。
 
+第三十七轮资源收集已补齐剩余可直接下载的资源：Kenney 商业建筑、Kenney 工业建筑、OpenGameArt 交通道路设施、天气图标和城市/草地/道路/雪地纹理包。它们位于 `assets/free_source_packs/optional/`，解压版本位于 `assets/free_source_import/optional/`；本轮新增原始包约 181 MB，约 785 个解压文件，全部保留在项目包中，但仍需按 Android 预算筛选后才能接入运行时。
+
 第三十六轮 UI 升级按城市参考图重构了驾驶 HUD：左上为路线小地图，中央上方为路线和目的地卡片，右上为速度、燃油、目的地、时间和状态信息卡片，底部继续保留大尺寸虚拟方向盘、BRAKE 和 GAS 踏板。暂停、视角、车库、设置和升级按钮统一使用深蓝紫半透明底、圆角、细描边和暖黄色悬停高亮；设置面板与车库面板也使用同一套视觉规范，避免打开菜单后风格割裂。

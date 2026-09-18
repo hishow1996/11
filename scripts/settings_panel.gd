@@ -3,11 +3,15 @@ extends Panel
 signal quality_selected(mode: int)
 signal sensitivity_changed(value: float)
 signal volume_changed(value: float)
+signal music_volume_changed(value: float)
+signal sfx_volume_changed(value: float)
 signal closed
 
 var quality_mode := 1
 var sensitivity := 1.0
 var volume := 0.8
+var music_volume := 0.8
+var sfx_volume := 0.8
 var status_label: Label
 
 func _ready() -> void:
@@ -28,7 +32,7 @@ func _ready() -> void:
 	add_child(title)
 	status_label = Label.new()
 	status_label.position = Vector2(18, 50)
-	status_label.size = Vector2(310, 60)
+	status_label.size = Vector2(330, 92)
 	status_label.add_theme_color_override("font_color", Color("#c0cde4"))
 	add_child(status_label)
 	var low := _button("低画质", Vector2(18, 116), func(): _select_quality(0))
@@ -36,9 +40,13 @@ func _ready() -> void:
 	var high := _button("高画质", Vector2(222, 116), func(): _select_quality(2))
 	var less := _button("方向盘 −", Vector2(18, 170), func(): _change_sensitivity(-0.1))
 	var more := _button("方向盘 +", Vector2(120, 170), func(): _change_sensitivity(0.1))
-	var quieter := _button("音量 −", Vector2(222, 170), func(): _change_volume(-0.1))
-	var louder := _button("音量 +", Vector2(18, 224), func(): _change_volume(0.1))
-	var close := _button("关闭", Vector2(222, 224), func(): closed.emit())
+	var quieter := _button("总音量 −", Vector2(222, 170), func(): _change_volume(-0.1))
+	var louder := _button("总音量 +", Vector2(18, 224), func(): _change_volume(0.1))
+	var music_quieter := _button("音乐 −", Vector2(120, 224), func(): _change_music_volume(-0.1))
+	var music_louder := _button("音乐 +", Vector2(18, 278), func(): _change_music_volume(0.1))
+	var sfx_quieter := _button("音效 −", Vector2(120, 278), func(): _change_sfx_volume(-0.1))
+	var sfx_louder := _button("音效 +", Vector2(222, 278), func(): _change_sfx_volume(0.1))
+	var close := _button("关闭", Vector2(222, 332), func(): closed.emit())
 	_update_status()
 
 func _button(text: String, pos: Vector2, callback: Callable) -> Button:
@@ -77,6 +85,16 @@ func _change_volume(amount: float) -> void:
 	volume_changed.emit(volume)
 	_update_status()
 
+func _change_music_volume(amount: float) -> void:
+	music_volume = clampf(music_volume + amount, 0.0, 1.0)
+	music_volume_changed.emit(music_volume)
+	_update_status()
+
+func _change_sfx_volume(amount: float) -> void:
+	sfx_volume = clampf(sfx_volume + amount, 0.0, 1.0)
+	sfx_volume_changed.emit(sfx_volume)
+	_update_status()
+
 func _update_status() -> void:
 	var quality_name: String = ["低", "中", "高"][quality_mode]
-	status_label.text = "画质：%s\n方向盘灵敏度：%.1f   音量：%d%%" % [quality_name, sensitivity, int(volume * 100.0)]
+	status_label.text = "画质：%s\n方向盘：%.1f  总音量：%d%%\n音乐：%d%%  音效：%d%%" % [quality_name, sensitivity, int(volume * 100.0), int(music_volume * 100.0), int(sfx_volume * 100.0)]

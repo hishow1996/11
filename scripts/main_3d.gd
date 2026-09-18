@@ -116,9 +116,15 @@ var quality_mode := 1
 var traffic_ai_frame := 0
 var steering_sensitivity := 1.0
 var master_volume := 0.8
+var music_volume := 0.8
+var sfx_volume := 0.8
 var touch_steer := 0.0
 var touch_throttle := 0.0
 var touch_brake := 0.0
+var manual_turn_left := false
+var manual_turn_right := false
+var hazard_lights := false
+var horn_active := false
 var interior_steering_wheel: MeshInstance3D
 var interior_speed_display: Label3D
 var interior_fuel_display: Label3D
@@ -230,6 +236,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	quality_mode = clamp(int(data.get("quality_mode", quality_mode)), 0, 2)
 	steering_sensitivity = clamp(float(data.get("steering_sensitivity", steering_sensitivity)), 0.55, 1.6)
 	master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
+	music_volume = clamp(float(data.get("music_volume", music_volume)), 0.0, 1.0)
+	sfx_volume = clamp(float(data.get("sfx_volume", sfx_volume)), 0.0, 1.0)
 	route_goal = 10.0 + float(cargo_index * 2)
 	destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 
@@ -251,7 +259,9 @@ func _save_game() -> void:
 		"armor_level": armor_level,
 		"quality_mode": quality_mode,
 		"steering_sensitivity": steering_sensitivity,
-		"master_volume": master_volume
+		"master_volume": master_volume,
+		"music_volume": music_volume,
+		"sfx_volume": sfx_volume
 	}
 	if FileAccess.file_exists(SAVE_TEMP_PATH):
 		DirAccess.remove_absolute(SAVE_TEMP_PATH)
@@ -1264,6 +1274,11 @@ func _build_ui() -> void:
 	virtual_controls.steering_changed.connect(_on_touch_steering)
 	virtual_controls.throttle_changed.connect(_on_touch_throttle)
 	virtual_controls.brake_changed.connect(_on_touch_brake)
+	virtual_controls.turn_left_pressed.connect(_on_turn_left_pressed)
+	virtual_controls.turn_right_pressed.connect(_on_turn_right_pressed)
+	virtual_controls.hazard_pressed.connect(_on_hazard_pressed)
+	virtual_controls.horn_changed.connect(_on_horn_changed)
+	virtual_controls.set_layout(1.0, 0.84, Vector2.ZERO)
 	layer.add_child(virtual_controls)
 	var pause_button: Variant = Button.new()
 	pause_button.text = "Ⅱ"
@@ -1349,18 +1364,22 @@ func _hud_icon(layer: CanvasLayer, texture: Texture2D, pos: Vector2, icon_size: 
 func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel = Panel.new()
 	settings_panel.position = Vector2(760, 112)
-	settings_panel.size = Vector2(370, 290)
+	settings_panel.size = Vector2(370, 390)
 	settings_panel.visible = false
 	settings_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	settings_panel.set_script(load("res://scripts/settings_panel.gd"))
 	settings_panel.quality_selected.connect(_apply_quality)
 	settings_panel.sensitivity_changed.connect(_apply_sensitivity)
 	settings_panel.volume_changed.connect(_apply_volume)
+	settings_panel.music_volume_changed.connect(_apply_music_volume)
+	settings_panel.sfx_volume_changed.connect(_apply_sfx_volume)
 	settings_panel.closed.connect(_toggle_settings)
 	layer.add_child(settings_panel)
 	settings_panel.quality_mode = quality_mode
 	settings_panel.sensitivity = steering_sensitivity
 	settings_panel.volume = master_volume
+	settings_panel.music_volume = music_volume
+	settings_panel.sfx_volume = sfx_volume
 
 func _toggle_settings() -> void:
 	settings_panel.visible = not settings_panel.visible
@@ -1403,9 +1422,21 @@ func _apply_sensitivity(value: float) -> void:
 
 func _apply_volume(value: float) -> void:
 	master_volume = value
-	for player in [engine_player, brake_player, rain_player, wind_player, wet_tire_player, snow_tire_player, thunder_player]:
+	_apply_music_volume(music_volume)
+	_apply_sfx_volume(sfx_volume)
+	_save_game()
+
+func _apply_music_volume(value: float) -> void:
+	music_volume = clampf(value, 0.0, 1.0)
+	for player in [engine_player, rain_player, wind_player, wet_tire_player, snow_tire_player, thunder_player]:
 		if player:
-			player.volume_db = linear_to_db(max(master_volume, 0.001))
+			player.volume_db = linear_to_db(max(music_volume * master_volume, 0.001))
+	_save_game()
+
+func _apply_sfx_volume(value: float) -> void:
+	sfx_volume = clampf(value, 0.0, 1.0)
+	if brake_player:
+		brake_player.volume_db = linear_to_db(max(sfx_volume * master_volume, 0.001)) - 4.0
 	_save_game()
 
 func _build_garage_panel(layer: CanvasLayer) -> void:
@@ -1502,6 +1533,29 @@ func _on_touch_throttle(value: float) -> void:
 func _on_touch_brake(value: float) -> void:
 	touch_brake = value
 
+func _on_turn_left_pressed() -> void:
+	manual_turn_left = not manual_turn_left
+	manual_turn_right = false
+	hazard_lights = false
+	_play_sfx("turn_signal", -13.0)
+
+func _on_turn_right_pressed() -> void:
+	manual_turn_right = not manual_turn_right
+	manual_turn_left = false
+	hazard_lights = false
+	_play_sfx("turn_signal", -13.0)
+
+func _on_hazard_pressed() -> void:
+	hazard_lights = not hazard_lights
+	manual_turn_left = false
+	manual_turn_right = false
+	_play_sfx("warning_alert", -10.0)
+
+func _on_horn_changed(active: bool) -> void:
+	horn_active = active
+	if active:
+		_play_sfx("warning_alert", -4.0)
+
 func _build_audio() -> void:
 	engine_player = AudioStreamPlayer.new()
 	var engine_stream: Variant = load("res://audio/engine_loop.wav")
@@ -1543,7 +1597,7 @@ func _build_audio() -> void:
 func _play_sfx(sfx_name: String, volume_db := -8.0) -> void:
 	var player: Variant = sfx_players.get(sfx_name)
 	if player and player.stream:
-		player.volume_db = volume_db
+		player.volume_db = volume_db + linear_to_db(max(sfx_volume * master_volume, 0.001))
 		player.play()
 
 func _loop_audio(path: String, volume: float) -> AudioStreamPlayer:
@@ -1626,7 +1680,9 @@ func _process(delta: float) -> void:
 			reflector_material.emission_enabled = damage_warning > 0.01
 			reflector_material.emission = CORAL
 			reflector_material.emission_energy_multiplier = damage_warning * warning_pulse * 2.4
-	var signal_on: Variant = abs(steer) > 0.14 and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
+	var manual_signal_active: Variant = manual_turn_left or manual_turn_right or hazard_lights
+	var auto_signal_active: Variant = abs(steer) > 0.14
+	var signal_on: Variant = (manual_signal_active or auto_signal_active) and fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 	if signal_on and not last_indicator_on:
 		_play_sfx("turn_signal", -13.0)
 	last_indicator_on = signal_on
@@ -1657,7 +1713,7 @@ func _process(delta: float) -> void:
 	if engine_player:
 		var engine_load: Variant = clamp(throttle + max(0.0, slope_percent) * 0.035, 0.0, 1.0)
 		engine_player.pitch_scale = 0.82 + speed / max(max_speed, 1.0) * 0.32 + engine_load * 0.16
-		engine_player.volume_db = -12.0 + engine_load * 4.0
+		engine_player.volume_db = linear_to_db(max(music_volume * master_volume, 0.001)) - 12.0 + engine_load * 4.0
 	for wheel in wheel_nodes:
 		wheel.rotation.x -= speed * delta * 1.8
 	for wheel in authored_wheel_nodes:
@@ -1930,7 +1986,7 @@ func _update_weather_audio(delta: float) -> void:
 			current_weather = "clear"
 			weather_intensity = 0.0
 	var speed_factor: Variant = clamp(speed / 21.0, 0.0, 1.0)
-	var master_db: Variant = linear_to_db(max(master_volume, 0.001))
+	var master_db: Variant = linear_to_db(max(music_volume * master_volume, 0.001))
 	rain_player.volume_db = master_db + lerp(-42.0, -12.0, weather_intensity)
 	wind_player.volume_db = master_db + lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
 	wet_tire_player.volume_db = master_db + (-38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity))

@@ -23,6 +23,10 @@ var control_scale := 1.0
 var control_opacity := 0.84
 var control_offset := Vector2.ZERO
 var horn_touch_id := -1
+var left_indicator_active := false
+var right_indicator_active := false
+var hazard_active := false
+var horn_active := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -66,13 +70,23 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var p := event.position
 	if event.pressed:
 		if _left_signal_rect().has_point(p):
+			left_indicator_active = not left_indicator_active
+			right_indicator_active = false
+			hazard_active = false
 			turn_left_pressed.emit()
 		elif _right_signal_rect().has_point(p):
+			right_indicator_active = not right_indicator_active
+			left_indicator_active = false
+			hazard_active = false
 			turn_right_pressed.emit()
 		elif _hazard_rect().has_point(p):
+			hazard_active = not hazard_active
+			left_indicator_active = false
+			right_indicator_active = false
 			hazard_pressed.emit()
 		elif horn_touch_id == -1 and _horn_rect().has_point(p):
 			horn_touch_id = event.index
+			horn_active = true
 			horn_changed.emit(true)
 		elif wheel_touch_id == -1 and p.distance_to(wheel_center) <= wheel_radius * 1.25:
 			wheel_touch_id = event.index
@@ -94,6 +108,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_set_brake(0.0)
 		elif event.index == horn_touch_id:
 			horn_touch_id = -1
+			horn_active = false
 			horn_changed.emit(false)
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
@@ -109,13 +124,23 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		return
 	if event.pressed:
 		if _left_signal_rect().has_point(event.position):
+			left_indicator_active = not left_indicator_active
+			right_indicator_active = false
+			hazard_active = false
 			turn_left_pressed.emit()
 		elif _right_signal_rect().has_point(event.position):
+			right_indicator_active = not right_indicator_active
+			left_indicator_active = false
+			hazard_active = false
 			turn_right_pressed.emit()
 		elif _hazard_rect().has_point(event.position):
+			hazard_active = not hazard_active
+			left_indicator_active = false
+			right_indicator_active = false
 			hazard_pressed.emit()
 		elif _horn_rect().has_point(event.position):
 			horn_touch_id = 999
+			horn_active = true
 			horn_changed.emit(true)
 		elif event.position.distance_to(wheel_center) <= wheel_radius * 1.25:
 			wheel_touch_id = 999
@@ -131,6 +156,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		throttle_touch_id = -1
 		brake_touch_id = -1
 		horn_touch_id = -1
+		horn_active = false
 		_set_throttle(0.0)
 		_set_brake(0.0)
 		horn_changed.emit(false)
@@ -192,10 +218,10 @@ func _draw() -> void:
 	draw_circle(wheel_center, 10, Color("#fff1cf"))
 	_draw_pedal(_throttle_rect(), "GAS", throttle_value, Color("#74d0ad"))
 	_draw_pedal(_brake_rect(), "BRAKE", brake_value, Color("#ef6f61"))
-	_draw_action(_left_signal_rect(), "左转", Color("#ffd166"))
-	_draw_action(_right_signal_rect(), "右转", Color("#ffd166"))
-	_draw_action(_hazard_rect(), "双闪", Color("#ef6f61"))
-	_draw_action(_horn_rect(), "喇叭", Color("#74d0ad"))
+	_draw_action(_left_signal_rect(), "左转", Color("#ffd166"), left_indicator_active)
+	_draw_action(_right_signal_rect(), "右转", Color("#ffd166"), right_indicator_active)
+	_draw_action(_hazard_rect(), "双闪", Color("#ef6f61"), hazard_active)
+	_draw_action(_horn_rect(), "喇叭", Color("#74d0ad"), horn_active)
 
 func _draw_pedal(rect: Rect2, text: String, value: float, color: Color) -> void:
 	draw_style_box(_panel(color, 0.22), rect)
@@ -204,14 +230,14 @@ func _draw_pedal(rect: Rect2, text: String, value: float, color: Color) -> void:
 		draw_style_box(_panel(color, 0.86), fill_rect)
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(12, 28), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 24, 17, Color("#fff1cf"))
 
-func _draw_action(rect: Rect2, text: String, color: Color) -> void:
-	draw_style_box(_button_panel(color), rect)
+func _draw_action(rect: Rect2, text: String, color: Color, active: bool) -> void:
+	draw_style_box(_button_panel(color, active), rect)
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(6, rect.size.y * 0.62), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 12, max(14, int(17 * control_scale)), Color("#fff1cf"))
 
-func _button_panel(accent: Color) -> StyleBoxFlat:
+func _button_panel(accent: Color, active: bool) -> StyleBoxFlat:
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color("#3d4764", 0.96)
-	panel.border_color = Color("#66789d", 0.9)
+	panel.bg_color = accent if active else Color("#3d4764", 0.96)
+	panel.border_color = accent if active else Color("#66789d", 0.9)
 	panel.set_border_width_all(1)
 	panel.set_corner_radius_all(12)
 	panel.shadow_color = Color("#0d1020", 0.35)

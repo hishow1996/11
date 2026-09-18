@@ -93,6 +93,7 @@ var puddle_audio_active := false
 var last_gear := 0
 var last_indicator_on := false
 var previous_wiper_active := false
+var delivery_camera_boost := 0.0
 var exhaust_particles: GPUParticles3D
 var brake_lamps: Array[MeshInstance3D] = []
 var signal_lamps: Array[MeshInstance3D] = []
@@ -1783,6 +1784,9 @@ func _update_weather_visuals() -> void:
 	if weather_event_type == "大雾":
 		base_fog += 0.075
 	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
+	var weather_fog_color: Variant = Color("#7895b8") if current_weather == "rain" else (Color("#d9e7f2") if current_weather == "snow" else Color("#bcd3dc"))
+	environment.fog_light_color = environment.fog_light_color.lerp(weather_fog_color, 0.08)
+	environment.ambient_light_energy = lerp(environment.ambient_light_energy, 0.42 if current_weather == "rain" else (0.72 if current_weather == "snow" else environment.ambient_light_energy), 0.025)
 	var road_material: Variant = road_surface.material_override as StandardMaterial3D
 	if current_weather == "rain":
 		road_material.albedo_texture = ROAD_WET_TEXTURE
@@ -1935,7 +1939,7 @@ func _update_scene_name() -> void:
 		current_scene = "动漫城市"
 
 func _update_camera(delta: float) -> void:
-	var speed_zoom: Variant = clamp(speed / 21.0, 0.0, 1.0)
+	var speed_zoom: Variant = clamp(abs(speed) / 21.0, 0.0, 1.0)
 	var target: Vector3
 	var look_target: Vector3
 	if cockpit_mode:
@@ -1945,15 +1949,18 @@ func _update_camera(delta: float) -> void:
 	else:
 		target = truck.global_position + Vector3(0, 5.2, 11.5)
 		target.z += speed_zoom * 2.2
+		target.y += delivery_camera_boost * 1.2
 		look_target = truck.global_position + Vector3(0, 1.2, -5.0)
 		camera.fov = lerp(camera.fov, 58.0 + speed_zoom * 7.0, delta * 3.0)
 	hit_shake = move_toward(hit_shake, 0.0, delta * 2.8)
+	delivery_camera_boost = move_toward(delivery_camera_boost, 0.0, delta * 1.6)
 	var shake: Variant = Vector3(sin(Time.get_ticks_msec() * 0.08), cos(Time.get_ticks_msec() * 0.11), 0) * hit_shake * 0.22
 	target += shake
 	var camera_follow_speed: Variant = 4.0 if cockpit_mode else 3.2
 	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-delta * camera_follow_speed))
 	camera_look_target = camera_look_target.lerp(look_target, delta * 5.5)
 	camera.look_at(camera_look_target, Vector3.UP)
+	camera.rotation.z = lerp(camera.rotation.z, -steer * 0.035 + sin(Time.get_ticks_msec() * 0.09) * hit_shake * 0.018, delta * 6.0)
 
 func _traffic_target_lane(index: int, car: Node3D) -> float:
 	var preferred: Variant = traffic_lanes[index]
@@ -2051,6 +2058,7 @@ func _complete_delivery() -> void:
 	toast = "DELIVERY COMPLETE   +€640"
 	toast_time = 4.0
 	_play_sfx("delivery_complete", -5.0)
+	delivery_camera_boost = 1.0
 	if delivery_flash:
 		delivery_flash.global_position = truck.global_position + Vector3(0, 3.0, -4.0)
 		delivery_flash.light_energy = 6.0

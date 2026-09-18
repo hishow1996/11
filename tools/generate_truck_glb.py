@@ -63,7 +63,7 @@ def build(lod):
         add(scene, cyl(0.62,0.42,(x,0.62,z),sections=sections), f'Wheel_{i+1}', 'tire')
         if medium:
             add(scene, cyl(0.25,0.44,(x,0.62,z),sections=sections), f'Hub_{i+1}', 'gold')
-    if detail:
+    if medium:
         for side in (-1,1):
             add(scene, box((0.16,0.5,2.8),(side*2.56,1.05,0.75)), 'Trailer_Side_Outline', 'ink')
             add(scene, box((0.42,0.52,2.2),(side*2.25,0.62,0.15)), 'Fuel_Tank', 'metal')
@@ -71,6 +71,7 @@ def build(lod):
             add(scene, box((0.3,0.3,0.2),(x,1.8,-4.65)), 'Headlight', 'gold')
             add(scene, box((0.32,0.26,0.16),(x,1.65,4.58)), 'Brake_Lamp', 'red')
             add(scene, box((0.22,0.22,0.16),(x,1.95,4.58)), 'Signal_Lamp', 'signal')
+    if detail:
         add(scene, cyl(0.22,0.9,(-1.55,1.15,4.65),axis=(0,0,1),sections=12), 'Exhaust', 'ink')
     return scene
 

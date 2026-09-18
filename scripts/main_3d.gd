@@ -24,6 +24,7 @@ var cargo_index := 0
 var destination := "LUCERNE"
 var time_left := 184.0
 var paused := false
+var camera_toggle_cooldown := 0.0
 var traffic: Array[Node3D] = []
 var traffic_lanes := [-3.2, 0.0, 3.2, -3.2, 3.2, 0.0]
 var traffic_speeds := [0.82, 1.05, 0.68, 0.92, 0.76, 1.12]
@@ -1490,6 +1491,7 @@ func _process(delta: float) -> void:
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
 	collision_effect_cooldown = max(0.0, collision_effect_cooldown - delta)
+	camera_toggle_cooldown = max(0.0, camera_toggle_cooldown - delta)
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
 	for i in traffic.size():
@@ -1792,7 +1794,8 @@ func _update_camera(delta: float) -> void:
 	hit_shake = move_toward(hit_shake, 0.0, delta * 2.8)
 	var shake := Vector3(sin(Time.get_ticks_msec() * 0.08), cos(Time.get_ticks_msec() * 0.11), 0) * hit_shake * 0.22
 	target += shake
-	camera.global_position = camera.global_position.lerp(target, delta * 3.5)
+	var camera_follow_speed := 4.0 if cockpit_mode else 3.2
+	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-delta * camera_follow_speed))
 	camera_look_target = camera_look_target.lerp(look_target, delta * 5.5)
 	camera.look_at(camera_look_target, Vector3.UP)
 
@@ -1918,6 +1921,9 @@ func _toggle_pause() -> void:
 	toast_time = 2.0
 
 func _toggle_camera_mode() -> void:
+	if camera_toggle_cooldown > 0.0:
+		return
+	camera_toggle_cooldown = 0.45
 	cockpit_mode = not cockpit_mode
 	toast = "驾驶舱视角" if cockpit_mode else "第三人称视角"
 	toast_time = 2.0

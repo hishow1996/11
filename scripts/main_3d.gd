@@ -91,6 +91,7 @@ var sun: DirectionalLight3D
 var moon: DirectionalLight3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
+var sakura_particles: GPUParticles3D
 var speed_lines: GPUParticles3D
 var lightning_light: OmniLight3D
 var delivery_flash: OmniLight3D
@@ -464,6 +465,7 @@ func _build_environment() -> void:
 func _build_weather_effects() -> void:
 	rain_particles = _weather_particles("RainParticles", Color("#a8d8ff"), 420, 0.75, 28.0)
 	snow_particles = _weather_particles("SnowParticles", Color("#fff7df"), 260, 4.5, 2.2)
+	sakura_particles = _sakura_particles()
 	speed_lines = _speed_line_particles()
 	lightning_light = OmniLight3D.new()
 	lightning_light.name = "LightningFlash"
@@ -508,6 +510,37 @@ func _weather_particles(name: String, color: Color, amount: int, lifetime: float
 	particles.draw_pass_1 = quad
 	particles.position = Vector3(0, 10, 0)
 	particles.visibility_aabb = AABB(Vector3(-18, -2, -24), Vector3(36, 22, 48))
+	add_child(particles)
+	return particles
+
+func _sakura_particles() -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = "SakuraPetalParticles"
+	particles.amount = 180
+	particles.lifetime = 5.5
+	particles.local_coords = true
+	particles.emitting = false
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3(0.18, -0.22, 0.12)
+	process_material.spread = 42.0
+	process_material.initial_velocity_min = 0.7
+	process_material.initial_velocity_max = 2.6
+	process_material.gravity = Vector3(0, -0.32, 0)
+	process_material.scale_min = 0.08
+	process_material.scale_max = 0.16
+	process_material.color = Color("#ffb7cf")
+	var petal := QuadMesh.new()
+	petal.size = Vector2(0.16, 0.08)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("#ffb7cf")
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	petal.material = material
+	particles.process_material = process_material
+	particles.draw_pass_1 = petal
+	particles.position = Vector3(0, 8, 0)
+	particles.visibility_aabb = AABB(Vector3(-22, -2, -28), Vector3(44, 18, 56))
 	add_child(particles)
 	return particles
 
@@ -1491,6 +1524,9 @@ func _apply_quality(mode: int) -> void:
 	var ratios: Variant = [0.45, 0.72, 1.0]
 	rain_particles.amount_ratio = ratios[mode]
 	snow_particles.amount_ratio = ratios[mode]
+	if sakura_particles:
+		sakura_particles.amount = [70, 125, 180][mode]
+		sakura_particles.amount_ratio = ratios[mode]
 	if speed_lines:
 		speed_lines.amount = [28, 54, 90][mode]
 		speed_lines.visible = mode > 0
@@ -1779,7 +1815,9 @@ func _process(delta: float) -> void:
 	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
 	var slope_drag: Variant = slope_percent * 0.055
 	var wetness: float = weather_intensity if current_weather == "rain" else 0.0
-	var wet_grip: float = clampf(1.0 - wetness * 0.45, 0.55, 1.0)
+	var snowiness: float = weather_intensity if current_weather == "snow" else 0.0
+	var sakura_wind: float = weather_intensity if current_weather == "sakura" else 0.0
+	var wet_grip: float = clampf(1.0 - wetness * 0.45 - snowiness * 0.30, 0.55, 1.0)
 	var brake_pressed: Variant = braking > 0.15 and not brake_input_was_active
 	if brake_pressed and throttle < 0.05 and abs(speed) < 0.8:
 		reverse_mode = true
@@ -1805,7 +1843,8 @@ func _process(delta: float) -> void:
 	var steering_grip: Variant = (1.0 + float(tire_level) * 0.08) * wet_grip
 	var road_center: Variant = _road_center_at(truck.position.z)
 	var lateral_rate: Variant = lerp(5.8, 3.2, speed_ratio) * steering_grip
-	var slip_target: float = steer * speed_ratio * wetness * 3.8 if braking > 0.2 else steer * speed_ratio * wetness * 0.65
+	var slip_target: float = steer * speed_ratio * (wetness * 3.8 + snowiness * 1.8) if braking > 0.2 else steer * speed_ratio * (wetness * 0.65 + snowiness * 0.28)
+	slip_target += sin(Time.get_ticks_msec() * 0.0017) * sakura_wind * speed_ratio * 0.08
 	wet_lateral_slip = lerp(wet_lateral_slip, slip_target, clampf(delta * 2.4, 0.0, 1.0))
 	truck.position.x = clamp(truck.position.x + steer * delta * lateral_rate + wet_lateral_slip * delta + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
@@ -2069,10 +2108,13 @@ func _apply_region_palette() -> void:
 func _update_weather_visuals() -> void:
 	var rain_strength: Variant = weather_intensity if current_weather == "rain" else 0.0
 	var snow_strength: Variant = weather_intensity if current_weather == "snow" else 0.0
+	var sakura_strength: Variant = weather_intensity if current_weather == "sakura" else 0.0
 	rain_particles.emitting = rain_strength > 0.02
 	snow_particles.emitting = snow_strength > 0.02
+	sakura_particles.emitting = sakura_strength > 0.02
 	rain_particles.amount_ratio = rain_strength
 	snow_particles.amount_ratio = snow_strength
+	sakura_particles.amount_ratio = sakura_strength
 	var base_fog: Variant = 0.008
 	if current_scene == "深山老林":
 		base_fog = 0.038
@@ -2084,14 +2126,16 @@ func _update_weather_visuals() -> void:
 		base_fog += weather_intensity * 0.012
 	elif current_weather == "snow":
 		base_fog += weather_intensity * 0.018
+	elif current_weather == "sakura":
+		base_fog += weather_intensity * 0.004
 	if weather_event_type == "大雾":
 		base_fog += 0.075
 	environment.fog_density = lerp(environment.fog_density, base_fog, 0.08)
-	var weather_fog_color: Variant = Color("#7895b8") if current_weather == "rain" else (Color("#d9e7f2") if current_weather == "snow" else Color("#bcd3dc"))
+	var weather_fog_color: Variant = Color("#7895b8") if current_weather == "rain" else (Color("#d9e7f2") if current_weather == "snow" else (Color("#e7b8c8") if current_weather == "sakura" else Color("#bcd3dc")))
 	environment.fog_light_color = environment.fog_light_color.lerp(weather_fog_color, 0.08)
 	environment.ambient_light_energy = lerp(environment.ambient_light_energy, 0.42 if current_weather == "rain" else (0.72 if current_weather == "snow" else environment.ambient_light_energy), 0.025)
-	var target_saturation: Variant = 0.82 if current_weather == "rain" else (0.96 if current_weather == "snow" else 1.12)
-	var target_brightness: Variant = 0.94 if current_weather == "rain" else (1.02 if current_weather == "snow" else 1.04)
+	var target_saturation: Variant = 0.82 if current_weather == "rain" else (0.96 if current_weather == "snow" else (1.18 if current_weather == "sakura" else 1.12))
+	var target_brightness: Variant = 0.94 if current_weather == "rain" else (1.02 if current_weather == "snow" else (1.08 if current_weather == "sakura" else 1.04))
 	environment.adjustment_saturation = lerp(environment.adjustment_saturation, target_saturation, 0.04)
 	environment.adjustment_brightness = lerp(environment.adjustment_brightness, target_brightness, 0.04)
 	var road_material: Variant = road_surface.material_override as StandardMaterial3D
@@ -2108,6 +2152,10 @@ func _update_weather_visuals() -> void:
 			glass_alpha = 0.18 + weather_intensity * 0.10
 			glass_color = Color("#d9e7f2")
 			glass_roughness = 0.42
+		elif current_weather == "sakura":
+			glass_alpha = 0.10 + weather_intensity * 0.04
+			glass_color = Color("#f5c6d6")
+			glass_roughness = 0.18
 		if weather_event_type == "大雾":
 			glass_alpha = 0.30
 			glass_color = Color("#c5d6df")
@@ -2124,6 +2172,11 @@ func _update_weather_visuals() -> void:
 		road_material.albedo_color = road_material.albedo_color.lerp(Color("#8d9caf"), 0.10)
 		road_material.roughness = lerp(road_material.roughness, 0.68, 0.08)
 		road_material.metallic = lerp(road_material.metallic, 0.04, 0.08)
+	elif current_weather == "sakura":
+		road_material.albedo_texture = ROAD_CLEAR_TEXTURE
+		road_material.albedo_color = road_material.albedo_color.lerp(Color("#5f4f68"), 0.06)
+		road_material.roughness = lerp(road_material.roughness, 0.72, 0.08)
+		road_material.metallic = lerp(road_material.metallic, 0.02, 0.08)
 	else:
 		road_material.albedo_texture = ROAD_CLEAR_TEXTURE
 		road_material.albedo_color = road_material.albedo_color.lerp(ASPHALT, 0.08)
@@ -2148,20 +2201,24 @@ func _update_weather_event(delta: float) -> void:
 		return
 	if weather_event_cooldown > 0.0 or speed < 4.0:
 		return
-	var event_roll: Variant = int(abs(truck.position.z)) % 3
+	var event_roll: Variant = int(abs(truck.position.z)) % 4
 	weather_event_remaining = 14.0 + float(event_roll) * 4.0
 	if event_roll == 0:
 		weather_event_type = "暴雨"
 		current_weather = "rain"
 		weather_target_intensity = 0.92
-	elif event_roll == 1:
-		weather_event_type = "大雾"
-		current_weather = "rain"
-		weather_target_intensity = 0.48
-	else:
-		weather_event_type = "降雪"
-		current_weather = "snow"
-		weather_target_intensity = 0.86
+		elif event_roll == 1:
+			weather_event_type = "大雾"
+			current_weather = "rain"
+			weather_target_intensity = 0.48
+		elif event_roll == 2:
+			weather_event_type = "降雪"
+			current_weather = "snow"
+			weather_target_intensity = 0.86
+		else:
+			weather_event_type = "樱花飘落"
+			current_weather = "sakura"
+			weather_target_intensity = 0.78
 	toast = "突发天气：" + weather_event_type
 	toast_time = 3.0
 
@@ -2178,18 +2235,23 @@ func _update_weather_audio(delta: float) -> void:
 			current_weather = "rain"
 			weather_target_intensity = 0.62
 		elif current_scene == "动漫城市" and int(distance) % 3 == 0:
-			current_weather = "rain"
-			weather_target_intensity = 0.38
+			if int(distance) % 6 == 0:
+				current_weather = "sakura"
+				weather_target_intensity = 0.72
+			else:
+				current_weather = "rain"
+				weather_target_intensity = 0.38
 		else:
 			current_weather = "clear"
 			weather_target_intensity = 0.0
 		weather_intensity = move_toward(weather_intensity, weather_target_intensity, delta * 0.22)
 	var speed_factor: Variant = clamp(speed / 21.0, 0.0, 1.0)
 	var master_db: Variant = linear_to_db(max(music_volume * master_volume, 0.001))
-	rain_player.volume_db = master_db + lerp(-42.0, -12.0, weather_intensity)
+	rain_player.volume_db = master_db + (-42.0 if current_weather != "rain" else lerp(-42.0, -12.0, weather_intensity))
 	wind_player.volume_db = master_db + lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
 	wet_tire_player.volume_db = master_db + (-38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity))
 	snow_tire_player.volume_db = master_db + (-38.0 if current_weather != "snow" else lerp(-34.0, -8.0, speed_factor * weather_intensity))
+	wind_player.volume_db += 2.0 if current_weather == "sakura" else 0.0
 	if spatial_tire_player:
 		spatial_tire_player.volume_db = master_db + lerp(-42.0, -13.0, speed_factor) + (weather_intensity * 3.0 if current_weather == "rain" else 0.0)
 		spatial_tire_player.pitch_scale = 0.86 + speed_factor * 0.28
@@ -2353,7 +2415,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 			interior_warning_display.modulate = MINT
 	if interior_nav_display:
 		interior_nav_display.text = "%s\n%s\n%.1f km\n%s" % ["JOB ACCEPTED" if task_active else "JOB AVAILABLE", destination, max(task_distance_goal - distance, 0.0), task_title]
-		interior_nav_display.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else MINT)
+		interior_nav_display.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else (Color("#ffb7cf") if current_weather == "sakura" else MINT))
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
 	if mirrors_enabled:
@@ -2566,8 +2628,8 @@ func _update_ui() -> void:
 	ui_route.text = "%s：%s\n↗ %s\n%s  →  %s" % ["运输中" if task_active else "可接任务", task_title, branch_hint if branch_hint != "" else "ROUTE AHEAD", cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
-	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
-	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else Color("#c0cde4"))
+	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云")
+	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else (Color("#ffb7cf") if current_weather == "sakura" else Color("#c0cde4")))
 	var active_grade: String = _task_grade(task_score) if task_active else last_delivery_grade
 	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   评分 %03d  %s\nCOMBO ×%02d   €%d 奖励   €%d 余额\n碰撞 %d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), int(task_score), active_grade, int(task_combo / 3.0), task_reward, money, task_incidents]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]

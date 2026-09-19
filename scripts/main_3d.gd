@@ -37,6 +37,8 @@ var task_peak_speed := 0.0
 var task_score_cooldown := 0.0
 var game_started := false
 var start_flow_layer: CanvasLayer
+var start_flow_root: Control
+var start_flow_design: Control
 var game_hud_layer: CanvasLayer
 var intro_panel: Control
 var main_menu_panel: Control
@@ -1514,13 +1516,20 @@ func _build_start_flow() -> void:
 	start_flow_layer.layer = 20
 	start_flow_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(start_flow_layer)
+	start_flow_root = Control.new()
+	start_flow_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	start_flow_root.resized.connect(_layout_start_flow)
+	start_flow_layer.add_child(start_flow_root)
+	start_flow_design = Control.new()
+	start_flow_design.size = Vector2(1280, 720)
+	start_flow_root.add_child(start_flow_design)
 	var backdrop := ColorRect.new()
 	backdrop.color = Color(INK, 0.82)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	start_flow_layer.add_child(backdrop)
+	start_flow_design.add_child(backdrop)
 	intro_panel = Control.new()
 	intro_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	start_flow_layer.add_child(intro_panel)
+	start_flow_design.add_child(intro_panel)
 	intro_logo = Label.new()
 	intro_logo.text = "ANIME HAUL"
 	intro_logo.position = Vector2(315, 238)
@@ -1565,7 +1574,7 @@ func _build_start_flow() -> void:
 	main_menu_panel = Control.new()
 	main_menu_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	main_menu_panel.visible = false
-	start_flow_layer.add_child(main_menu_panel)
+	start_flow_design.add_child(main_menu_panel)
 	var menu_card := Panel.new()
 	menu_card.position = Vector2(86, 118)
 	menu_card.size = Vector2(410, 484)
@@ -1640,6 +1649,18 @@ func _build_start_flow() -> void:
 	for player in [engine_player, bgm_player, rain_player, wind_player, wet_tire_player, snow_tire_player, spatial_tire_player]:
 		if player:
 			player.stop()
+	_layout_start_flow()
+
+func _layout_start_flow() -> void:
+	if not start_flow_root or not start_flow_design:
+		return
+	var viewport_size := start_flow_root.size
+	var safe_margin: float = clampf(min(viewport_size.x, viewport_size.y) * 0.025, 12.0, 32.0)
+	var usable_size := viewport_size - Vector2(safe_margin * 2.0, safe_margin * 2.0)
+	var fit_scale: float = min(usable_size.x / 1280.0, usable_size.y / 720.0)
+	fit_scale = max(fit_scale, 0.5)
+	start_flow_design.scale = Vector2.ONE * fit_scale
+	start_flow_design.position = (viewport_size - start_flow_design.size * fit_scale) * 0.5
 
 func _play_start_flow() -> void:
 	intro_panel.visible = true

@@ -31,6 +31,12 @@ var task_condition := "delivery"
 var task_time_remaining := 184.0
 var task_reward := 640
 var task_active := false
+var task_score := 100.0
+var task_incidents := 0
+var task_peak_speed := 0.0
+var task_score_cooldown := 0.0
+var last_delivery_grade := "—"
+var last_delivery_payout := 0
 var task_button: Button
 var headlight_mode_button: Button
 var time_left := 184.0
@@ -271,6 +277,11 @@ func _apply_save_data(data: Dictionary) -> void:
 	_setup_task(task_index)
 	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
 	task_active = bool(data.get("task_active", task_active))
+	task_score = clamp(float(data.get("task_score", task_score)), 0.0, 100.0)
+	task_incidents = max(0, int(data.get("task_incidents", task_incidents)))
+	task_peak_speed = max(0.0, float(data.get("task_peak_speed", task_peak_speed)))
+	last_delivery_grade = str(data.get("last_delivery_grade", last_delivery_grade))
+	last_delivery_payout = max(0, int(data.get("last_delivery_payout", last_delivery_payout)))
 	high_beam = bool(data.get("high_beam", high_beam))
 	drive_mode = str(data.get("drive_mode", drive_mode))
 	if drive_mode not in ["D", "N", "R"]:
@@ -291,6 +302,11 @@ func _save_game() -> void:
 		"task_index": task_index,
 		"task_time_remaining": task_time_remaining,
 		"task_active": task_active,
+		"task_score": task_score,
+		"task_incidents": task_incidents,
+		"task_peak_speed": task_peak_speed,
+		"last_delivery_grade": last_delivery_grade,
+		"last_delivery_payout": last_delivery_payout,
 		"high_beam": high_beam,
 		"drive_mode": drive_mode,
 		"game_hour": game_hour,
@@ -1290,7 +1306,7 @@ func _build_ui() -> void:
 	_hud_card(layer, Vector2(330, 22), Vector2(292, 142), Color("#211c37", 0.92))
 	_hud_card(layer, Vector2(970, 22), Vector2(112, 92), Color("#211c37", 0.94))
 	_hud_card(layer, Vector2(1090, 22), Vector2(166, 92), Color("#211c37", 0.94))
-	_hud_card(layer, Vector2(970, 124), Vector2(286, 70), Color("#211c37", 0.90))
+	_hud_card(layer, Vector2(970, 124), Vector2(286, 92), Color("#211c37", 0.90))
 	_hud_icon(layer, UI_ROUTE_TEXTURE, Vector2(332, 42), Vector2(28, 28))
 	_hud_icon(layer, UI_FUEL_TEXTURE, Vector2(978, 70), Vector2(24, 24))
 	_hud_icon(layer, UI_WEATHER_TEXTURE, Vector2(1100, 70), Vector2(24, 24))
@@ -1301,7 +1317,7 @@ func _build_ui() -> void:
 	ui_speed.size = Vector2(76, 56)
 	ui_speed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ui_stats = _label(layer, Vector2(990, 137), 14, Color("#c0cde4"))
-	ui_stats.size = Vector2(260, 48)
+	ui_stats.size = Vector2(260, 72)
 	ui_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ui_toast = _label(layer, Vector2(470, 206), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
@@ -1816,10 +1832,13 @@ func _process(delta: float) -> void:
 		_play_sfx("tire_skid", -8.0)
 		wet_skid_cooldown = 0.65
 	var road_offset: Variant = abs(truck.position.x - road_center)
-	if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
-		_play_sfx("guardrail_scrape", -10.0)
-		guardrail_audio_cooldown = 0.8
-		speed *= 0.92
+		if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
+			_play_sfx("guardrail_scrape", -10.0)
+			guardrail_audio_cooldown = 0.8
+			speed *= 0.92
+			if task_active:
+				task_score = max(0.0, task_score - 3.0)
+				task_score_cooldown = 0.35
 	var near_puddle: Variant = false
 	for puddle in road_puddles:
 		if is_instance_valid(puddle) and truck.global_position.distance_to(puddle.global_position) < 2.4:
@@ -1907,8 +1926,12 @@ func _process(delta: float) -> void:
 		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
 			var impact_speed: Variant = clamp(speed * (1.0 + traffic_speeds[i] * 0.25), 0.0, 30.0)
 			var impact_intensity: Variant = clamp(impact_speed / 24.0, 0.15, 1.0)
-			var side_hit: Variant = clamp(abs(car.position.x - truck.position.x) / 2.5, 0.0, 1.0)
-			damage = min(100.0, damage + max(2.0, impact_speed * 0.58 - float(armor_level) * 2.5) * lerp(0.82, 1.18, side_hit))
+				var side_hit: Variant = clamp(abs(car.position.x - truck.position.x) / 2.5, 0.0, 1.0)
+				damage = min(100.0, damage + max(2.0, impact_speed * 0.58 - float(armor_level) * 2.5) * lerp(0.82, 1.18, side_hit))
+				if task_active:
+					task_incidents += 1
+					task_score = max(0.0, task_score - 12.0)
+					task_score_cooldown = 0.8
 			speed *= lerp(0.82, 0.28, impact_intensity)
 			hit_shake = 0.35 + impact_intensity * 0.85
 			toast = "碰撞冲击 %.0f%%" % (impact_intensity * 100.0)
@@ -1930,6 +1953,7 @@ func _process(delta: float) -> void:
 				impact_tween.tween_property(impact_label, "position", impact_label.position + Vector3(0, 1.4, 0), 0.45)
 				impact_tween.parallel().tween_property(impact_label, "modulate:a", 0.0, 0.45)
 				impact_tween.tween_callback(impact_label.queue_free)
+		_update_task_score(delta, throttle, braking)
 		_update_task(delta)
 	toast_time = max(0.0, toast_time - delta)
 	_update_camera(delta)
@@ -2350,8 +2374,13 @@ func _update_cockpit_instruments(delta: float) -> void:
 		reflector_material.emission_energy_multiplier = cabin_brightness * (1.8 + reflector_damage * 2.4)
 
 func _complete_delivery() -> void:
-	money += task_reward
-	toast = "任务完成   +€%d" % task_reward
+	var grade: String = _task_grade(task_score)
+	var multiplier: float = _task_payout_multiplier(grade)
+	var payout: int = maxi(1, int(round(float(task_reward) * multiplier)))
+	last_delivery_grade = grade
+	last_delivery_payout = payout
+	money += payout
+	toast = "任务完成   %s级   +€%d" % [grade, payout]
 	toast_time = 4.0
 	_play_sfx("delivery_complete", -5.0)
 	delivery_camera_boost = 1.0
@@ -2369,6 +2398,10 @@ func _complete_delivery() -> void:
 	destination = ["INNSBRUCK", "MILAN", "LYON"][cargo_index]
 	_apply_livery(livery_index)
 	_unlock_achievement("FIRST_DELIVERY", "完成第一单货物运输")
+	if grade == "S":
+		_unlock_achievement("PERFECT_HAUL", "以 S 级完成运输任务")
+	if task_incidents == 0:
+		_unlock_achievement("CLEAN_HAUL", "零碰撞完成运输任务")
 	task_index = (task_index + 1) % 4
 	_setup_task(task_index)
 	_save_game()
@@ -2389,6 +2422,33 @@ func _setup_task(index: int) -> void:
 	task_reward = int(task["reward"])
 	toast = "新任务：" + task_title
 	toast_time = 3.0
+
+func _task_grade(score: float) -> String:
+	if score >= 90.0:
+		return "S"
+	if score >= 80.0:
+		return "A"
+	if score >= 65.0:
+		return "B"
+	return "C"
+
+func _task_payout_multiplier(grade: String) -> float:
+	return {"S": 1.25, "A": 1.10, "B": 0.95, "C": 0.75}.get(grade, 0.75)
+
+func _update_task_score(delta: float, throttle: float, braking: float) -> void:
+	if not task_active:
+		return
+	task_score_cooldown = max(0.0, task_score_cooldown - delta)
+	task_peak_speed = max(task_peak_speed, abs(speed) * 4.4)
+	if task_score_cooldown > 0.0:
+		return
+	# Reward controlled inputs without making the score grindy or mandatory.
+	if speed > 2.0 and abs(steer) < 0.16 and braking < 0.12 and throttle > 0.12 and throttle < 0.82:
+		task_score = min(100.0, task_score + delta * 0.12)
+	if speed > 16.0 and abs(steer) > 0.72:
+		task_score = max(0.0, task_score - delta * 1.2)
+	if braking > 0.82 and speed > 16.0:
+		task_score = max(0.0, task_score - delta * 0.35)
 
 func _task_condition_met() -> bool:
 	if task_condition == "night":
@@ -2418,6 +2478,10 @@ func _accept_task() -> void:
 	task_active = true
 	task_time_remaining = task_time_limit
 	distance = 0.0
+	task_score = 100.0
+	task_incidents = 0
+	task_peak_speed = 0.0
+	task_score_cooldown = 0.0
 	toast = "已接取任务：" + task_title
 	toast_time = 2.8
 	_play_sfx("ui_click", -10.0)
@@ -2460,7 +2524,8 @@ func _update_ui() -> void:
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else Color("#c0cde4"))
-	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   奖励 €%d   余额 €%d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), task_reward, money]
+	var active_grade: String = _task_grade(task_score) if task_active else last_delivery_grade
+	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   评分 %03d  %s\n€%d 奖励   €%d 余额   碰撞 %d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), int(task_score), active_grade, task_reward, money, task_incidents]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	if task_button:
 		task_button.text = "运输中" if task_active else "接任务"

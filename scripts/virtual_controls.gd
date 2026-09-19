@@ -8,6 +8,7 @@ signal turn_left_pressed
 signal turn_right_pressed
 signal hazard_pressed
 signal horn_changed(active: bool)
+signal gear_changed(mode: String)
 
 var wheel_center := Vector2.ZERO
 var wheel_radius := 116.0
@@ -28,6 +29,7 @@ var left_indicator_active := false
 var right_indicator_active := false
 var hazard_active := false
 var horn_active := false
+var gear_mode := "D"
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
@@ -92,6 +94,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			left_indicator_active = false
 			right_indicator_active = false
 			hazard_pressed.emit()
+		elif _gear_rect().has_point(p):
+			_cycle_gear()
 		elif horn_touch_id == -1 and _horn_rect().has_point(p):
 			horn_touch_id = event.index
 			horn_active = true
@@ -146,10 +150,12 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			left_indicator_active = false
 			right_indicator_active = false
 			hazard_pressed.emit()
+		elif _gear_rect().has_point(event.position):
+			_cycle_gear()
 		elif _horn_rect().has_point(event.position):
-			horn_touch_id = 999
-			horn_active = true
-			horn_changed.emit(true)
+				horn_touch_id = 999
+				horn_active = true
+				horn_changed.emit(true)
 		elif event.position.distance_to(wheel_center) <= wheel_radius * 1.25:
 			wheel_touch_id = 999
 			_update_wheel(event.position)
@@ -207,7 +213,15 @@ func _right_signal_rect() -> Rect2:
 	return Rect2(wheel_center + Vector2(42.0 * layout_scale, -wheel_radius - 68.0 * layout_scale), Vector2(70.0 * layout_scale, 58.0 * layout_scale))
 
 func _hazard_rect() -> Rect2:
+	return Rect2(size.x - 86.0 * layout_scale + control_offset.x, size.y * 0.5 - 105.0 * layout_scale + control_offset.y, 70.0 * layout_scale, 58.0 * layout_scale)
+
+func _gear_rect() -> Rect2:
 	return Rect2(size.x - 86.0 * layout_scale + control_offset.x, size.y * 0.5 - 29.0 * layout_scale + control_offset.y, 70.0 * layout_scale, 58.0 * layout_scale)
+
+func _cycle_gear() -> void:
+	gear_mode = "N" if gear_mode == "D" else ("R" if gear_mode == "N" else "D")
+	gear_changed.emit(gear_mode)
+	queue_redraw()
 
 func _horn_rect() -> Rect2:
 	return Rect2(wheel_center - Vector2(35.0 * layout_scale, 29.0 * layout_scale), Vector2(70.0 * layout_scale, 58.0 * layout_scale))
@@ -229,6 +243,7 @@ func _draw() -> void:
 	_draw_action(_left_signal_rect(), "左转", Color("#ffd166"), left_indicator_active)
 	_draw_action(_right_signal_rect(), "右转", Color("#ffd166"), right_indicator_active)
 	_draw_action(_hazard_rect(), "双闪", Color("#ef6f61"), hazard_active)
+	_draw_action(_gear_rect(), gear_mode, Color("#9fe3ff"), gear_mode != "N")
 	_draw_action(_horn_rect(), "喇叭", Color("#74d0ad"), horn_active)
 
 func _draw_pedal(rect: Rect2, text: String, value: float, color: Color) -> void:

@@ -142,6 +142,7 @@ var manual_turn_right := false
 var hazard_lights := false
 var horn_active := false
 var high_beam := false
+var drive_mode := "D"
 var reverse_mode := false
 var brake_input_was_active := false
 var interior_steering_wheel: MeshInstance3D
@@ -268,6 +269,9 @@ func _apply_save_data(data: Dictionary) -> void:
 	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
 	task_active = bool(data.get("task_active", task_active))
 	high_beam = bool(data.get("high_beam", high_beam))
+	drive_mode = str(data.get("drive_mode", drive_mode))
+	if drive_mode not in ["D", "N", "R"]:
+		drive_mode = "D"
 
 func _save_game() -> void:
 	var data: Variant = {
@@ -285,6 +289,7 @@ func _save_game() -> void:
 		"task_time_remaining": task_time_remaining,
 		"task_active": task_active,
 		"high_beam": high_beam,
+		"drive_mode": drive_mode,
 		"game_hour": game_hour,
 		"engine_level": engine_level,
 		"tire_level": tire_level,
@@ -1332,6 +1337,8 @@ func _build_ui() -> void:
 	virtual_controls.turn_right_pressed.connect(_on_turn_right_pressed)
 	virtual_controls.hazard_pressed.connect(_on_hazard_pressed)
 	virtual_controls.horn_changed.connect(_on_horn_changed)
+	virtual_controls.gear_changed.connect(_on_gear_changed)
+	virtual_controls.gear_mode = drive_mode
 	virtual_controls.set_layout(control_scale, control_opacity, Vector2.ZERO)
 	layer.add_child(virtual_controls)
 	var pause_button: Variant = Button.new()
@@ -1623,6 +1630,13 @@ func _on_horn_changed(active: bool) -> void:
 	if active:
 		_play_sfx("warning_alert", -4.0)
 
+func _on_gear_changed(mode: String) -> void:
+	drive_mode = mode if mode in ["D", "N", "R"] else "D"
+	toast = "档位：" + drive_mode
+	toast_time = 1.5
+	_play_sfx("gear_shift", -10.0)
+	_save_game()
+
 func _build_audio() -> void:
 	engine_player = AudioStreamPlayer.new()
 	var engine_stream: Variant = load("res://audio/engine_loop.wav")
@@ -1721,6 +1735,7 @@ func _process(delta: float) -> void:
 	var braking: Variant = max(keyboard_brake, touch_brake)
 	var steer_input: Variant = touch_steer if abs(touch_steer) > 0.01 else keyboard_steer
 	var max_speed: Variant = 21.0 + float(engine_level) * 2.5
+	var drive_factor: float = 1.0 if drive_mode == "D" else 0.0
 	var speed_ratio: Variant = clamp(speed / max(max_speed, 1.0), 0.0, 1.0)
 	var steering_response: Variant = lerp(5.0, 9.0, speed_ratio)
 	steer = lerp(steer, steer_input, clamp(delta * steering_response, 0.0, 1.0))
@@ -1731,11 +1746,11 @@ func _process(delta: float) -> void:
 		reverse_mode = true
 	if braking < 0.05 or throttle > 0.05:
 		reverse_mode = false
-	var reverse_active: Variant = reverse_mode and braking > 0.15
-	var target_speed: Variant = -braking * 5.5 if reverse_active else throttle * max_speed - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
+	var reverse_active: Variant = drive_mode == "R" and throttle > 0.05 and (abs(speed) < 0.8 or speed < 0.0)
+	var target_speed: Variant = -throttle * 5.5 if reverse_active else throttle * max_speed * drive_factor - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
 	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
 	if reverse_active:
-		speed = lerp(speed, -5.5 * braking, delta * 4.5)
+		speed = lerp(speed, -5.5 * throttle, delta * 4.5)
 		if not sfx_players["reverse_beeper"].playing:
 			_play_sfx("reverse_beeper", -8.0)
 	else:
@@ -2260,7 +2275,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 		interior_rpm_display.text = "RPM %04d" % int(800.0 + speed * 115.0 + abs(slope_percent) * 35.0)
 	if interior_gear_display:
 		var gear: Variant = -1 if speed < -0.35 else (0 if abs(speed) < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12))
-		interior_gear_display.text = "GEAR R" if gear < 0 else ("GEAR N" if gear == 0 else "GEAR %02d" % gear)
+		interior_gear_display.text = "GEAR R" if drive_mode == "R" else ("GEAR N" if drive_mode == "N" else ("GEAR D%02d" % gear if gear > 0 else "GEAR D"))
 	if interior_indicator_display:
 		var indicator_on: Variant = fmod(Time.get_ticks_msec() / 1000.0, 0.65) < 0.32
 		var direction: Variant = "L" if steer < -0.14 else ("R" if steer > 0.14 else "○")
@@ -2423,7 +2438,7 @@ func _update_ui() -> void:
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪"}.get(current_weather, "多云")
 	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else Color("#c0cde4"))
-	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\nTIME  %s   %s   FUEL %d%%\nDAMAGE %d%%   奖励 €%d   余额 €%d" % [distance, task_distance_goal, int(task_time_remaining), _format_clock(), weather_name, int(fuel), int(damage), task_reward, money]
+	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   奖励 €%d   余额 €%d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), task_reward, money]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	if task_button:
 		task_button.text = "运输中" if task_active else "接任务"

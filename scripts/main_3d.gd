@@ -35,6 +35,14 @@ var task_score := 100.0
 var task_incidents := 0
 var task_peak_speed := 0.0
 var task_score_cooldown := 0.0
+var game_started := false
+var start_flow_layer: CanvasLayer
+var game_hud_layer: CanvasLayer
+var intro_panel: Control
+var main_menu_panel: Control
+var loading_bar: ProgressBar
+var intro_logo: Label
+var menu_status: Label
 var task_combo := 0.0
 var best_task_combo := 0.0
 var last_delivery_grade := "—"
@@ -237,6 +245,8 @@ func _ready() -> void:
 	_apply_quality(quality_mode)
 	_apply_sensitivity(steering_sensitivity)
 	_apply_volume(master_volume)
+	_build_start_flow()
+	call_deferred("_play_start_flow")
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -1375,7 +1385,8 @@ func _build_camera() -> void:
 	camera_look_target = truck.global_position + Vector3(0, 1.2, -5.0)
 
 func _build_ui() -> void:
-	var layer: Variant = CanvasLayer.new()
+	game_hud_layer = CanvasLayer.new()
+	var layer: Variant = game_hud_layer
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(layer)
 	var top: Variant = ColorRect.new()
@@ -1497,6 +1508,183 @@ func _build_ui() -> void:
 	_build_garage_panel(layer)
 	_build_settings_panel(layer)
 	_update_ui()
+
+func _build_start_flow() -> void:
+	start_flow_layer = CanvasLayer.new()
+	start_flow_layer.layer = 20
+	start_flow_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(start_flow_layer)
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(INK, 0.82)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	start_flow_layer.add_child(backdrop)
+	intro_panel = Control.new()
+	intro_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	start_flow_layer.add_child(intro_panel)
+	intro_logo = Label.new()
+	intro_logo.text = "ANIME HAUL"
+	intro_logo.position = Vector2(315, 238)
+	intro_logo.size = Vector2(650, 92)
+	intro_logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	intro_logo.add_theme_font_size_override("font_size", 72)
+	intro_logo.add_theme_color_override("font_color", CREAM)
+	intro_logo.add_theme_color_override("font_shadow_color", CORAL)
+	intro_logo.add_theme_constant_override("shadow_offset_x", 5)
+	intro_logo.add_theme_constant_override("shadow_offset_y", 5)
+	intro_panel.add_child(intro_logo)
+	var subtitle := Label.new()
+	subtitle.text = "ALPINE RUN  •  3D TRUCK ADVENTURE"
+	subtitle.position = Vector2(390, 338)
+	subtitle.size = Vector2(500, 34)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 18)
+	subtitle.add_theme_color_override("font_color", Color("#ffb7cf"))
+	intro_panel.add_child(subtitle)
+	var loading_text := Label.new()
+	loading_text.text = "正在准备路线与天气系统..."
+	loading_text.position = Vector2(430, 500)
+	loading_text.size = Vector2(420, 30)
+	loading_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading_text.add_theme_font_size_override("font_size", 16)
+	loading_text.add_theme_color_override("font_color", Color("#d5dded"))
+	intro_panel.add_child(loading_text)
+	loading_bar = ProgressBar.new()
+	loading_bar.position = Vector2(430, 545)
+	loading_bar.size = Vector2(420, 12)
+	loading_bar.show_percentage = false
+	loading_bar.value = 0.0
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color("#313b58")
+	bar_bg.set_corner_radius_all(6)
+	var bar_fill := StyleBoxFlat.new()
+	bar_fill.bg_color = CORAL
+	bar_fill.set_corner_radius_all(6)
+	loading_bar.add_theme_stylebox_override("background", bar_bg)
+	loading_bar.add_theme_stylebox_override("fill", bar_fill)
+	intro_panel.add_child(loading_bar)
+	main_menu_panel = Control.new()
+	main_menu_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	main_menu_panel.visible = false
+	start_flow_layer.add_child(main_menu_panel)
+	var menu_card := Panel.new()
+	menu_card.position = Vector2(86, 118)
+	menu_card.size = Vector2(410, 484)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(INK, 0.92)
+	card_style.border_color = Color("#68799f", 0.9)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(26)
+	menu_card.add_theme_stylebox_override("panel", card_style)
+	main_menu_panel.add_child(menu_card)
+	var menu_title := Label.new()
+	menu_title.text = "ANIME HAUL"
+	menu_title.position = Vector2(38, 34)
+	menu_title.size = Vector2(334, 56)
+	menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_title.add_theme_font_size_override("font_size", 38)
+	menu_title.add_theme_color_override("font_color", CREAM)
+	menu_title.add_theme_color_override("font_shadow_color", CORAL)
+	menu_title.add_theme_constant_override("shadow_offset_x", 3)
+	menu_title.add_theme_constant_override("shadow_offset_y", 3)
+	menu_card.add_child(menu_title)
+	var menu_subtitle := Label.new()
+	menu_subtitle.text = "ALPINE RUN"
+	menu_subtitle.position = Vector2(38, 88)
+	menu_subtitle.size = Vector2(334, 28)
+	menu_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_subtitle.add_theme_font_size_override("font_size", 17)
+	menu_subtitle.add_theme_color_override("font_color", Color("#ffb7cf"))
+	menu_card.add_child(menu_subtitle)
+	var continue_button := Button.new()
+	continue_button.text = "继续驾驶"
+	continue_button.position = Vector2(66, 150)
+	continue_button.size = Vector2(278, 56)
+	continue_button.add_theme_font_size_override("font_size", 20)
+	_style_ui_button(continue_button)
+	continue_button.pressed.connect(func(): _start_game(false))
+	menu_card.add_child(continue_button)
+	var free_drive_button := Button.new()
+	free_drive_button.text = "自由驾驶"
+	free_drive_button.position = Vector2(66, 220)
+	free_drive_button.size = Vector2(278, 56)
+	free_drive_button.add_theme_font_size_override("font_size", 20)
+	_style_ui_button(free_drive_button)
+	free_drive_button.pressed.connect(func(): _start_game(true))
+	menu_card.add_child(free_drive_button)
+	var settings_button := Button.new()
+	settings_button.text = "设置"
+	settings_button.position = Vector2(66, 290)
+	settings_button.size = Vector2(132, 48)
+	settings_button.add_theme_font_size_override("font_size", 17)
+	_style_ui_button(settings_button)
+	settings_button.pressed.connect(_open_start_settings)
+	menu_card.add_child(settings_button)
+	var quit_button := Button.new()
+	quit_button.text = "退出"
+	quit_button.position = Vector2(212, 290)
+	quit_button.size = Vector2(132, 48)
+	quit_button.add_theme_font_size_override("font_size", 17)
+	_style_ui_button(quit_button)
+	quit_button.pressed.connect(func(): get_tree().quit())
+	menu_card.add_child(quit_button)
+	menu_status = Label.new()
+	menu_status.text = "天气系统已就绪  •  电台：轻快频道"
+	menu_status.position = Vector2(35, 376)
+	menu_status.size = Vector2(340, 58)
+	menu_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	menu_status.add_theme_font_size_override("font_size", 14)
+	menu_status.add_theme_color_override("font_color", Color("#b8c7df"))
+	menu_card.add_child(menu_status)
+	game_hud_layer.visible = false
+	for player in [engine_player, bgm_player, rain_player, wind_player, wet_tire_player, snow_tire_player, spatial_tire_player]:
+		if player:
+			player.stop()
+
+func _play_start_flow() -> void:
+	intro_panel.visible = true
+	main_menu_panel.visible = false
+	var loading_tween := create_tween()
+	loading_tween.tween_property(loading_bar, "value", 100.0, 1.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await loading_tween.finished
+	var logo_tween := create_tween().set_parallel(true)
+	intro_logo.scale = Vector2(0.82, 0.82)
+	intro_logo.pivot_offset = intro_logo.size * 0.5
+	logo_tween.tween_property(intro_logo, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	logo_tween.tween_property(intro_logo, "modulate", Color.WHITE, 0.35)
+	await get_tree().create_timer(1.25).timeout
+	var fade := create_tween()
+	fade.tween_property(intro_panel, "modulate:a", 0.0, 0.45)
+	await fade.finished
+	intro_panel.visible = false
+	main_menu_panel.modulate.a = 0.0
+	main_menu_panel.visible = true
+	var menu_fade := create_tween()
+	menu_fade.tween_property(main_menu_panel, "modulate:a", 1.0, 0.4)
+
+func _start_game(free_drive: bool) -> void:
+	game_started = true
+	start_flow_layer.visible = false
+	game_hud_layer.visible = true
+	paused = false
+	if free_drive:
+		task_active = false
+		toast = "自由驾驶模式：探索阿尔卑斯公路"
+	else:
+		toast = "欢迎回来，准备接取运输任务"
+	toast_time = 3.0
+	if engine_player and not engine_player.playing:
+		engine_player.play()
+	_set_radio_station(radio_station, false)
+	for player in [rain_player, wind_player, wet_tire_player, snow_tire_player, spatial_tire_player]:
+		if player and player.stream and not player.playing:
+			player.play()
+	_update_ui()
+
+func _open_start_settings() -> void:
+	menu_status.text = "设置将在进入驾驶后从 HUD 打开。"
+	toast = "请先进入驾驶界面打开设置"
+	toast_time = 2.2
 
 func _style_ui_button(button: Button) -> void:
 	button.focus_mode = Control.FOCUS_NONE
@@ -1870,6 +2058,8 @@ func _spatial_loop_audio(path: String, volume: float) -> AudioStreamPlayer3D:
 	return player
 
 func _process(delta: float) -> void:
+	if not game_started:
+		return
 	if paused:
 		return
 	save_timer += delta

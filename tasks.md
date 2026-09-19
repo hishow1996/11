@@ -7,6 +7,7 @@
 - [x] Contract loop: route completion, payout and next destination.
 - [x] Delivery scoring: smooth driving, collision penalties, grade-based payout and achievements.
 - [x] Radio system: off, upbeat route BGM, and high-energy driving BGM with dynamic mixing.
+- [x] Startup flow: loading transition, animated logo intro, and main menu before driving.
 - [x] Audio: layered diesel loop and air-brake WAV generated locally.
 - [ ] Future slice: 3D cab camera and actual Android device tuning.
 - [ ] Future slice: save slots, garage upgrades, weather and more routes.

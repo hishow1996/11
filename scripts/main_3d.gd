@@ -93,6 +93,8 @@ var world_environment: WorldEnvironment
 var environment: Environment
 var sun: DirectionalLight3D
 var moon: DirectionalLight3D
+var star_particles: GPUParticles3D
+var star_material: StandardMaterial3D
 var rain_particles: GPUParticles3D
 var snow_particles: GPUParticles3D
 var sakura_particles: GPUParticles3D
@@ -467,6 +469,37 @@ func _build_environment() -> void:
 	moon.light_energy = 0.0
 	moon.shadow_enabled = false
 	add_child(moon)
+	star_particles = _star_particles()
+
+func _star_particles() -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = "NightSkyStars"
+	particles.amount = 140
+	particles.lifetime = 30.0
+	particles.local_coords = true
+	particles.emitting = false
+	var process_material := ParticleProcessMaterial.new()
+	process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	process_material.emission_box_extents = Vector3(42.0, 10.0, 42.0)
+	process_material.direction = Vector3.ZERO
+	process_material.initial_velocity_min = 0.0
+	process_material.initial_velocity_max = 0.0
+	process_material.gravity = Vector3.ZERO
+	process_material.scale_min = 0.45
+	process_material.scale_max = 1.25
+	var star_mesh := QuadMesh.new()
+	star_mesh.size = Vector2(0.055, 0.055)
+	star_material = StandardMaterial3D.new()
+	star_material.albedo_color = Color(0.88, 0.94, 1.0, 0.0)
+	star_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	star_mesh.material = star_material
+	particles.process_material = process_material
+	particles.draw_pass_1 = star_mesh
+	particles.visibility_aabb = AABB(Vector3(-45, -4, -45), Vector3(90, 24, 90))
+	add_child(particles)
+	return particles
 
 func _build_weather_effects() -> void:
 	rain_particles = _weather_particles("RainParticles", Color("#a8d8ff"), 420, 0.75, 28.0)
@@ -1541,6 +1574,8 @@ func _apply_quality(mode: int) -> void:
 	if sakura_particles:
 		sakura_particles.amount = [70, 125, 180][mode]
 		sakura_particles.amount_ratio = ratios[mode]
+	if star_particles:
+		star_particles.amount = [55, 95, 140][mode]
 	if speed_lines:
 		speed_lines.amount = [28, 54, 90][mode]
 		speed_lines.visible = mode > 0
@@ -2109,6 +2144,13 @@ func _update_day_night() -> void:
 		sky_top = Color("#0d1631")
 		sky_horizon = Color("#273b66")
 		ground_horizon = Color("#263047")
+	var star_strength: float = clamp((0.28 - daylight) / 0.28, 0.0, 1.0)
+	if star_particles:
+		star_particles.position = truck.position + Vector3(0, 13.0, 0)
+		star_particles.emitting = star_strength > 0.01
+		star_particles.amount_ratio = star_strength
+	if star_material:
+		star_material.albedo_color = Color(0.88, 0.94, 1.0, star_strength * 0.86)
 	sky_material.sky_top_color = sky_material.sky_top_color.lerp(sky_top, 0.08)
 	sky_material.sky_horizon_color = sky_material.sky_horizon_color.lerp(sky_horizon, 0.08)
 	sky_material.ground_horizon_color = sky_material.ground_horizon_color.lerp(ground_horizon, 0.08)

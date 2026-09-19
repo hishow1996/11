@@ -153,6 +153,7 @@ var headlight_nodes: Array[OmniLight3D] = []
 var road_puddles: Array[MeshInstance3D] = []
 var hit_shake := 0.0
 var collision_effect_cooldown := 0.0
+var collision_damage_cooldown := 0.0
 var guardrail_audio_cooldown := 0.0
 var puddle_audio_active := false
 var wet_lateral_slip := 0.0
@@ -318,6 +319,9 @@ func _apply_save_data(data: Dictionary) -> void:
 	tire_level = clamp(int(data.get("tire_level", tire_level)), 0, 5)
 	tank_level = clamp(int(data.get("tank_level", tank_level)), 0, 5)
 	armor_level = clamp(int(data.get("armor_level", armor_level)), 0, 5)
+	var loaded_fuel_capacity: float = 100.0 + float(tank_level) * 10.0
+	fuel = clamp(fuel, 0.0, loaded_fuel_capacity)
+	driver_xp = min(driver_xp, _driver_xp_required())
 	quality_mode = clamp(int(data.get("quality_mode", quality_mode)), 0, 2)
 	steering_sensitivity = clamp(float(data.get("steering_sensitivity", steering_sensitivity)), 0.55, 1.6)
 	master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
@@ -332,9 +336,9 @@ func _apply_save_data(data: Dictionary) -> void:
 	_setup_task(task_index)
 	task_title = str(data.get("task_title", task_title))
 	destination = str(data.get("destination", destination))
-	task_distance_goal = float(data.get("task_distance_goal", task_distance_goal))
-	task_time_limit = float(data.get("task_time_limit", task_time_limit))
-	task_reward = int(data.get("task_reward", task_reward))
+	task_distance_goal = max(1.0, float(data.get("task_distance_goal", task_distance_goal)))
+	task_time_limit = max(10.0, float(data.get("task_time_limit", task_time_limit)))
+	task_reward = max(0, int(data.get("task_reward", task_reward)))
 	task_condition = str(data.get("task_condition", task_condition))
 	task_cargo = str(data.get("task_cargo", task_cargo))
 	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
@@ -2757,8 +2761,8 @@ func _build_audio() -> void:
 		engine_player.stream = engine_stream
 	engine_player.volume_db = -10.0
 	add_child(engine_player)
-		if engine_player.stream:
-			engine_player.play()
+	if engine_player.stream:
+		engine_player.play()
 	bgm_player = _loop_audio("res://audio/bgm_route_loop.wav", -19.0)
 	_set_radio_station(radio_station, false)
 	brake_player = AudioStreamPlayer.new()
@@ -2967,13 +2971,13 @@ func _process(delta: float) -> void:
 		_play_sfx("tire_skid", -8.0)
 		wet_skid_cooldown = 0.65
 	var road_offset: Variant = abs(truck.position.x - road_center)
-		if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
-			_play_sfx("guardrail_scrape", -10.0)
-			guardrail_audio_cooldown = 0.8
-			speed *= 0.92
-			if task_active:
-				task_score = max(0.0, task_score - 3.0)
-				task_score_cooldown = 0.35
+	if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
+		_play_sfx("guardrail_scrape", -10.0)
+		guardrail_audio_cooldown = 0.8
+		speed *= 0.92
+		if task_active:
+			task_score = max(0.0, task_score - 3.0)
+			task_score_cooldown = 0.35
 	var near_puddle: Variant = false
 	for puddle in road_puddles:
 		if is_instance_valid(puddle) and truck.global_position.distance_to(puddle.global_position) < 2.4:
@@ -3011,6 +3015,7 @@ func _process(delta: float) -> void:
 	time_left = max(0.0, time_left - delta)
 	thunder_cooldown -= delta
 	collision_effect_cooldown = max(0.0, collision_effect_cooldown - delta)
+	collision_damage_cooldown = max(0.0, collision_damage_cooldown - delta)
 	camera_toggle_cooldown = max(0.0, camera_toggle_cooldown - delta)
 	if braking > 0.2 and speed > 2.0 and not brake_player.playing:
 		brake_player.play()
@@ -3058,37 +3063,38 @@ func _process(delta: float) -> void:
 			traffic_lane_targets[i] = traffic_lanes[i]
 			traffic_lane_cooldowns[i] = 1.5
 			traffic_turn_lamps[i].visible = false
-		if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0:
-			var impact_speed: Variant = clamp(speed * (1.0 + traffic_speeds[i] * 0.25), 0.0, 30.0)
-			var impact_intensity: Variant = clamp(impact_speed / 24.0, 0.15, 1.0)
-			var side_hit: Variant = clamp(abs(car.position.x - truck.position.x) / 2.5, 0.0, 1.0)
-			damage = min(100.0, damage + max(2.0, impact_speed * 0.58 - float(armor_level) * 2.5) * lerp(0.82, 1.18, side_hit))
-			if task_active:
-				task_incidents += 1
-				task_score = max(0.0, task_score - 12.0)
-				task_combo = 0.0
-				task_score_cooldown = 0.8
-			speed *= lerp(0.82, 0.28, impact_intensity)
-			hit_shake = 0.35 + impact_intensity * 0.85
-			toast = "碰撞冲击 %.0f%%" % (impact_intensity * 100.0)
-			toast_time = 2.2
-			_haptic(130, 0.75)
-			_play_sfx("collision_metal", lerp(-12.0, -3.0, impact_intensity))
-			if impact_intensity > 0.55:
-				_play_sfx("tire_skid", -9.0)
-			if collision_effect_cooldown <= 0.0:
-				collision_effect_cooldown = 0.35
-				var impact_side: Variant = sign(car.position.x - truck.position.x)
-				var impact_position: Variant = truck.global_position + Vector3(impact_side * 1.5, 0.9, -2.8)
-				for effect in [collision_sparks, collision_smoke, collision_debris]:
-					effect.global_position = impact_position
-					effect.amount_ratio = impact_intensity
-					effect.restart()
-				var impact_label: Variant = _label3d(self, "!!", impact_position + Vector3(0, 1.2, 0), Color("#ffd166"), 48)
-				var impact_tween: Variant = create_tween()
-				impact_tween.tween_property(impact_label, "position", impact_label.position + Vector3(0, 1.4, 0), 0.45)
-				impact_tween.parallel().tween_property(impact_label, "modulate:a", 0.0, 0.45)
-				impact_tween.tween_callback(impact_label.queue_free)
+			if abs(car.position.x - truck.position.x) < 2.5 and abs(car.position.z - truck.position.z) < 4.0 and speed > 11.0 and collision_damage_cooldown <= 0.0:
+				var impact_speed: Variant = clamp(speed * (1.0 + traffic_speeds[i] * 0.25), 0.0, 30.0)
+				var impact_intensity: Variant = clamp(impact_speed / 24.0, 0.15, 1.0)
+				collision_damage_cooldown = 0.75
+				var side_hit: Variant = clamp(abs(car.position.x - truck.position.x) / 2.5, 0.0, 1.0)
+				damage = min(100.0, damage + max(2.0, impact_speed * 0.58 - float(armor_level) * 2.5) * lerp(0.82, 1.18, side_hit))
+				if task_active:
+					task_incidents += 1
+					task_score = max(0.0, task_score - 12.0)
+					task_combo = 0.0
+					task_score_cooldown = 0.8
+				speed *= lerp(0.82, 0.28, impact_intensity)
+				hit_shake = 0.35 + impact_intensity * 0.85
+				toast = "碰撞冲击 %.0f%%" % (impact_intensity * 100.0)
+				toast_time = 2.2
+				_haptic(130, 0.75)
+				_play_sfx("collision_metal", lerp(-12.0, -3.0, impact_intensity))
+				if impact_intensity > 0.55:
+					_play_sfx("tire_skid", -9.0)
+				if collision_effect_cooldown <= 0.0:
+					collision_effect_cooldown = 0.35
+					var impact_side: Variant = sign(car.position.x - truck.position.x)
+					var impact_position: Variant = truck.global_position + Vector3(impact_side * 1.5, 0.9, -2.8)
+					for effect in [collision_sparks, collision_smoke, collision_debris]:
+						effect.global_position = impact_position
+						effect.amount_ratio = impact_intensity
+						effect.restart()
+					var impact_label: Variant = _label3d(self, "!!", impact_position + Vector3(0, 1.2, 0), Color("#ffd166"), 48)
+					var impact_tween: Variant = create_tween()
+					impact_tween.tween_property(impact_label, "position", impact_label.position + Vector3(0, 1.4, 0), 0.45)
+					impact_tween.parallel().tween_property(impact_label, "modulate:a", 0.0, 0.45)
+					impact_tween.tween_callback(impact_label.queue_free)
 		_update_task_score(delta, throttle, braking)
 		_update_task(delta)
 	toast_time = max(0.0, toast_time - delta)
@@ -3595,6 +3601,8 @@ func _award_driver_xp(payout: int, grade: String) -> void:
 		driver_level += 1
 		driver_skill_points += 1
 		level_ups += 1
+	if driver_level >= 20:
+		driver_xp = min(driver_xp, _driver_xp_required())
 	if level_ups > 0:
 		toast = "司机升级 Lv.%d！获得 %d 点技能点" % [driver_level, level_ups]
 		toast_time = 4.0
@@ -3752,9 +3760,11 @@ func _update_ui() -> void:
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云")
+	var fuel_capacity: float = 100.0 + float(tank_level) * 10.0
+	var fuel_percent: int = int(round(clampf(fuel / max(fuel_capacity, 1.0) * 100.0, 0.0, 100.0)))
 	ui_stats.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else (Color("#ffb7cf") if current_weather == "sakura" else Color("#c0cde4")))
 	var active_grade: String = _task_grade(task_score) if task_active else last_delivery_grade
-	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   评分 %03d  %s\nCOMBO ×%02d   €%d 奖励   €%d 余额\n碰撞 %d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), int(task_score), active_grade, int(task_combo / 3.0), task_reward, money, task_incidents]
+	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   评分 %03d  %s\nCOMBO ×%02d   €%d 奖励   €%d 余额\n碰撞 %d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, fuel_percent, int(damage), int(task_score), active_grade, int(task_combo / 3.0), task_reward, money, task_incidents]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	if task_button:
 		task_button.text = "运输中" if task_active else "货运市场"

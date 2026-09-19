@@ -46,11 +46,20 @@ if script.exists():
     for resource in sorted(set(re.findall(r'"(res://[^" ]+)"', text))):
         if not (ROOT / resource[6:]).exists():
             errors.append(f"broken script resource: {resource}")
+    previous_code = ""
+    previous_indent = 0
     for line_no, line in enumerate(text.splitlines(), 1):
         if line.startswith(" ") and not line.startswith("    "):
             errors.append(f"mixed indentation at main_3d.gd:{line_no}")
         if "\t " in line or " \t" in line:
             errors.append(f"mixed tab/space indentation at main_3d.gd:{line_no}")
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip("\t")) if line.startswith("\t") else 0
+        if stripped and stripped.startswith(("if ", "elif ", "else:")) and indent > previous_indent and previous_code and not previous_code.endswith(":"):
+            errors.append(f"suspicious condition indentation at main_3d.gd:{line_no}")
+        if stripped:
+            previous_code = stripped
+            previous_indent = indent
     top_level_vars: dict[str, list[int]] = {}
     top_level_funcs: dict[str, list[int]] = {}
     for line_no, line in enumerate(text.splitlines(), 1):
@@ -66,6 +75,24 @@ if script.exists():
     for name, locations in top_level_funcs.items():
         if len(locations) > 1:
             errors.append(f"duplicate top-level function {name}: lines {locations}")
+
+for extra_script in sorted((ROOT / "scripts").glob("*.gd")):
+    if extra_script == script:
+        continue
+    previous_code = ""
+    previous_indent = 0
+    for line_no, line in enumerate(extra_script.read_text().splitlines(), 1):
+        if line.startswith(" ") and not line.startswith("    "):
+            errors.append(f"mixed indentation at {extra_script.relative_to(ROOT)}:{line_no}")
+        if "\t " in line or " \t" in line:
+            errors.append(f"mixed tab/space indentation at {extra_script.relative_to(ROOT)}:{line_no}")
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip("\t")) if line.startswith("\t") else 0
+        if stripped and stripped.startswith(("if ", "elif ", "else:")) and indent > previous_indent and previous_code and not previous_code.endswith(":"):
+            errors.append(f"suspicious condition indentation at {extra_script.relative_to(ROOT)}:{line_no}")
+        if stripped:
+            previous_code = stripped
+            previous_indent = indent
 
 try:
     import trimesh

@@ -153,9 +153,9 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		elif _gear_rect().has_point(event.position):
 			_cycle_gear()
 		elif _horn_rect().has_point(event.position):
-				horn_touch_id = 999
-				horn_active = true
-				horn_changed.emit(true)
+			horn_touch_id = 999
+			horn_active = true
+			horn_changed.emit(true)
 		elif event.position.distance_to(wheel_center) <= wheel_radius * 1.25:
 			wheel_touch_id = 999
 			_update_wheel(event.position)

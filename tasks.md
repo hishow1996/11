@@ -5,6 +5,7 @@
 - [x] World rendering: anime alpine backdrop, road perspective, traffic and truck.
 - [x] Mobile controls: four touch buttons mapped to input actions.
 - [x] Freight market hall: browse, filter by cargo category, sort by payout, inspect route previews and detailed cargo parameters, and accept multiple contracts.
+- [x] Contract handoff: enter the driving HUD after acceptance with live destination, ETA, remaining distance, and navigation map guidance.
 - [x] Delivery scoring: smooth driving, collision penalties, grade-based payout and achievements.
 - [x] Radio system: off, upbeat route BGM, and high-energy driving BGM with dynamic mixing.
 - [x] Startup flow: loading transition, animated logo intro, and main menu before driving.

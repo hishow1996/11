@@ -84,7 +84,8 @@ var toast := "READY TO HAUL"
 var toast_time := 3.0
 var ui_speed: Label
 var ui_route: Label
-var ui_stats: Label
+var ui_contract_hint: Label
+var ui_speed: Label
 var ui_toast: Label
 var ui_grade_flash: Label
 var engine_player: AudioStreamPlayer
@@ -1483,8 +1484,9 @@ func _build_ui() -> void:
 	minimap.size = Vector2(292, 190)
 	minimap.set_script(load("res://scripts/minimap.gd"))
 	layer.add_child(minimap)
-	var hint: Variant = _label(layer, Vector2(330, 174), 13, Color("#d5dded"))
-	hint.text = "触摸驾驶  •  左右变道  •  避开交通  •  到达目的地交付"
+	ui_contract_hint = _label(layer, Vector2(330, 174), 13, Color("#d5dded"))
+	ui_contract_hint.size = Vector2(590, 30)
+	ui_contract_hint.text = "打开货运市场选择合同  •  导航地图会显示当前目的地"
 	virtual_controls = Control.new()
 	virtual_controls.name = "AnalogDrivingControls"
 	virtual_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1802,10 +1804,26 @@ func _accept_offer(offer: Dictionary) -> void:
 	task_combo = 0.0
 	freight_market_panel.visible = false
 	paused = false
+	_enter_contract_driving_hud()
 	toast = "已接取合同：%s → %s" % [offer["cargo"], offer["to"]]
 	toast_time = 3.0
 	_play_sfx("ui_click", -10.0)
 	_save_game()
+
+func _enter_contract_driving_hud() -> void:
+	game_started = true
+	if start_flow_layer:
+		start_flow_layer.visible = false
+	if game_hud_layer:
+		game_hud_layer.visible = true
+	paused = false
+	if engine_player and not engine_player.playing:
+		engine_player.play()
+	_set_radio_station(radio_station, false)
+	for player in [rain_player, wind_player, wet_tire_player, snow_tire_player, spatial_tire_player]:
+		if player and player.stream and not player.playing:
+			player.play()
+	_update_ui()
 
 func _build_start_flow() -> void:
 	start_flow_layer = CanvasLayer.new()
@@ -3436,6 +3454,12 @@ func _update_ui() -> void:
 	var cargo: Variant = task_cargo if task_active else ["山地茶叶", "草莓果酱", "阿尔卑斯零件"][cargo_index]
 	var branch_hint: Variant = _get_branch_hint()
 	ui_route.text = "%s：%s\n↗ %s\n%s  →  %s" % ["合同运输中" if task_active else "货运市场", task_title, branch_hint if branch_hint != "" else "ROUTE AHEAD", cargo, destination]
+	if ui_contract_hint:
+		if task_active:
+			ui_contract_hint.text = "导航已激活：%s  ·  剩余 %.1f km  ·  ETA %ds  ·  %s" % [destination, max(task_distance_goal - distance, 0.0), int(task_time_remaining), task_condition]
+		else:
+			ui_contract_hint.text = "打开货运市场选择合同  •  导航地图会显示当前目的地"
+		ui_contract_hint.modulate = MINT if task_active else Color("#d5dded")
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云")

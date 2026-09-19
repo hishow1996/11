@@ -69,10 +69,12 @@ var freight_accept_button: Button
 var freight_category_filter := "全部"
 var freight_sort_descending := true
 var freight_sort_button: Button
+var freight_filter_buttons: Array[Button] = []
 var driver_button: Button
 var driver_profile_panel: Panel
 var driver_profile_label: Label
 var driver_skill_status: Label
+var driver_xp_bar: ProgressBar
 var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
@@ -1606,6 +1608,20 @@ func _build_driver_profile_panel(layer: CanvasLayer) -> void:
 	driver_profile_label.add_theme_font_size_override("font_size", 16)
 	driver_profile_label.add_theme_color_override("font_color", Color("#d5dded"))
 	driver_profile_panel.add_child(driver_profile_label)
+	driver_xp_bar = ProgressBar.new()
+	driver_xp_bar.position = Vector2(30, 126)
+	driver_xp_bar.size = Vector2(620, 10)
+	driver_xp_bar.show_percentage = false
+	driver_xp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var xp_bg := StyleBoxFlat.new()
+	xp_bg.bg_color = Color("#151a30", 0.95)
+	xp_bg.set_corner_radius_all(5)
+	var xp_fill := StyleBoxFlat.new()
+	xp_fill.bg_color = Color("#74d0ad")
+	xp_fill.set_corner_radius_all(5)
+	driver_xp_bar.add_theme_stylebox_override("background", xp_bg)
+	driver_xp_bar.add_theme_stylebox_override("fill", xp_fill)
+	driver_profile_panel.add_child(driver_xp_bar)
 	var divider := ColorRect.new()
 	divider.position = Vector2(30, 144)
 	divider.size = Vector2(620, 2)
@@ -1653,6 +1669,8 @@ func _build_driver_profile_panel(layer: CanvasLayer) -> void:
 func _toggle_driver_profile() -> void:
 	if not driver_profile_panel:
 		return
+	if not driver_profile_panel.visible:
+		_hide_ui_overlays()
 	driver_profile_panel.visible = not driver_profile_panel.visible
 	paused = driver_profile_panel.visible
 	_update_driver_profile()
@@ -1670,6 +1688,9 @@ func _update_driver_profile() -> void:
 		return
 	var required := _driver_xp_required()
 	driver_profile_label.text = "等级 %02d    XP %d / %d    技能点 %d\n完成运输 %d 单    总里程 %.1f km" % [driver_level, driver_xp, required, driver_skill_points, delivery_count, best_distance]
+	if driver_xp_bar:
+		driver_xp_bar.max_value = required
+		driver_xp_bar.value = driver_xp
 	var skill_labels: Array = [
 		["night_runner", "夜行专家", 2], ["fragile_cargo", "精密运输", 2],
 		["premium_freight", "高价值专线", 3], ["long_haul", "长途规划", 4]
@@ -1759,6 +1780,7 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 	filter_title.add_theme_color_override("font_color", CREAM)
 	filter_panel.add_child(filter_title)
 	var filters: Array = ["全部", "普通货运", "限时急件", "天气敏感", "高价值"]
+	freight_filter_buttons.clear()
 	for i in filters.size():
 		var filter_button := Button.new()
 		filter_button.text = filters[i]
@@ -1768,6 +1790,7 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 		_style_ui_button(filter_button)
 		filter_button.pressed.connect(func(): _set_freight_filter(filters[i]))
 		filter_panel.add_child(filter_button)
+		freight_filter_buttons.append(filter_button)
 	var list_title := Label.new()
 	list_title.text = "路线合同"
 	list_title.position = Vector2(208, 110)
@@ -1830,6 +1853,7 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 	_style_ui_button(freight_accept_button)
 	freight_accept_button.pressed.connect(_accept_selected_freight_offer)
 	detail_panel.add_child(freight_accept_button)
+	_update_freight_filter_styles()
 	_generate_freight_offers()
 
 func _generate_freight_offers() -> void:
@@ -1864,8 +1888,8 @@ func _refresh_freight_market() -> void:
 		var offer_unlocked := _is_freight_offer_unlocked(offer)
 		card.custom_minimum_size = Vector2(390, 82)
 		var card_style := StyleBoxFlat.new()
-		card_style.bg_color = Color("#303b5a", 0.96)
-		card_style.border_color = Color("#52617e")
+		card_style.bg_color = Color("#252c43", 0.96) if not offer_unlocked else Color("#303b5a", 0.96)
+		card_style.border_color = Color("#46516d") if not offer_unlocked else Color("#52617e")
 		card_style.set_border_width_all(1)
 		card_style.set_corner_radius_all(14)
 		card.add_theme_stylebox_override("panel", card_style)
@@ -1876,7 +1900,7 @@ func _refresh_freight_market() -> void:
 		details.text = "%s → %s\n%s\n€%d  ·  %.1f km  ·  %ds%s" % [offer["from"], offer["to"], offer["cargo"], offer["reward"], offer["distance"], int(offer["time"]), "  ·  🔒 " + _freight_offer_lock_reason(offer) if not offer_unlocked else ""]
 		details.custom_minimum_size = Vector2(270, 72)
 		details.add_theme_font_size_override("font_size", 13)
-		details.add_theme_color_override("font_color", CREAM)
+		details.add_theme_color_override("font_color", Color("#aab4cc") if not offer_unlocked else CREAM)
 		row.add_child(details)
 		var inspect_button := Button.new()
 		inspect_button.text = "查看"
@@ -1924,7 +1948,21 @@ func _freight_offer_lock_reason(offer: Dictionary) -> String:
 
 func _set_freight_filter(category: String) -> void:
 	freight_category_filter = category
+	_update_freight_filter_styles()
 	_refresh_freight_market()
+
+func _update_freight_filter_styles() -> void:
+	var filters: Array = ["全部", "普通货运", "限时急件", "天气敏感", "高价值"]
+	for i in freight_filter_buttons.size():
+		var button := freight_filter_buttons[i]
+		var selected := filters[i] == freight_category_filter
+		var normal := StyleBoxFlat.new()
+		normal.bg_color = Color("#566b95", 0.98) if selected else Color("#3d4764", 0.96)
+		normal.border_color = Color("#ffd166") if selected else Color("#66789d", 0.9)
+		normal.set_border_width_all(2 if selected else 1)
+		normal.set_corner_radius_all(12)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", normal.duplicate())
 
 func _toggle_freight_price_sort() -> void:
 	freight_sort_descending = not freight_sort_descending
@@ -1957,6 +1995,8 @@ func _toggle_freight_market() -> void:
 		toast = "当前合同运输中，抵达目的地后再接下一单"
 		toast_time = 2.4
 		return
+	if not freight_market_panel.visible:
+		_hide_ui_overlays()
 	freight_market_panel.visible = not freight_market_panel.visible
 	paused = freight_market_panel.visible
 	if freight_market_panel.visible:
@@ -2439,6 +2479,14 @@ func _style_ui_button(button: Button) -> void:
 	var hover: Variant = normal.duplicate()
 	hover.bg_color = Color("#ffd166", 0.96)
 	button.add_theme_stylebox_override("hover", hover)
+	var pressed: Variant = normal.duplicate()
+	pressed.bg_color = Color("#ef6f61", 0.96)
+	button.add_theme_stylebox_override("pressed", pressed)
+	var disabled: Variant = normal.duplicate()
+	disabled.bg_color = Color("#293149", 0.82)
+	disabled.border_color = Color("#46516d", 0.7)
+	button.add_theme_color_override("font_disabled_color", Color("#7f8aa5"))
+	button.add_theme_stylebox_override("disabled", disabled)
 
 func _hud_card(layer: CanvasLayer, pos: Vector2, card_size: Vector2, color: Color) -> Panel:
 	var card: Variant = Panel.new()
@@ -2491,7 +2539,10 @@ func _build_settings_panel(layer: CanvasLayer) -> void:
 	settings_panel.control_opacity = control_opacity
 
 func _toggle_settings() -> void:
+	if not settings_panel.visible:
+		_hide_ui_overlays()
 	settings_panel.visible = not settings_panel.visible
+	paused = settings_panel.visible
 	_play_sfx("ui_click", -10.0)
 
 func _apply_quality(mode: int) -> void:
@@ -2596,9 +2647,22 @@ func _build_garage_panel(layer: CanvasLayer) -> void:
 	_update_garage_label()
 
 func _toggle_garage() -> void:
+	if not garage_panel.visible:
+		_hide_ui_overlays()
 	garage_panel.visible = not garage_panel.visible
+	paused = garage_panel.visible
 	_update_garage_label()
 	_play_sfx("ui_click", -10.0)
+
+func _hide_ui_overlays() -> void:
+	if settings_panel:
+		settings_panel.visible = false
+	if garage_panel:
+		garage_panel.visible = false
+	if driver_profile_panel:
+		driver_profile_panel.visible = false
+	if freight_market_panel:
+		freight_market_panel.visible = false
 
 func _update_garage_label() -> void:
 	if garage_label:

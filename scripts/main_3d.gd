@@ -104,6 +104,8 @@ var hit_shake := 0.0
 var collision_effect_cooldown := 0.0
 var guardrail_audio_cooldown := 0.0
 var puddle_audio_active := false
+var wet_lateral_slip := 0.0
+var wet_skid_cooldown := 0.0
 var last_gear := 0
 var last_indicator_on := false
 var previous_wiper_active := false
@@ -1741,29 +1743,36 @@ func _process(delta: float) -> void:
 	steer = lerp(steer, steer_input, clamp(delta * steering_response, 0.0, 1.0))
 	slope_percent = clamp((_road_height_at(truck.position.z - 8.0) - _road_height_at(truck.position.z)) / 8.0 * 100.0, -18.0, 18.0)
 	var slope_drag: Variant = slope_percent * 0.055
+	var wetness: float = weather_intensity if current_weather == "rain" else 0.0
+	var wet_grip: float = clampf(1.0 - wetness * 0.45, 0.55, 1.0)
 	var brake_pressed: Variant = braking > 0.15 and not brake_input_was_active
 	if brake_pressed and throttle < 0.05 and abs(speed) < 0.8:
 		reverse_mode = true
 	if braking < 0.05 or throttle > 0.05:
 		reverse_mode = false
 	var reverse_active: Variant = drive_mode == "R" and throttle > 0.05 and (abs(speed) < 0.8 or speed < 0.0)
-	var target_speed: Variant = -throttle * 5.5 if reverse_active else throttle * max_speed * drive_factor - braking * (12.0 + float(tire_level) * 0.8) - slope_drag
-	speed = lerp(speed, max(target_speed, 0.0), delta * 3.8)
+	var brake_force: float = (12.0 + float(tire_level) * 0.8) * wet_grip
+	var drive_target_speed: float = throttle * max_speed * drive_factor - slope_drag
 	if reverse_active:
 		speed = lerp(speed, -5.5 * throttle, delta * 4.5)
 		if not sfx_players["reverse_beeper"].playing:
 			_play_sfx("reverse_beeper", -8.0)
+	elif braking > 0.15 and speed > 0.0:
+		speed = move_toward(speed, 0.0, delta * brake_force)
 	else:
+		speed = lerp(speed, max(drive_target_speed, 0.0), delta * 3.8)
 		sfx_players["reverse_beeper"].stop()
 	var current_gear: Variant = -1 if speed < -0.35 else (0 if abs(speed) < 0.35 else clamp(int(speed / 3.2) + 1, 1, 12))
 	if current_gear != last_gear:
 		if last_gear != 0:
 			_play_sfx("gear_shift", -10.0)
 		last_gear = current_gear
-	var steering_grip: Variant = 1.0 + float(tire_level) * 0.08
+	var steering_grip: Variant = (1.0 + float(tire_level) * 0.08) * wet_grip
 	var road_center: Variant = _road_center_at(truck.position.z)
 	var lateral_rate: Variant = lerp(5.8, 3.2, speed_ratio) * steering_grip
-	truck.position.x = clamp(truck.position.x + steer * delta * lateral_rate + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
+	var slip_target: float = steer * speed_ratio * wetness * 3.8 if braking > 0.2 else steer * speed_ratio * wetness * 0.65
+	wet_lateral_slip = lerp(wet_lateral_slip, slip_target, clampf(delta * 2.4, 0.0, 1.0))
+	truck.position.x = clamp(truck.position.x + steer * delta * lateral_rate + wet_lateral_slip * delta + (road_center - truck.position.x) * delta * 0.38, road_center - 4.0, road_center + 4.0)
 	truck.position.y = 0.65 + _road_height_at(truck.position.z)
 	if speed_lines:
 		speed_lines.position = truck.position + Vector3(0, 1.5, 4.0)
@@ -1801,6 +1810,10 @@ func _process(delta: float) -> void:
 	for lamp in authored_signal_lamps:
 		lamp.visible = signal_on
 	guardrail_audio_cooldown = max(0.0, guardrail_audio_cooldown - delta)
+	wet_skid_cooldown = max(0.0, wet_skid_cooldown - delta)
+	if wetness > 0.45 and braking > 0.2 and speed > 7.0 and abs(steer) > 0.18 and wet_skid_cooldown <= 0.0:
+		_play_sfx("tire_skid", -8.0)
+		wet_skid_cooldown = 0.65
 	var road_offset: Variant = abs(truck.position.x - road_center)
 	if road_offset > 3.65 and speed > 3.0 and guardrail_audio_cooldown <= 0.0:
 		_play_sfx("guardrail_scrape", -10.0)

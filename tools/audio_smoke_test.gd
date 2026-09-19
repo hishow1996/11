@@ -2,6 +2,8 @@ extends SceneTree
 
 const FILES := [
 	"res://audio/air_brake.wav",
+	"res://audio/bgm_route_loop.wav",
+	"res://audio/bgm_burn_loop.wav",
 	"res://audio/collision_metal.wav",
 	"res://audio/delivery_complete.wav",
 	"res://audio/engine_loop.wav",

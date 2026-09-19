@@ -64,6 +64,10 @@ var ui_toast: Label
 var ui_grade_flash: Label
 var engine_player: AudioStreamPlayer
 var bgm_player: AudioStreamPlayer
+var radio_button: Button
+var radio_station := 1
+var radio_station_names := ["电台 OFF", "轻快频道", "燃向频道"]
+var radio_station_paths := ["", "res://audio/bgm_route_loop.wav", "res://audio/bgm_burn_loop.wav"]
 var brake_player: AudioStreamPlayer
 var rain_player: AudioStreamPlayer
 var wind_player: AudioStreamPlayer
@@ -273,6 +277,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	master_volume = clamp(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clamp(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	sfx_volume = clamp(float(data.get("sfx_volume", sfx_volume)), 0.0, 1.0)
+	radio_station = clamp(int(data.get("radio_station", radio_station)), 0, 2)
 	control_scale = clamp(float(data.get("control_scale", control_scale)), 0.75, 1.35)
 	control_opacity = clamp(float(data.get("control_opacity", control_opacity)), 0.35, 1.0)
 	route_goal = 10.0 + float(cargo_index * 2)
@@ -327,6 +332,7 @@ func _save_game() -> void:
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"sfx_volume": sfx_volume,
+		"radio_station": radio_station,
 		"control_scale": control_scale,
 		"control_opacity": control_opacity
 	}
@@ -1380,6 +1386,14 @@ func _build_ui() -> void:
 	_style_ui_button(task_button)
 	task_button.pressed.connect(_accept_task)
 	layer.add_child(task_button)
+	radio_button = Button.new()
+	radio_button.position = Vector2(650, 78)
+	radio_button.size = Vector2(150, 38)
+	radio_button.add_theme_font_size_override("font_size", 14)
+	_style_ui_button(radio_button)
+	radio_button.pressed.connect(_cycle_radio_station)
+	layer.add_child(radio_button)
+	_set_radio_station(radio_station, false)
 	headlight_mode_button = Button.new()
 	headlight_mode_button.position = Vector2(810, 24)
 	headlight_mode_button.size = Vector2(108, 48)
@@ -1717,9 +1731,10 @@ func _build_audio() -> void:
 		engine_player.stream = engine_stream
 	engine_player.volume_db = -10.0
 	add_child(engine_player)
-	if engine_player.stream:
-		engine_player.play()
+		if engine_player.stream:
+			engine_player.play()
 	bgm_player = _loop_audio("res://audio/bgm_route_loop.wav", -19.0)
+	_set_radio_station(radio_station, false)
 	brake_player = AudioStreamPlayer.new()
 	var brake_stream: Variant = load("res://audio/air_brake.wav")
 	if brake_stream is AudioStream:
@@ -1749,6 +1764,41 @@ func _build_audio() -> void:
 		var click_stream: Variant = load("res://assets/audio_sources/kenney_ui_audio/click1.wav")
 		if click_stream is AudioStream:
 			sfx_players["ui_click"].stream = click_stream
+
+func _cycle_radio_station() -> void:
+	_set_radio_station((radio_station + 1) % radio_station_paths.size(), true)
+
+func _set_radio_station(station: int, announce: bool) -> void:
+	radio_station = clampi(station, 0, radio_station_paths.size() - 1)
+	if bgm_player:
+		if radio_station == 0:
+			bgm_player.stop()
+		else:
+			var stream: Variant = load(radio_station_paths[radio_station])
+			if stream is AudioStream:
+				bgm_player.stream = stream
+				bgm_player.play()
+	if radio_button:
+		radio_button.text = "电台：" + radio_station_names[radio_station]
+		radio_button.modulate = Color("#ff8fb3") if radio_station == 2 else (MINT if radio_station == 1 else Color("#9aa8c4"))
+	if announce:
+		toast = radio_station_names[radio_station]
+		toast_time = 2.0
+		_play_sfx("ui_click", -10.0)
+		_save_game()
+
+func _update_radio_mix() -> void:
+	if not bgm_player:
+		return
+	if radio_station == 0:
+		bgm_player.volume_db = -60.0
+		return
+	var base_volume: float = -20.0 if radio_station == 1 else -17.0
+	var speed_bonus: float = clamp(speed / 21.0, 0.0, 1.0) * (1.5 if radio_station == 2 else 0.5)
+	var night_duck: float = -1.5 if game_hour < 6.0 or game_hour >= 19.0 else 0.0
+	var weather_duck: float = -2.0 if current_weather == "rain" else (-1.0 if current_weather == "snow" else 0.0)
+	bgm_player.volume_db = base_volume + speed_bonus + night_duck + weather_duck + linear_to_db(max(music_volume * master_volume, 0.001))
+	bgm_player.pitch_scale = 1.0 + (0.018 if radio_station == 2 and speed > 16.0 else 0.0)
 
 func _play_sfx(sfx_name: String, volume_db := -8.0) -> void:
 	var player: Variant = sfx_players.get(sfx_name)
@@ -2021,6 +2071,7 @@ func _process(delta: float) -> void:
 	_update_weather_event(delta)
 	_update_weather_visuals()
 	_update_weather_audio(delta)
+	_update_radio_mix()
 	_update_cockpit_instruments(delta)
 	_update_ui()
 

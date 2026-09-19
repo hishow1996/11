@@ -60,6 +60,7 @@ var freight_offers: Array[Dictionary] = []
 var freight_selected_offer: Dictionary = {}
 var freight_detail_title: Label
 var freight_detail_text: Label
+var freight_route_preview: Control
 var freight_accept_button: Button
 var freight_category_filter := "全部"
 var freight_sort_descending := true
@@ -1641,9 +1642,15 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 	freight_detail_title.add_theme_font_size_override("font_size", 20)
 	freight_detail_title.add_theme_color_override("font_color", CREAM)
 	detail_panel.add_child(freight_detail_title)
+	freight_route_preview = Control.new()
+	freight_route_preview.position = Vector2(18, 76)
+	freight_route_preview.size = Vector2(240, 112)
+	freight_route_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	freight_route_preview.set_script(load("res://scripts/minimap.gd"))
+	detail_panel.add_child(freight_route_preview)
 	freight_detail_text = Label.new()
-	freight_detail_text.position = Vector2(18, 82)
-	freight_detail_text.size = Vector2(240, 270)
+	freight_detail_text.position = Vector2(18, 198)
+	freight_detail_text.size = Vector2(240, 184)
 	freight_detail_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	freight_detail_text.add_theme_font_size_override("font_size", 14)
 	freight_detail_text.add_theme_color_override("font_color", Color("#c0cde4"))
@@ -1660,11 +1667,11 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 
 func _generate_freight_offers() -> void:
 	var routes: Array = [
-		{"from": "慕尼黑", "to": "米兰", "cargo": "精密机械", "distance": 12.0, "time": 184.0, "reward": 920, "condition": "delivery", "risk": "普通"},
-		{"from": "因斯布鲁克", "to": "苏黎世", "cargo": "冷藏鲜花", "distance": 8.0, "time": 150.0, "reward": 1080, "condition": "night", "risk": "夜行加成"},
-		{"from": "里昂", "to": "日内瓦", "cargo": "医疗物资", "distance": 6.0, "time": 125.0, "reward": 1180, "condition": "rain", "risk": "天气敏感"},
-		{"from": "维也纳", "to": "布拉格", "cargo": "动漫周边", "distance": 10.0, "time": 210.0, "reward": 760, "condition": "clean", "risk": "无损奖励"},
-		{"from": "米兰", "to": "巴黎", "cargo": "高级轿车", "distance": 15.0, "time": 240.0, "reward": 1320, "condition": "clean", "risk": "高价值货物"}
+		{"from": "慕尼黑", "to": "米兰", "cargo": "精密机械", "distance": 12.0, "time": 184.0, "reward": 920, "condition": "delivery", "risk": "普通", "weight": "8.4 t", "cargo_type": "工业设备", "fragility": "中等", "requirement": "平稳驾驶", "fuel": "约 18% 油耗"},
+		{"from": "因斯布鲁克", "to": "苏黎世", "cargo": "冷藏鲜花", "distance": 8.0, "time": 150.0, "reward": 1080, "condition": "night", "risk": "夜行加成", "weight": "4.2 t", "cargo_type": "冷藏货物", "fragility": "高", "requirement": "夜间准时", "fuel": "约 12% 油耗"},
+		{"from": "里昂", "to": "日内瓦", "cargo": "医疗物资", "distance": 6.0, "time": 125.0, "reward": 1180, "condition": "rain", "risk": "天气敏感", "weight": "5.6 t", "cargo_type": "医疗用品", "fragility": "高", "requirement": "雨天运输", "fuel": "约 10% 油耗"},
+		{"from": "维也纳", "to": "布拉格", "cargo": "动漫周边", "distance": 10.0, "time": 210.0, "reward": 760, "condition": "clean", "risk": "无损奖励", "weight": "3.8 t", "cargo_type": "消费品", "fragility": "中等", "requirement": "损伤 ≤ 20%", "fuel": "约 15% 油耗"},
+		{"from": "米兰", "to": "巴黎", "cargo": "高级轿车", "distance": 15.0, "time": 240.0, "reward": 1320, "condition": "clean", "risk": "高价值货物", "weight": "11.5 t", "cargo_type": "高价值车辆", "fragility": "高", "requirement": "无碰撞交付", "fuel": "约 23% 油耗"}
 	]
 	freight_offers.clear()
 	for i in routes.size():
@@ -1719,6 +1726,8 @@ func _refresh_freight_market() -> void:
 		freight_selected_offer = {}
 		freight_detail_title.text = "暂无匹配合同"
 		freight_detail_text.text = "调整左侧筛选条件后重试。"
+		if freight_route_preview:
+			freight_route_preview.visible = false
 		freight_accept_button.disabled = true
 
 func _freight_offer_category(offer: Dictionary) -> String:
@@ -1748,7 +1757,10 @@ func _compare_freight_offer_price(left: Dictionary, right: Dictionary) -> bool:
 func _select_freight_offer(offer: Dictionary) -> void:
 	freight_selected_offer = offer
 	freight_detail_title.text = "%s\n%s → %s" % [offer["cargo"], offer["from"], offer["to"]]
-	freight_detail_text.text = "货物类型：%s\n运输距离：%.1f km\n预计时限：%d 秒\n基础报酬：€%d\n合同标签：%s\n\n驾驶评分、无损运输和天气条件会影响最终结算。" % [ _freight_offer_category(offer), offer["distance"], int(offer["time"]), offer["reward"], offer["risk"]]
+	freight_detail_text.text = "货物参数\n重量：%s    类型：%s\n易损等级：%s\n交付要求：%s\n预计油耗：%s\n\n路线 %.1f km  ·  %d 秒\n基础报酬 €%d  ·  %s" % [offer["weight"], offer["cargo_type"], offer["fragility"], offer["requirement"], offer["fuel"], offer["distance"], int(offer["time"]), offer["reward"], offer["risk"]]
+	if freight_route_preview:
+		freight_route_preview.visible = true
+		freight_route_preview.update_state(0.0, 0.0, float(offer["distance"]), str(offer["from"]), str(offer["to"]), "路线预览")
 	freight_accept_button.disabled = false
 
 func _accept_selected_freight_offer() -> void:

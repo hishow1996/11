@@ -62,6 +62,8 @@ var freight_detail_title: Label
 var freight_detail_text: Label
 var freight_accept_button: Button
 var freight_category_filter := "全部"
+var freight_sort_descending := true
+var freight_sort_button: Button
 var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
@@ -1605,6 +1607,13 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 	list_title.add_theme_font_size_override("font_size", 18)
 	list_title.add_theme_color_override("font_color", CREAM)
 	freight_market_panel.add_child(list_title)
+	freight_sort_button = Button.new()
+	freight_sort_button.position = Vector2(470, 104)
+	freight_sort_button.size = Vector2(146, 32)
+	freight_sort_button.add_theme_font_size_override("font_size", 13)
+	_style_ui_button(freight_sort_button)
+	freight_sort_button.pressed.connect(_toggle_freight_price_sort)
+	freight_market_panel.add_child(freight_sort_button)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(208, 148)
 	scroll.size = Vector2(408, 452)
@@ -1673,6 +1682,9 @@ func _refresh_freight_market() -> void:
 	for offer in freight_offers:
 		if freight_category_filter == "全部" or _freight_offer_category(offer) == freight_category_filter:
 			visible_offers.append(offer)
+	visible_offers.sort_custom(Callable(self, "_compare_freight_offer_price"))
+	if freight_sort_button:
+		freight_sort_button.text = "报酬：高 → 低" if freight_sort_descending else "报酬：低 → 高"
 	for offer in visible_offers:
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(390, 82)
@@ -1700,7 +1712,7 @@ func _refresh_freight_market() -> void:
 		row.add_child(inspect_button)
 		freight_market_list.add_child(card)
 	if freight_market_status:
-		freight_market_status.text = "可用合同 %d 份  ·  已筛选 %d 份  ·  选择合同查看路线、风险和收益" % [freight_offers.size(), visible_offers.size()]
+		freight_market_status.text = "分类：%s  ·  可用合同 %d 份  ·  显示 %d 份  ·  %s" % [freight_category_filter, freight_offers.size(), visible_offers.size(), "按报酬从高到低" if freight_sort_descending else "按报酬从低到高"]
 	if visible_offers.size() > 0:
 		_select_freight_offer(visible_offers[0])
 	else:
@@ -1721,6 +1733,17 @@ func _freight_offer_category(offer: Dictionary) -> String:
 func _set_freight_filter(category: String) -> void:
 	freight_category_filter = category
 	_refresh_freight_market()
+
+func _toggle_freight_price_sort() -> void:
+	freight_sort_descending = not freight_sort_descending
+	_refresh_freight_market()
+
+func _compare_freight_offer_price(left: Dictionary, right: Dictionary) -> bool:
+	var left_reward: int = int(left["reward"])
+	var right_reward: int = int(right["reward"])
+	if left_reward == right_reward:
+		return int(left["offer_id"]) < int(right["offer_id"])
+	return left_reward > right_reward if freight_sort_descending else left_reward < right_reward
 
 func _select_freight_offer(offer: Dictionary) -> void:
 	freight_selected_offer = offer

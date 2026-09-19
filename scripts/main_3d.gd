@@ -3575,6 +3575,10 @@ func _complete_delivery() -> void:
 		_unlock_achievement("CLEAN_HAUL", "零碰撞完成运输任务")
 	task_index = (task_index + 1) % 4
 	_generate_freight_offers()
+	if freight_market_panel:
+		_hide_ui_overlays()
+		freight_market_panel.visible = true
+		paused = true
 	toast = "司机升级 Lv.%d！获得技能点" % driver_level if driver_level > previous_driver_level else "合同完成：返回货运市场选择下一单"
 	toast_time = 4.0
 	_save_game()
@@ -3709,9 +3713,14 @@ func _unlock_achievement(key: String, description: String) -> void:
 	toast_time = 3.2
 
 func _toggle_pause() -> void:
+	if _is_ui_overlay_open():
+		return
 	paused = not paused
 	toast = "PAUSED" if paused else "BACK ON THE ROAD"
 	toast_time = 2.0
+
+func _is_ui_overlay_open() -> bool:
+	return (settings_panel and settings_panel.visible) or (garage_panel and garage_panel.visible) or (driver_profile_panel and driver_profile_panel.visible) or (freight_market_panel and freight_market_panel.visible)
 
 func _toggle_camera_mode() -> void:
 	if camera_toggle_cooldown > 0.0:

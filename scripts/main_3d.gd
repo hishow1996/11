@@ -57,6 +57,11 @@ var freight_market_panel: Panel
 var freight_market_list: VBoxContainer
 var freight_market_status: Label
 var freight_offers: Array[Dictionary] = []
+var freight_selected_offer: Dictionary = {}
+var freight_detail_title: Label
+var freight_detail_text: Label
+var freight_accept_button: Button
+var freight_category_filter := "全部"
 var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
@@ -1536,8 +1541,8 @@ func _build_ui() -> void:
 
 func _build_freight_market(layer: CanvasLayer) -> void:
 	freight_market_panel = Panel.new()
-	freight_market_panel.position = Vector2(310, 58)
-	freight_market_panel.size = Vector2(660, 590)
+	freight_market_panel.position = Vector2(170, 42)
+	freight_market_panel.size = Vector2(940, 636)
 	freight_market_panel.visible = false
 	freight_market_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	var panel_style := StyleBoxFlat.new()
@@ -1548,35 +1553,100 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 	freight_market_panel.add_theme_stylebox_override("panel", panel_style)
 	layer.add_child(freight_market_panel)
 	var title := Label.new()
-	title.text = "货运市场"
-	title.position = Vector2(34, 20)
-	title.size = Vector2(300, 42)
+	title.text = "货运市场  /  可用合同"
+	title.position = Vector2(28, 20)
+	title.size = Vector2(470, 42)
 	title.add_theme_font_size_override("font_size", 25)
 	title.add_theme_color_override("font_color", CREAM)
 	freight_market_panel.add_child(title)
 	var close_button := Button.new()
 	close_button.text = "关闭"
-	close_button.position = Vector2(830, 76)
+	close_button.position = Vector2(804, 20)
 	close_button.size = Vector2(112, 42)
 	close_button.add_theme_font_size_override("font_size", 16)
 	_style_ui_button(close_button)
 	close_button.pressed.connect(_close_freight_market)
 	freight_market_panel.add_child(close_button)
 	freight_market_status = Label.new()
-	freight_market_status.position = Vector2(34, 64)
-	freight_market_status.size = Vector2(570, 32)
+	freight_market_status.position = Vector2(28, 64)
+	freight_market_status.size = Vector2(880, 28)
 	freight_market_status.add_theme_font_size_override("font_size", 14)
 	freight_market_status.add_theme_color_override("font_color", Color("#b8c7df"))
 	freight_market_panel.add_child(freight_market_status)
+	var filter_panel := Panel.new()
+	filter_panel.position = Vector2(24, 108)
+	filter_panel.size = Vector2(160, 498)
+	var filter_style := StyleBoxFlat.new()
+	filter_style.bg_color = Color("#252e50", 0.96)
+	filter_style.set_corner_radius_all(16)
+	filter_panel.add_theme_stylebox_override("panel", filter_style)
+	freight_market_panel.add_child(filter_panel)
+	var filter_title := Label.new()
+	filter_title.text = "合同筛选"
+	filter_title.position = Vector2(18, 18)
+	filter_title.size = Vector2(124, 28)
+	filter_title.add_theme_font_size_override("font_size", 17)
+	filter_title.add_theme_color_override("font_color", CREAM)
+	filter_panel.add_child(filter_title)
+	var filters: Array = ["全部", "普通货运", "限时急件", "天气敏感", "高价值"]
+	for i in filters.size():
+		var filter_button := Button.new()
+		filter_button.text = filters[i]
+		filter_button.position = Vector2(14, 62 + i * 54)
+		filter_button.size = Vector2(132, 42)
+		filter_button.add_theme_font_size_override("font_size", 14)
+		_style_ui_button(filter_button)
+		filter_button.pressed.connect(func(): _set_freight_filter(filters[i]))
+		filter_panel.add_child(filter_button)
+	var list_title := Label.new()
+	list_title.text = "路线合同"
+	list_title.position = Vector2(208, 110)
+	list_title.size = Vector2(390, 30)
+	list_title.add_theme_font_size_override("font_size", 18)
+	list_title.add_theme_color_override("font_color", CREAM)
+	freight_market_panel.add_child(list_title)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(336, 164)
-	scroll.size = Vector2(608, 452)
+	scroll.position = Vector2(208, 148)
+	scroll.size = Vector2(408, 452)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	freight_market_panel.add_child(scroll)
 	freight_market_list = VBoxContainer.new()
 	freight_market_list.add_theme_constant_override("separation", 10)
 	freight_market_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(freight_market_list)
+	var detail_panel := Panel.new()
+	detail_panel.position = Vector2(634, 108)
+	detail_panel.size = Vector2(278, 498)
+	var detail_style := StyleBoxFlat.new()
+	detail_style.bg_color = Color("#252e50", 0.96)
+	detail_style.border_color = Color("#52688f")
+	detail_style.set_border_width_all(1)
+	detail_style.set_corner_radius_all(16)
+	detail_panel.add_theme_stylebox_override("panel", detail_style)
+	freight_market_panel.add_child(detail_panel)
+	freight_detail_title = Label.new()
+	freight_detail_title.text = "合同详情"
+	freight_detail_title.position = Vector2(18, 18)
+	freight_detail_title.size = Vector2(240, 50)
+	freight_detail_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	freight_detail_title.add_theme_font_size_override("font_size", 20)
+	freight_detail_title.add_theme_color_override("font_color", CREAM)
+	detail_panel.add_child(freight_detail_title)
+	freight_detail_text = Label.new()
+	freight_detail_text.position = Vector2(18, 82)
+	freight_detail_text.size = Vector2(240, 270)
+	freight_detail_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	freight_detail_text.add_theme_font_size_override("font_size", 14)
+	freight_detail_text.add_theme_color_override("font_color", Color("#c0cde4"))
+	detail_panel.add_child(freight_detail_text)
+	freight_accept_button = Button.new()
+	freight_accept_button.text = "接取这份合同"
+	freight_accept_button.position = Vector2(18, 414)
+	freight_accept_button.size = Vector2(240, 52)
+	freight_accept_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(freight_accept_button)
+	freight_accept_button.pressed.connect(_accept_selected_freight_offer)
+	detail_panel.add_child(freight_accept_button)
 	_generate_freight_offers()
 
 func _generate_freight_offers() -> void:
@@ -1599,9 +1669,13 @@ func _refresh_freight_market() -> void:
 		return
 	for child in freight_market_list.get_children():
 		child.queue_free()
+	var visible_offers: Array[Dictionary] = []
 	for offer in freight_offers:
+		if freight_category_filter == "全部" or _freight_offer_category(offer) == freight_category_filter:
+			visible_offers.append(offer)
+	for offer in visible_offers:
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(590, 78)
+		card.custom_minimum_size = Vector2(390, 82)
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = Color("#303b5a", 0.96)
 		card_style.border_color = Color("#52617e")
@@ -1610,27 +1684,53 @@ func _refresh_freight_market() -> void:
 		card.add_theme_stylebox_override("panel", card_style)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 12)
-		row.add_theme_constant_override("margin_left", 14)
-		row.add_theme_constant_override("margin_right", 14)
-		row.add_theme_constant_override("margin_top", 8)
-		row.add_theme_constant_override("margin_bottom", 8)
 		card.add_child(row)
 		var details := Label.new()
-		details.text = "%s → %s\n%s  ·  %.1f km  ·  %s\n€%d  ·  %ds" % [offer["from"], offer["to"], offer["cargo"], offer["distance"], offer["risk"], offer["reward"], int(offer["time"])]
-		details.custom_minimum_size = Vector2(420, 58)
-		details.add_theme_font_size_override("font_size", 14)
+		details.text = "%s → %s\n%s\n€%d  ·  %.1f km  ·  %ds" % [offer["from"], offer["to"], offer["cargo"], offer["reward"], offer["distance"], int(offer["time"])]
+		details.custom_minimum_size = Vector2(270, 72)
+		details.add_theme_font_size_override("font_size", 13)
 		details.add_theme_color_override("font_color", CREAM)
 		row.add_child(details)
-		var accept_button := Button.new()
-		accept_button.text = "接取合同"
-		accept_button.custom_minimum_size = Vector2(120, 48)
-		accept_button.add_theme_font_size_override("font_size", 15)
-		_style_ui_button(accept_button)
-		accept_button.pressed.connect(func(): _accept_offer(offer))
-		row.add_child(accept_button)
+		var inspect_button := Button.new()
+		inspect_button.text = "查看"
+		inspect_button.custom_minimum_size = Vector2(80, 48)
+		inspect_button.add_theme_font_size_override("font_size", 14)
+		_style_ui_button(inspect_button)
+		inspect_button.pressed.connect(func(): _select_freight_offer(offer))
+		row.add_child(inspect_button)
 		freight_market_list.add_child(card)
 	if freight_market_status:
-		freight_market_status.text = "可用合同 %d 份  ·  选择后开始计时，完成后返回市场" % freight_offers.size()
+		freight_market_status.text = "可用合同 %d 份  ·  已筛选 %d 份  ·  选择合同查看路线、风险和收益" % [freight_offers.size(), visible_offers.size()]
+	if visible_offers.size() > 0:
+		_select_freight_offer(visible_offers[0])
+	else:
+		freight_selected_offer = {}
+		freight_detail_title.text = "暂无匹配合同"
+		freight_detail_text.text = "调整左侧筛选条件后重试。"
+		freight_accept_button.disabled = true
+
+func _freight_offer_category(offer: Dictionary) -> String:
+	if str(offer["risk"]).find("高价值") >= 0:
+		return "高价值"
+	if str(offer["condition"]) == "rain":
+		return "天气敏感"
+	if str(offer["condition"]) == "night" or float(offer["time"]) <= 150.0:
+		return "限时急件"
+	return "普通货运"
+
+func _set_freight_filter(category: String) -> void:
+	freight_category_filter = category
+	_refresh_freight_market()
+
+func _select_freight_offer(offer: Dictionary) -> void:
+	freight_selected_offer = offer
+	freight_detail_title.text = "%s\n%s → %s" % [offer["cargo"], offer["from"], offer["to"]]
+	freight_detail_text.text = "货物类型：%s\n运输距离：%.1f km\n预计时限：%d 秒\n基础报酬：€%d\n合同标签：%s\n\n驾驶评分、无损运输和天气条件会影响最终结算。" % [ _freight_offer_category(offer), offer["distance"], int(offer["time"]), offer["reward"], offer["risk"]]
+	freight_accept_button.disabled = false
+
+func _accept_selected_freight_offer() -> void:
+	if not freight_selected_offer.is_empty():
+		_accept_offer(freight_selected_offer)
 
 func _toggle_freight_market() -> void:
 	if task_active:

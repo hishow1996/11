@@ -6,6 +6,7 @@
 - [x] Mobile controls: four touch buttons mapped to input actions.
 - [x] Freight market hall: browse, filter by cargo category, sort by payout, inspect route previews and detailed cargo parameters, and accept multiple contracts.
 - [x] Contract handoff: enter the driving HUD after acceptance with live destination, ETA, remaining distance, and navigation map guidance.
+- [x] Driver progression: earn XP and skill points from deliveries, unlock skill-tree branches, and gate advanced cargo contracts by level and skills.
 - [x] Delivery scoring: smooth driving, collision penalties, grade-based payout and achievements.
 - [x] Radio system: off, upbeat route BGM, and high-energy driving BGM with dynamic mixing.
 - [x] Startup flow: loading transition, animated logo intro, and main menu before driving.

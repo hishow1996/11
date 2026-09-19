@@ -32,6 +32,10 @@ var task_condition := "delivery"
 var task_time_remaining := 184.0
 var task_reward := 640
 var task_active := false
+var driver_level := 1
+var driver_xp := 0
+var driver_skill_points := 0
+var driver_skills: Dictionary = {"night_runner": false, "fragile_cargo": false, "premium_freight": false, "long_haul": false}
 var task_score := 100.0
 var task_incidents := 0
 var task_peak_speed := 0.0
@@ -65,6 +69,10 @@ var freight_accept_button: Button
 var freight_category_filter := "全部"
 var freight_sort_descending := true
 var freight_sort_button: Button
+var driver_button: Button
+var driver_profile_panel: Panel
+var driver_profile_label: Label
+var driver_skill_status: Label
 var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
@@ -294,6 +302,13 @@ func _apply_save_data(data: Dictionary) -> void:
 		leaderboard = []
 	fuel = clamp(float(data.get("fuel", fuel)), 0.0, 200.0)
 	damage = clamp(float(data.get("damage", damage)), 0.0, 100.0)
+	driver_level = clamp(int(data.get("driver_level", driver_level)), 1, 20)
+	driver_xp = max(0, int(data.get("driver_xp", driver_xp)))
+	driver_skill_points = max(0, int(data.get("driver_skill_points", driver_skill_points)))
+	var saved_skills = data.get("driver_skills", driver_skills)
+	if saved_skills is Dictionary:
+		for skill_id in driver_skills.keys():
+			driver_skills[skill_id] = bool(saved_skills.get(skill_id, false))
 	distance = max(0.0, float(data.get("distance", distance)))
 	cargo_index = clamp(int(data.get("cargo_index", cargo_index)), 0, 2)
 	livery_index = clamp(int(data.get("livery_index", livery_index)), 0, 1)
@@ -345,6 +360,10 @@ func _save_game() -> void:
 		"leaderboard": leaderboard,
 		"fuel": fuel,
 		"damage": damage,
+		"driver_level": driver_level,
+		"driver_xp": driver_xp,
+		"driver_skill_points": driver_skill_points,
+		"driver_skills": driver_skills,
 		"distance": distance,
 		"cargo_index": cargo_index,
 		"livery_index": livery_index,
@@ -1471,6 +1490,14 @@ func _build_ui() -> void:
 	radio_button.pressed.connect(_cycle_radio_station)
 	layer.add_child(radio_button)
 	_set_radio_station(radio_station, false)
+	driver_button = Button.new()
+	driver_button.text = "司机档案"
+	driver_button.position = Vector2(810, 78)
+	driver_button.size = Vector2(108, 38)
+	driver_button.add_theme_font_size_override("font_size", 14)
+	_style_ui_button(driver_button)
+	driver_button.pressed.connect(_toggle_driver_profile)
+	layer.add_child(driver_button)
 	headlight_mode_button = Button.new()
 	headlight_mode_button.position = Vector2(810, 24)
 	headlight_mode_button.size = Vector2(108, 48)
@@ -1541,8 +1568,146 @@ func _build_ui() -> void:
 	layer.add_child(settings_button)
 	_build_garage_panel(layer)
 	_build_settings_panel(layer)
+	_build_driver_profile_panel(layer)
 	_build_freight_market(layer)
 	_update_ui()
+
+func _build_driver_profile_panel(layer: CanvasLayer) -> void:
+	driver_profile_panel = Panel.new()
+	driver_profile_panel.position = Vector2(300, 74)
+	driver_profile_panel.size = Vector2(680, 572)
+	driver_profile_panel.visible = false
+	driver_profile_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(INK, 0.98)
+	panel_style.border_color = Color("#ffd166")
+	panel_style.set_border_width_all(3)
+	panel_style.set_corner_radius_all(24)
+	driver_profile_panel.add_theme_stylebox_override("panel", panel_style)
+	layer.add_child(driver_profile_panel)
+	var title := Label.new()
+	title.text = "司机档案  /  技能树"
+	title.position = Vector2(28, 22)
+	title.size = Vector2(380, 38)
+	title.add_theme_font_size_override("font_size", 25)
+	title.add_theme_color_override("font_color", CREAM)
+	driver_profile_panel.add_child(title)
+	var close_button := Button.new()
+	close_button.text = "关闭"
+	close_button.position = Vector2(548, 20)
+	close_button.size = Vector2(104, 40)
+	close_button.add_theme_font_size_override("font_size", 15)
+	_style_ui_button(close_button)
+	close_button.pressed.connect(_close_driver_profile)
+	driver_profile_panel.add_child(close_button)
+	driver_profile_label = Label.new()
+	driver_profile_label.position = Vector2(30, 72)
+	driver_profile_label.size = Vector2(620, 64)
+	driver_profile_label.add_theme_font_size_override("font_size", 16)
+	driver_profile_label.add_theme_color_override("font_color", Color("#d5dded"))
+	driver_profile_panel.add_child(driver_profile_label)
+	var divider := ColorRect.new()
+	divider.position = Vector2(30, 144)
+	divider.size = Vector2(620, 2)
+	divider.color = Color("#52617e")
+	driver_profile_panel.add_child(divider)
+	var skill_title := Label.new()
+	skill_title.text = "技能树：每次升级获得 1 点技能点"
+	skill_title.position = Vector2(30, 164)
+	skill_title.size = Vector2(400, 30)
+	skill_title.add_theme_font_size_override("font_size", 17)
+	skill_title.add_theme_color_override("font_color", CREAM)
+	driver_profile_panel.add_child(skill_title)
+	var skills: Array = [
+		{"id": "night_runner", "title": "夜行专家", "desc": "解锁夜行急件合同", "level": 2},
+		{"id": "fragile_cargo", "title": "精密运输", "desc": "解锁天气敏感与易损货物", "level": 2},
+		{"id": "premium_freight", "title": "高价值专线", "desc": "解锁高级轿车等高价值货物", "level": 3},
+		{"id": "long_haul", "title": "长途规划", "desc": "解锁长距离合同并获得经验加成", "level": 4}
+	]
+	for i in skills.size():
+		var skill: Dictionary = skills[i]
+		var skill_button := Button.new()
+		skill_button.name = "Skill_" + str(skill["id"])
+		skill_button.position = Vector2(30 + (i % 2) * 310, 214 + (i / 2) * 112)
+		skill_button.size = Vector2(292, 92)
+		skill_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		skill_button.add_theme_font_size_override("font_size", 14)
+		_style_ui_button(skill_button)
+		skill_button.pressed.connect(func(): _unlock_driver_skill(str(skill["id"]), int(skill["level"])))
+		driver_profile_panel.add_child(skill_button)
+	var footer := Label.new()
+	footer.text = "完成合同获得经验与收入；高级货物会在达到等级和技能条件后开放。"
+	footer.position = Vector2(30, 456)
+	footer.size = Vector2(620, 32)
+	footer.add_theme_font_size_override("font_size", 13)
+	footer.add_theme_color_override("font_color", Color("#b8c7df"))
+	driver_profile_panel.add_child(footer)
+	driver_skill_status = Label.new()
+	driver_skill_status.position = Vector2(30, 500)
+	driver_skill_status.size = Vector2(620, 42)
+	driver_skill_status.add_theme_font_size_override("font_size", 14)
+	driver_skill_status.add_theme_color_override("font_color", MINT)
+	driver_profile_panel.add_child(driver_skill_status)
+	_update_driver_profile()
+
+func _toggle_driver_profile() -> void:
+	if not driver_profile_panel:
+		return
+	driver_profile_panel.visible = not driver_profile_panel.visible
+	paused = driver_profile_panel.visible
+	_update_driver_profile()
+
+func _close_driver_profile() -> void:
+	if driver_profile_panel:
+		driver_profile_panel.visible = false
+	paused = false
+
+func _driver_xp_required() -> int:
+	return 300 + (driver_level - 1) * 180
+
+func _update_driver_profile() -> void:
+	if not driver_profile_label:
+		return
+	var required := _driver_xp_required()
+	driver_profile_label.text = "等级 %02d    XP %d / %d    技能点 %d\n完成运输 %d 单    总里程 %.1f km" % [driver_level, driver_xp, required, driver_skill_points, delivery_count, best_distance]
+	var skill_labels: Array = [
+		["night_runner", "夜行专家", 2], ["fragile_cargo", "精密运输", 2],
+		["premium_freight", "高价值专线", 3], ["long_haul", "长途规划", 4]
+	]
+	for item in skill_labels:
+		var button := driver_profile_panel.get_node_or_null("Skill_" + item[0]) as Button
+		if not button:
+			continue
+		if driver_skills[item[0]]:
+			button.text = "✓ %s\n已解锁  ·  %s" % [item[1], "技能生效"]
+			button.modulate = Color("#b9f5d6")
+		elif driver_level < int(item[2]):
+			button.text = "🔒 %s\n需要司机等级 %d" % [item[1], int(item[2])]
+			button.modulate = Color("#aab4cc")
+		else:
+			button.text = "◇ %s\n点击学习  ·  消耗 1 技能点" % item[1]
+			button.modulate = Color.WHITE
+	if driver_skill_status:
+		driver_skill_status.text = "技能点充足：选择已达到等级要求的技能" if driver_skill_points > 0 else "继续完成合同升级，获取新的技能点"
+
+func _unlock_driver_skill(skill_id: String, required_level: int) -> void:
+	if driver_skills.get(skill_id, false):
+		return
+	if driver_level < required_level:
+		toast = "司机等级不足：需要等级 %d" % required_level
+		toast_time = 2.4
+		return
+	if driver_skill_points <= 0:
+		toast = "技能点不足：完成合同并升级后获得技能点"
+		toast_time = 2.4
+		return
+	driver_skill_points -= 1
+	driver_skills[skill_id] = true
+	toast = "技能解锁：" + skill_id
+	toast_time = 2.6
+	_play_sfx("upgrade_purchase", -7.0)
+	_update_driver_profile()
+	_save_game()
 
 func _build_freight_market(layer: CanvasLayer) -> void:
 	freight_market_panel = Panel.new()
@@ -1669,11 +1834,11 @@ func _build_freight_market(layer: CanvasLayer) -> void:
 
 func _generate_freight_offers() -> void:
 	var routes: Array = [
-		{"from": "慕尼黑", "to": "米兰", "cargo": "精密机械", "distance": 12.0, "time": 184.0, "reward": 920, "condition": "delivery", "risk": "普通", "weight": "8.4 t", "cargo_type": "工业设备", "fragility": "中等", "requirement": "平稳驾驶", "fuel": "约 18% 油耗"},
-		{"from": "因斯布鲁克", "to": "苏黎世", "cargo": "冷藏鲜花", "distance": 8.0, "time": 150.0, "reward": 1080, "condition": "night", "risk": "夜行加成", "weight": "4.2 t", "cargo_type": "冷藏货物", "fragility": "高", "requirement": "夜间准时", "fuel": "约 12% 油耗"},
-		{"from": "里昂", "to": "日内瓦", "cargo": "医疗物资", "distance": 6.0, "time": 125.0, "reward": 1180, "condition": "rain", "risk": "天气敏感", "weight": "5.6 t", "cargo_type": "医疗用品", "fragility": "高", "requirement": "雨天运输", "fuel": "约 10% 油耗"},
-		{"from": "维也纳", "to": "布拉格", "cargo": "动漫周边", "distance": 10.0, "time": 210.0, "reward": 760, "condition": "clean", "risk": "无损奖励", "weight": "3.8 t", "cargo_type": "消费品", "fragility": "中等", "requirement": "损伤 ≤ 20%", "fuel": "约 15% 油耗"},
-		{"from": "米兰", "to": "巴黎", "cargo": "高级轿车", "distance": 15.0, "time": 240.0, "reward": 1320, "condition": "clean", "risk": "高价值货物", "weight": "11.5 t", "cargo_type": "高价值车辆", "fragility": "高", "requirement": "无碰撞交付", "fuel": "约 23% 油耗"}
+		{"from": "慕尼黑", "to": "米兰", "cargo": "精密机械", "distance": 12.0, "time": 184.0, "reward": 920, "condition": "delivery", "risk": "普通", "weight": "8.4 t", "cargo_type": "工业设备", "fragility": "中等", "requirement": "平稳驾驶", "fuel": "约 18% 油耗", "required_level": 1, "required_skill": ""},
+		{"from": "因斯布鲁克", "to": "苏黎世", "cargo": "冷藏鲜花", "distance": 8.0, "time": 150.0, "reward": 1080, "condition": "night", "risk": "夜行加成", "weight": "4.2 t", "cargo_type": "冷藏货物", "fragility": "高", "requirement": "夜间准时", "fuel": "约 12% 油耗", "required_level": 2, "required_skill": "night_runner"},
+		{"from": "里昂", "to": "日内瓦", "cargo": "医疗物资", "distance": 6.0, "time": 125.0, "reward": 1180, "condition": "rain", "risk": "天气敏感", "weight": "5.6 t", "cargo_type": "医疗用品", "fragility": "高", "requirement": "雨天运输", "fuel": "约 10% 油耗", "required_level": 2, "required_skill": "fragile_cargo"},
+		{"from": "维也纳", "to": "布拉格", "cargo": "动漫周边", "distance": 10.0, "time": 210.0, "reward": 760, "condition": "clean", "risk": "无损奖励", "weight": "3.8 t", "cargo_type": "消费品", "fragility": "中等", "requirement": "损伤 ≤ 20%", "fuel": "约 15% 油耗", "required_level": 1, "required_skill": ""},
+		{"from": "米兰", "to": "巴黎", "cargo": "高级轿车", "distance": 15.0, "time": 240.0, "reward": 1320, "condition": "clean", "risk": "高价值货物", "weight": "11.5 t", "cargo_type": "高价值车辆", "fragility": "高", "requirement": "无碰撞交付", "fuel": "约 23% 油耗", "required_level": 3, "required_skill": "premium_freight"}
 	]
 	freight_offers.clear()
 	for i in routes.size():
@@ -1696,6 +1861,7 @@ func _refresh_freight_market() -> void:
 		freight_sort_button.text = "报酬：高 → 低" if freight_sort_descending else "报酬：低 → 高"
 	for offer in visible_offers:
 		var card := PanelContainer.new()
+		var offer_unlocked := _is_freight_offer_unlocked(offer)
 		card.custom_minimum_size = Vector2(390, 82)
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = Color("#303b5a", 0.96)
@@ -1707,13 +1873,14 @@ func _refresh_freight_market() -> void:
 		row.add_theme_constant_override("separation", 12)
 		card.add_child(row)
 		var details := Label.new()
-		details.text = "%s → %s\n%s\n€%d  ·  %.1f km  ·  %ds" % [offer["from"], offer["to"], offer["cargo"], offer["reward"], offer["distance"], int(offer["time"])]
+		details.text = "%s → %s\n%s\n€%d  ·  %.1f km  ·  %ds%s" % [offer["from"], offer["to"], offer["cargo"], offer["reward"], offer["distance"], int(offer["time"]), "  ·  🔒 " + _freight_offer_lock_reason(offer) if not offer_unlocked else ""]
 		details.custom_minimum_size = Vector2(270, 72)
 		details.add_theme_font_size_override("font_size", 13)
 		details.add_theme_color_override("font_color", CREAM)
 		row.add_child(details)
 		var inspect_button := Button.new()
 		inspect_button.text = "查看"
+		inspect_button.disabled = false
 		inspect_button.custom_minimum_size = Vector2(80, 48)
 		inspect_button.add_theme_font_size_override("font_size", 14)
 		_style_ui_button(inspect_button)
@@ -1741,6 +1908,20 @@ func _freight_offer_category(offer: Dictionary) -> String:
 		return "限时急件"
 	return "普通货运"
 
+func _is_freight_offer_unlocked(offer: Dictionary) -> bool:
+	var required_level := int(offer.get("required_level", 1))
+	var required_skill := str(offer.get("required_skill", ""))
+	return driver_level >= required_level and (required_skill == "" or bool(driver_skills.get(required_skill, false)))
+
+func _freight_offer_lock_reason(offer: Dictionary) -> String:
+	var required_level := int(offer.get("required_level", 1))
+	var required_skill := str(offer.get("required_skill", ""))
+	if driver_level < required_level:
+		return "等级 %d 解锁" % required_level
+	if required_skill != "" and not bool(driver_skills.get(required_skill, false)):
+		return "需解锁技能"
+	return ""
+
 func _set_freight_filter(category: String) -> void:
 	freight_category_filter = category
 	_refresh_freight_market()
@@ -1759,11 +1940,13 @@ func _compare_freight_offer_price(left: Dictionary, right: Dictionary) -> bool:
 func _select_freight_offer(offer: Dictionary) -> void:
 	freight_selected_offer = offer
 	freight_detail_title.text = "%s\n%s → %s" % [offer["cargo"], offer["from"], offer["to"]]
-	freight_detail_text.text = "货物参数\n重量：%s    类型：%s\n易损等级：%s\n交付要求：%s\n预计油耗：%s\n\n路线 %.1f km  ·  %d 秒\n基础报酬 €%d  ·  %s" % [offer["weight"], offer["cargo_type"], offer["fragility"], offer["requirement"], offer["fuel"], offer["distance"], int(offer["time"]), offer["reward"], offer["risk"]]
+	var lock_line := "\n\n🔒 暂不可接取：" + _freight_offer_lock_reason(offer) if not _is_freight_offer_unlocked(offer) else "\n\n✓ 当前资格满足，可接取合同"
+	freight_detail_text.text = "货物参数\n重量：%s    类型：%s\n易损等级：%s\n交付要求：%s\n预计油耗：%s\n\n路线 %.1f km  ·  %d 秒\n基础报酬 €%d  ·  %s%s" % [offer["weight"], offer["cargo_type"], offer["fragility"], offer["requirement"], offer["fuel"], offer["distance"], int(offer["time"]), offer["reward"], offer["risk"], lock_line]
 	if freight_route_preview:
 		freight_route_preview.visible = true
 		freight_route_preview.update_state(0.0, 0.0, float(offer["distance"]), str(offer["from"]), str(offer["to"]), "路线预览")
-	freight_accept_button.disabled = false
+	freight_accept_button.disabled = not _is_freight_offer_unlocked(offer)
+	freight_accept_button.text = "接取这份合同" if _is_freight_offer_unlocked(offer) else "提升等级/学习技能"
 
 func _accept_selected_freight_offer() -> void:
 	if not freight_selected_offer.is_empty():
@@ -1785,6 +1968,10 @@ func _close_freight_market() -> void:
 
 func _accept_offer(offer: Dictionary) -> void:
 	if task_active:
+		return
+	if not _is_freight_offer_unlocked(offer):
+		toast = "合同未解锁：" + _freight_offer_lock_reason(offer)
+		toast_time = 2.8
 		return
 	task_title = str(offer["cargo"])
 	task_cargo = str(offer["cargo"])
@@ -3292,12 +3479,14 @@ func _update_cockpit_instruments(delta: float) -> void:
 
 func _complete_delivery() -> void:
 	var grade: String = _task_grade(task_score)
+	var previous_driver_level := driver_level
 	var combo_bonus: float = min(0.15, task_combo / 60.0 * 0.05)
 	var multiplier: float = min(1.40, _task_payout_multiplier(grade) + combo_bonus)
 	var payout: int = maxi(1, int(round(float(task_reward) * multiplier)))
 	last_delivery_grade = grade
 	last_delivery_payout = payout
 	money += payout
+	_award_driver_xp(payout, grade)
 	toast = "任务完成   %s级   Combo %dx   +€%d" % [grade, int(task_combo / 3.0), payout]
 	toast_time = 4.0
 	_show_grade_flash(grade, payout, multiplier)
@@ -3323,9 +3512,29 @@ func _complete_delivery() -> void:
 		_unlock_achievement("CLEAN_HAUL", "零碰撞完成运输任务")
 	task_index = (task_index + 1) % 4
 	_generate_freight_offers()
-	toast = "合同完成：返回货运市场选择下一单"
+	toast = "司机升级 Lv.%d！获得技能点" % driver_level if driver_level > previous_driver_level else "合同完成：返回货运市场选择下一单"
 	toast_time = 4.0
 	_save_game()
+
+func _award_driver_xp(payout: int, grade: String) -> void:
+	var grade_bonus: int = {"S": 90, "A": 60, "B": 35, "C": 15}.get(grade, 15)
+	var xp_gain: int = maxi(40, int(round(float(payout) / 8.0)) + grade_bonus)
+	if driver_skills.get("long_haul", false):
+		xp_gain = int(round(float(xp_gain) * 1.15))
+	driver_xp += xp_gain
+	var level_ups := 0
+	while driver_xp >= _driver_xp_required() and driver_level < 20:
+		driver_xp -= _driver_xp_required()
+		driver_level += 1
+		driver_skill_points += 1
+		level_ups += 1
+	if level_ups > 0:
+		toast = "司机升级 Lv.%d！获得 %d 点技能点" % [driver_level, level_ups]
+		toast_time = 4.0
+	else:
+		toast = "合同完成 +%d XP" % xp_gain
+		toast_time = 3.2
+	_update_driver_profile()
 
 func _show_grade_flash(grade: String, payout: int, multiplier: float) -> void:
 	if not ui_grade_flash:
@@ -3470,6 +3679,9 @@ func _update_ui() -> void:
 	if task_button:
 		task_button.text = "运输中" if task_active else "货运市场"
 		task_button.modulate = MINT if task_active else Color("#ffd166")
+	if driver_button:
+		driver_button.text = "司机 Lv.%d" % driver_level
+		driver_button.tooltip_text = "XP %d/%d  ·  技能点 %d" % [driver_xp, _driver_xp_required(), driver_skill_points]
 	if headlight_mode_button:
 		headlight_mode_button.text = "远光 ON" if high_beam else "近光灯"
 		headlight_mode_button.modulate = Color("#fff0a7") if high_beam else CREAM

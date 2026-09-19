@@ -27,6 +27,7 @@ var task_index := 0
 var task_distance_goal := 12.0
 var task_time_limit := 184.0
 var task_title := "普通货运"
+var task_cargo := "普通货运"
 var task_condition := "delivery"
 var task_time_remaining := 184.0
 var task_reward := 640
@@ -50,6 +51,10 @@ var best_task_combo := 0.0
 var last_delivery_grade := "—"
 var last_delivery_payout := 0
 var task_button: Button
+var freight_market_panel: Panel
+var freight_market_list: VBoxContainer
+var freight_market_status: Label
+var freight_offers: Array[Dictionary] = []
 var headlight_mode_button: Button
 var time_left := 184.0
 var paused := false
@@ -298,8 +303,16 @@ func _apply_save_data(data: Dictionary) -> void:
 	destination = ["LUCERNE", "INNSBRUCK", "MILAN"][cargo_index]
 	task_index = clamp(int(data.get("task_index", task_index)), 0, 3)
 	_setup_task(task_index)
+	task_title = str(data.get("task_title", task_title))
+	destination = str(data.get("destination", destination))
+	task_distance_goal = float(data.get("task_distance_goal", task_distance_goal))
+	task_time_limit = float(data.get("task_time_limit", task_time_limit))
+	task_reward = int(data.get("task_reward", task_reward))
+	task_condition = str(data.get("task_condition", task_condition))
+	task_cargo = str(data.get("task_cargo", task_cargo))
 	task_time_remaining = clamp(float(data.get("task_time_remaining", task_time_remaining)), 0.0, task_time_limit)
 	task_active = bool(data.get("task_active", task_active))
+	route_goal = task_distance_goal
 	task_score = clamp(float(data.get("task_score", task_score)), 0.0, 100.0)
 	task_incidents = max(0, int(data.get("task_incidents", task_incidents)))
 	task_peak_speed = max(0.0, float(data.get("task_peak_speed", task_peak_speed)))
@@ -325,6 +338,13 @@ func _save_game() -> void:
 		"cargo_index": cargo_index,
 		"livery_index": livery_index,
 		"task_index": task_index,
+		"task_title": task_title,
+		"destination": destination,
+		"task_distance_goal": task_distance_goal,
+		"task_time_limit": task_time_limit,
+		"task_reward": task_reward,
+		"task_condition": task_condition,
+		"task_cargo": task_cargo,
 		"task_time_remaining": task_time_remaining,
 		"task_active": task_active,
 		"task_score": task_score,
@@ -1430,7 +1450,7 @@ func _build_ui() -> void:
 	task_button.size = Vector2(150, 48)
 	task_button.add_theme_font_size_override("font_size", 16)
 	_style_ui_button(task_button)
-	task_button.pressed.connect(_accept_task)
+	task_button.pressed.connect(_toggle_freight_market)
 	layer.add_child(task_button)
 	radio_button = Button.new()
 	radio_button.position = Vector2(650, 78)
@@ -1509,7 +1529,146 @@ func _build_ui() -> void:
 	layer.add_child(settings_button)
 	_build_garage_panel(layer)
 	_build_settings_panel(layer)
+	_build_freight_market(layer)
 	_update_ui()
+
+func _build_freight_market(layer: CanvasLayer) -> void:
+	freight_market_panel = Panel.new()
+	freight_market_panel.position = Vector2(310, 58)
+	freight_market_panel.size = Vector2(660, 590)
+	freight_market_panel.visible = false
+	freight_market_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(INK, 0.97)
+	panel_style.border_color = Color("#ffd166")
+	panel_style.set_border_width_all(3)
+	panel_style.set_corner_radius_all(24)
+	freight_market_panel.add_theme_stylebox_override("panel", panel_style)
+	layer.add_child(freight_market_panel)
+	var title := Label.new()
+	title.text = "货运市场"
+	title.position = Vector2(34, 20)
+	title.size = Vector2(300, 42)
+	title.add_theme_font_size_override("font_size", 25)
+	title.add_theme_color_override("font_color", CREAM)
+	freight_market_panel.add_child(title)
+	var close_button := Button.new()
+	close_button.text = "关闭"
+	close_button.position = Vector2(830, 76)
+	close_button.size = Vector2(112, 42)
+	close_button.add_theme_font_size_override("font_size", 16)
+	_style_ui_button(close_button)
+	close_button.pressed.connect(_close_freight_market)
+	freight_market_panel.add_child(close_button)
+	freight_market_status = Label.new()
+	freight_market_status.position = Vector2(34, 64)
+	freight_market_status.size = Vector2(570, 32)
+	freight_market_status.add_theme_font_size_override("font_size", 14)
+	freight_market_status.add_theme_color_override("font_color", Color("#b8c7df"))
+	freight_market_panel.add_child(freight_market_status)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(336, 164)
+	scroll.size = Vector2(608, 452)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	freight_market_panel.add_child(scroll)
+	freight_market_list = VBoxContainer.new()
+	freight_market_list.add_theme_constant_override("separation", 10)
+	freight_market_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(freight_market_list)
+	_generate_freight_offers()
+
+func _generate_freight_offers() -> void:
+	var routes: Array = [
+		{"from": "慕尼黑", "to": "米兰", "cargo": "精密机械", "distance": 12.0, "time": 184.0, "reward": 920, "condition": "delivery", "risk": "普通"},
+		{"from": "因斯布鲁克", "to": "苏黎世", "cargo": "冷藏鲜花", "distance": 8.0, "time": 150.0, "reward": 1080, "condition": "night", "risk": "夜行加成"},
+		{"from": "里昂", "to": "日内瓦", "cargo": "医疗物资", "distance": 6.0, "time": 125.0, "reward": 1180, "condition": "rain", "risk": "天气敏感"},
+		{"from": "维也纳", "to": "布拉格", "cargo": "动漫周边", "distance": 10.0, "time": 210.0, "reward": 760, "condition": "clean", "risk": "无损奖励"},
+		{"from": "米兰", "to": "巴黎", "cargo": "高级轿车", "distance": 15.0, "time": 240.0, "reward": 1320, "condition": "clean", "risk": "高价值货物"}
+	]
+	freight_offers.clear()
+	for i in routes.size():
+		var route: Dictionary = routes[(i + task_index) % routes.size()].duplicate()
+		route["offer_id"] = i
+		freight_offers.append(route)
+	_refresh_freight_market()
+
+func _refresh_freight_market() -> void:
+	if not freight_market_list:
+		return
+	for child in freight_market_list.get_children():
+		child.queue_free()
+	for offer in freight_offers:
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(590, 78)
+		var card_style := StyleBoxFlat.new()
+		card_style.bg_color = Color("#303b5a", 0.96)
+		card_style.border_color = Color("#52617e")
+		card_style.set_border_width_all(1)
+		card_style.set_corner_radius_all(14)
+		card.add_theme_stylebox_override("panel", card_style)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		row.add_theme_constant_override("margin_left", 14)
+		row.add_theme_constant_override("margin_right", 14)
+		row.add_theme_constant_override("margin_top", 8)
+		row.add_theme_constant_override("margin_bottom", 8)
+		card.add_child(row)
+		var details := Label.new()
+		details.text = "%s → %s\n%s  ·  %.1f km  ·  %s\n€%d  ·  %ds" % [offer["from"], offer["to"], offer["cargo"], offer["distance"], offer["risk"], offer["reward"], int(offer["time"])]
+		details.custom_minimum_size = Vector2(420, 58)
+		details.add_theme_font_size_override("font_size", 14)
+		details.add_theme_color_override("font_color", CREAM)
+		row.add_child(details)
+		var accept_button := Button.new()
+		accept_button.text = "接取合同"
+		accept_button.custom_minimum_size = Vector2(120, 48)
+		accept_button.add_theme_font_size_override("font_size", 15)
+		_style_ui_button(accept_button)
+		accept_button.pressed.connect(func(): _accept_offer(offer))
+		row.add_child(accept_button)
+		freight_market_list.add_child(card)
+	if freight_market_status:
+		freight_market_status.text = "可用合同 %d 份  ·  选择后开始计时，完成后返回市场" % freight_offers.size()
+
+func _toggle_freight_market() -> void:
+	if task_active:
+		toast = "当前合同运输中，抵达目的地后再接下一单"
+		toast_time = 2.4
+		return
+	freight_market_panel.visible = not freight_market_panel.visible
+	paused = freight_market_panel.visible
+	if freight_market_panel.visible:
+		_generate_freight_offers()
+
+func _close_freight_market() -> void:
+	freight_market_panel.visible = false
+	paused = false
+
+func _accept_offer(offer: Dictionary) -> void:
+	if task_active:
+		return
+	task_title = str(offer["cargo"])
+	task_cargo = str(offer["cargo"])
+	destination = str(offer["to"])
+	task_distance_goal = float(offer["distance"])
+	route_goal = task_distance_goal
+	task_time_limit = float(offer["time"])
+	task_reward = int(offer["reward"])
+	task_condition = str(offer["condition"])
+	task_time_remaining = task_time_limit
+	task_active = true
+	distance = 0.0
+	task_score = 100.0
+	task_incidents = 0
+	task_peak_speed = 0.0
+	task_score_cooldown = 0.0
+	task_combo = 0.0
+	freight_market_panel.visible = false
+	paused = false
+	toast = "已接取合同：%s → %s" % [offer["cargo"], offer["to"]]
+	toast_time = 3.0
+	_play_sfx("ui_click", -10.0)
+	_save_game()
 
 func _build_start_flow() -> void:
 	start_flow_layer = CanvasLayer.new()
@@ -2718,7 +2877,7 @@ func _update_cockpit_instruments(delta: float) -> void:
 			interior_warning_display.text = "SYSTEMS OK"
 			interior_warning_display.modulate = MINT
 	if interior_nav_display:
-		interior_nav_display.text = "%s\n%s\n%.1f km\n%s" % ["JOB ACCEPTED" if task_active else "JOB AVAILABLE", destination, max(task_distance_goal - distance, 0.0), task_title]
+		interior_nav_display.text = "%s\n%s\n%.1f km\n%s" % ["合同运输中" if task_active else "货运市场待命", destination, max(task_distance_goal - distance, 0.0), task_title]
 		interior_nav_display.modulate = Color("#b8d8ff") if current_weather == "rain" else (Color("#f0f4ff") if current_weather == "snow" else (Color("#ffb7cf") if current_weather == "sakura" else MINT))
 	for mirror in interior_mirrors:
 		mirror.rotation_degrees.y = (12.0 if mirror.position.x > 0.0 else -12.0) + steer * 5.0
@@ -2790,7 +2949,9 @@ func _complete_delivery() -> void:
 	if task_incidents == 0:
 		_unlock_achievement("CLEAN_HAUL", "零碰撞完成运输任务")
 	task_index = (task_index + 1) % 4
-	_setup_task(task_index)
+	_generate_freight_offers()
+	toast = "合同完成：返回货运市场选择下一单"
+	toast_time = 4.0
 	_save_game()
 
 func _show_grade_flash(grade: String, payout: int, multiplier: float) -> void:
@@ -2872,30 +3033,20 @@ func _update_task(delta: float) -> void:
 	if not task_active:
 		return
 	task_time_remaining = max(0.0, task_time_remaining - delta)
-	if task_time_remaining <= 0.0:
-		toast = "任务失败：时间耗尽"
-		toast_time = 2.5
-		_setup_task(task_index)
-		return
+		if task_time_remaining <= 0.0:
+			task_active = false
+			distance = 0.0
+			toast = "合同失败：时间耗尽，返回货运市场"
+			toast_time = 3.0
+			_generate_freight_offers()
+			_save_game()
+			return
 	if distance >= task_distance_goal and _task_condition_met():
 		task_active = false
 		_complete_delivery()
 
 func _accept_task() -> void:
-	if task_active:
-		return
-	task_active = true
-	task_time_remaining = task_time_limit
-	distance = 0.0
-	task_score = 100.0
-	task_incidents = 0
-	task_peak_speed = 0.0
-	task_score_cooldown = 0.0
-	task_combo = 0.0
-	toast = "已接取任务：" + task_title
-	toast_time = 2.8
-	_play_sfx("ui_click", -10.0)
-	_save_game()
+	_toggle_freight_market()
 
 func _unlock_achievement(key: String, description: String) -> void:
 	if achievements.has(key):
@@ -2927,9 +3078,9 @@ func _toggle_high_beam() -> void:
 func _update_ui() -> void:
 	if not ui_speed:
 		return
-	var cargo: Variant = ["MOUNTAIN TEA", "STRAWBERRY JAM", "ALPINE PARTS"][cargo_index]
+	var cargo: Variant = task_cargo if task_active else ["山地茶叶", "草莓果酱", "阿尔卑斯零件"][cargo_index]
 	var branch_hint: Variant = _get_branch_hint()
-	ui_route.text = "%s：%s\n↗ %s\n%s  →  %s" % ["运输中" if task_active else "可接任务", task_title, branch_hint if branch_hint != "" else "ROUTE AHEAD", cargo, destination]
+	ui_route.text = "%s：%s\n↗ %s\n%s  →  %s" % ["合同运输中" if task_active else "货运市场", task_title, branch_hint if branch_hint != "" else "ROUTE AHEAD", cargo, destination]
 	ui_speed.text = "%02d km/h" % int(speed * 4.4)
 	ui_speed.modulate = CORAL if speed > 18.0 else (Color("#ffd166") if speed > 12.0 else CREAM)
 	var weather_name: Variant = {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云")
@@ -2938,7 +3089,7 @@ func _update_ui() -> void:
 	ui_stats.text = "目标 %.1f/%0.1f km   剩余 %ds\n档位 %s   TIME %s   %s   FUEL %d%%\nDAMAGE %d%%   评分 %03d  %s\nCOMBO ×%02d   €%d 奖励   €%d 余额\n碰撞 %d" % [distance, task_distance_goal, int(task_time_remaining), drive_mode, _format_clock(), weather_name, int(fuel), int(damage), int(task_score), active_grade, int(task_combo / 3.0), task_reward, money, task_incidents]
 	ui_stats.text += "\nBEST %.1f km   DELIVERIES %d" % [best_distance, delivery_count]
 	if task_button:
-		task_button.text = "运输中" if task_active else "接任务"
+		task_button.text = "运输中" if task_active else "货运市场"
 		task_button.modulate = MINT if task_active else Color("#ffd166")
 	if headlight_mode_button:
 		headlight_mode_button.text = "远光 ON" if high_beam else "近光灯"

@@ -4,7 +4,7 @@
 - [x] Driving model: acceleration, braking, steering, fuel and distance.
 - [x] World rendering: anime alpine backdrop, road perspective, traffic and truck.
 - [x] Mobile controls: four touch buttons mapped to input actions.
-- [x] Contract loop: route completion, payout and next destination.
+- [x] Freight market: browse multiple contracts, choose cargo/route/reward, accept one, deliver, and return to market.
 - [x] Delivery scoring: smooth driving, collision penalties, grade-based payout and achievements.
 - [x] Radio system: off, upbeat route BGM, and high-energy driving BGM with dynamic mixing.
 - [x] Startup flow: loading transition, animated logo intro, and main menu before driving.

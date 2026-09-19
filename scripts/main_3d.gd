@@ -40,9 +40,11 @@ var game_started := false
 var start_flow_layer: CanvasLayer
 var start_flow_root: Control
 var start_flow_design: Control
+var start_flow_backdrop: ColorRect
 var game_hud_layer: CanvasLayer
 var intro_panel: Control
 var main_menu_panel: Control
+var menu_v2_panel: Control
 var loading_bar: ProgressBar
 var intro_logo: Label
 var menu_status: Label
@@ -1682,10 +1684,10 @@ func _build_start_flow() -> void:
 	start_flow_design = Control.new()
 	start_flow_design.size = Vector2(1280, 720)
 	start_flow_root.add_child(start_flow_design)
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(INK, 0.82)
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	start_flow_design.add_child(backdrop)
+	start_flow_backdrop = ColorRect.new()
+	start_flow_backdrop.color = Color(INK, 0.82)
+	start_flow_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	start_flow_design.add_child(start_flow_backdrop)
 	intro_panel = Control.new()
 	intro_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	start_flow_design.add_child(intro_panel)
@@ -1808,7 +1810,221 @@ func _build_start_flow() -> void:
 	for player in [engine_player, bgm_player, rain_player, wind_player, wet_tire_player, snow_tire_player, spatial_tire_player]:
 		if player:
 			player.stop()
+	_build_menu_left_legacy()
 	_layout_start_flow()
+
+func _build_menu_bottom_nav() -> void:
+	menu_v2_panel = Control.new()
+	menu_v2_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu_v2_panel.visible = false
+	start_flow_design.add_child(menu_v2_panel)
+	var profile_panel := Panel.new()
+	profile_panel.position = Vector2(28, 22)
+	profile_panel.size = Vector2(330, 78)
+	var profile_style := StyleBoxFlat.new()
+	profile_style.bg_color = Color("#20264d", 0.88)
+	profile_style.border_color = CORAL
+	profile_style.set_border_width_all(2)
+	profile_style.set_corner_radius_all(18)
+	profile_panel.add_theme_stylebox_override("panel", profile_style)
+	menu_v2_panel.add_child(profile_panel)
+	var profile := Label.new()
+	profile.text = "漫漫货运\n▥  资金   €%d" % money
+	profile.position = Vector2(18, 12)
+	profile.size = Vector2(290, 56)
+	profile.add_theme_font_size_override("font_size", 18)
+	profile.add_theme_color_override("font_color", CREAM)
+	profile_panel.add_child(profile)
+	var top_status := Label.new()
+	top_status.text = "☀  %s   |   %s   |   %s" % [_format_clock(), {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云"), radio_station_names[radio_station]]
+	top_status.position = Vector2(970, 24)
+	top_status.size = Vector2(280, 38)
+	top_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top_status.add_theme_font_size_override("font_size", 16)
+	top_status.add_theme_color_override("font_color", CREAM)
+	menu_v2_panel.add_child(top_status)
+	var nav_panel := Panel.new()
+	nav_panel.position = Vector2(28, 618)
+	nav_panel.size = Vector2(570, 82)
+	var nav_style := StyleBoxFlat.new()
+	nav_style.bg_color = Color("#20264d", 0.94)
+	nav_style.border_color = Color("#52688f")
+	nav_style.set_border_width_all(1)
+	nav_style.set_corner_radius_all(20)
+	nav_panel.add_theme_stylebox_override("panel", nav_style)
+	menu_v2_panel.add_child(nav_panel)
+	var nav_items: Array = [
+		["◉\n驾驶", Callable(self, "_start_menu_drive")],
+		["▣\n货运市场", Callable(self, "_start_menu_market")],
+		["◎\n世界地图", Callable(self, "_start_menu_map")],
+		["⌂\n车库", Callable(self, "_start_menu_garage")],
+		["⚙\n设置", Callable(self, "_start_menu_settings")]
+	]
+	for i in nav_items.size():
+		var nav_button := Button.new()
+		nav_button.text = nav_items[i][0]
+		nav_button.position = Vector2(8 + i * 112, 8)
+		nav_button.size = Vector2(104, 66)
+		nav_button.add_theme_font_size_override("font_size", 15)
+		nav_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_style_ui_button(nav_button)
+		if i == 0:
+			var selected := StyleBoxFlat.new()
+			selected.bg_color = Color("#ffd166", 0.18)
+			selected.border_color = Color("#ffd166")
+			selected.set_border_width_all(2)
+			selected.set_corner_radius_all(14)
+			nav_button.add_theme_stylebox_override("normal", selected)
+			nav_button.add_theme_color_override("font_color", Color("#ffd166"))
+		nav_button.pressed.connect(nav_items[i][1])
+		nav_panel.add_child(nav_button)
+	var vehicle_panel := Panel.new()
+	vehicle_panel.position = Vector2(974, 636)
+	vehicle_panel.size = Vector2(278, 64)
+	var vehicle_style := StyleBoxFlat.new()
+	vehicle_style.bg_color = Color("#182143", 0.92)
+	vehicle_style.border_color = Color("#52688f")
+	vehicle_style.set_border_width_all(1)
+	vehicle_style.set_corner_radius_all(18)
+	vehicle_panel.add_theme_stylebox_override("panel", vehicle_style)
+	menu_v2_panel.add_child(vehicle_panel)
+	var vehicle_status := Label.new()
+	vehicle_status.text = "车辆状态  正常   |   油量 %d%%   |   里程 %.1f km" % [int(fuel), best_distance]
+	vehicle_status.position = Vector2(10, 19)
+	vehicle_status.size = Vector2(258, 28)
+	vehicle_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vehicle_status.add_theme_font_size_override("font_size", 12)
+	vehicle_status.add_theme_color_override("font_color", Color("#c7f4df"))
+	vehicle_panel.add_child(vehicle_status)
+
+func _start_menu_map() -> void:
+	_start_game(true)
+	toast = "世界地图：路线预览将在下一版开放"
+	toast_time = 2.5
+
+func _build_menu_left_legacy() -> void:
+	menu_v2_panel = Control.new()
+	menu_v2_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu_v2_panel.visible = false
+	start_flow_design.add_child(menu_v2_panel)
+	var side_panel := Panel.new()
+	side_panel.position = Vector2(0, 0)
+	side_panel.size = Vector2(430, 720)
+	var side_style := StyleBoxFlat.new()
+	side_style.bg_color = Color("#151b3d", 0.94)
+	side_style.border_color = Color("#313c6a", 0.85)
+	side_style.set_border_width_all(2)
+	side_panel.add_theme_stylebox_override("panel", side_style)
+	menu_v2_panel.add_child(side_panel)
+	var logo := Label.new()
+	logo.text = "漫漫货运"
+	logo.position = Vector2(54, 46)
+	logo.size = Vector2(330, 72)
+	logo.add_theme_font_size_override("font_size", 52)
+	logo.add_theme_color_override("font_color", CREAM)
+	logo.add_theme_color_override("font_shadow_color", CORAL)
+	logo.add_theme_constant_override("shadow_offset_x", 4)
+	logo.add_theme_constant_override("shadow_offset_y", 4)
+	side_panel.add_child(logo)
+	var profile := Label.new()
+	profile.text = "漫漫物流公司\n资金   €%d" % money
+	profile.position = Vector2(58, 132)
+	profile.size = Vector2(300, 62)
+	profile.add_theme_font_size_override("font_size", 18)
+	profile.add_theme_color_override("font_color", Color("#d8e2ff"))
+	side_panel.add_child(profile)
+	var menu_items: Array = [
+		["🚚  继续驾驶", Callable(self, "_start_menu_drive")],
+		["▣  货运市场", Callable(self, "_start_menu_market")],
+		["◎  自由驾驶", Callable(self, "_start_menu_free_drive")],
+		["⌂  车库", Callable(self, "_start_menu_garage")],
+		["⚙  设置", Callable(self, "_start_menu_settings")],
+		["↪  退出", Callable(self, "_quit_from_menu")]
+	]
+	for i in menu_items.size():
+		var menu_button := Button.new()
+		menu_button.text = menu_items[i][0]
+		menu_button.position = Vector2(38, 224 + i * 67)
+		menu_button.size = Vector2(350, 54)
+		menu_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		menu_button.add_theme_font_size_override("font_size", 20)
+		_style_ui_button(menu_button)
+		if i == 0:
+			var selected := StyleBoxFlat.new()
+			selected.bg_color = Color("#ffd166", 0.98)
+			selected.border_color = Color("#fff1cf")
+			selected.set_border_width_all(2)
+			selected.set_corner_radius_all(14)
+			menu_button.add_theme_stylebox_override("normal", selected)
+			menu_button.add_theme_color_override("font_color", INK)
+		menu_button.add_theme_color_override("font_hover_color", INK)
+		menu_button.pressed.connect(menu_items[i][1])
+		side_panel.add_child(menu_button)
+	var status_panel := Panel.new()
+	status_panel.position = Vector2(28, 654)
+	status_panel.size = Vector2(374, 52)
+	var status_style := StyleBoxFlat.new()
+	status_style.bg_color = Color("#222b52", 0.96)
+	status_style.border_color = Color("#51628b")
+	status_style.set_border_width_all(1)
+	status_style.set_corner_radius_all(18)
+	status_panel.add_theme_stylebox_override("panel", status_style)
+	side_panel.add_child(status_panel)
+	var status := Label.new()
+	status.text = "资金 €%d     等级 1     里程 %.1f km" % [money, best_distance]
+	status.position = Vector2(18, 14)
+	status.size = Vector2(338, 28)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.add_theme_font_size_override("font_size", 14)
+	status.add_theme_color_override("font_color", CREAM)
+	status_panel.add_child(status)
+	var top_status := Label.new()
+	top_status.text = "☀  %s    %s    %s" % [_format_clock(), {"clear": "晴", "rain": "雨", "snow": "雪", "sakura": "樱花"}.get(current_weather, "多云"), radio_station_names[radio_station]]
+	top_status.position = Vector2(980, 28)
+	top_status.size = Vector2(260, 38)
+	top_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top_status.add_theme_font_size_override("font_size", 16)
+	top_status.add_theme_color_override("font_color", CREAM)
+	menu_v2_panel.add_child(top_status)
+	var vehicle_panel := Panel.new()
+	vehicle_panel.position = Vector2(990, 654)
+	vehicle_panel.size = Vector2(262, 52)
+	var vehicle_style := StyleBoxFlat.new()
+	vehicle_style.bg_color = Color("#182143", 0.92)
+	vehicle_style.border_color = Color("#52688f")
+	vehicle_style.set_border_width_all(1)
+	vehicle_style.set_corner_radius_all(18)
+	vehicle_panel.add_theme_stylebox_override("panel", vehicle_style)
+	menu_v2_panel.add_child(vehicle_panel)
+	var vehicle_status := Label.new()
+	vehicle_status.text = "车辆状态 正常    油量 %d%%    里程 %.1f km" % [int(fuel), best_distance]
+	vehicle_status.position = Vector2(12, 14)
+	vehicle_status.size = Vector2(238, 26)
+	vehicle_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vehicle_status.add_theme_font_size_override("font_size", 12)
+	vehicle_status.add_theme_color_override("font_color", Color("#c7f4df"))
+	vehicle_panel.add_child(vehicle_status)
+
+func _start_menu_drive() -> void:
+	_start_game(false)
+
+func _start_menu_market() -> void:
+	_start_game(false)
+	_toggle_freight_market()
+
+func _start_menu_free_drive() -> void:
+	_start_game(true)
+
+func _start_menu_garage() -> void:
+	_start_game(true)
+	_toggle_garage()
+
+func _start_menu_settings() -> void:
+	_start_game(true)
+	_toggle_settings()
+
+func _quit_from_menu() -> void:
+	get_tree().quit()
 
 func _layout_start_flow() -> void:
 	if not start_flow_root or not start_flow_design:
@@ -1824,6 +2040,7 @@ func _layout_start_flow() -> void:
 func _play_start_flow() -> void:
 	intro_panel.visible = true
 	main_menu_panel.visible = false
+	menu_v2_panel.visible = false
 	var loading_tween := create_tween()
 	loading_tween.tween_property(loading_bar, "value", 100.0, 1.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await loading_tween.finished
@@ -1837,14 +2054,17 @@ func _play_start_flow() -> void:
 	fade.tween_property(intro_panel, "modulate:a", 0.0, 0.45)
 	await fade.finished
 	intro_panel.visible = false
-	main_menu_panel.modulate.a = 0.0
-	main_menu_panel.visible = true
+	if start_flow_backdrop:
+		start_flow_backdrop.color = Color(INK, 0.22)
+	menu_v2_panel.modulate.a = 0.0
+	menu_v2_panel.visible = true
 	var menu_fade := create_tween()
-	menu_fade.tween_property(main_menu_panel, "modulate:a", 1.0, 0.4)
+	menu_fade.tween_property(menu_v2_panel, "modulate:a", 1.0, 0.4)
 
 func _start_game(free_drive: bool) -> void:
 	game_started = true
 	start_flow_layer.visible = false
+	menu_v2_panel.visible = false
 	game_hud_layer.visible = true
 	paused = false
 	if free_drive:

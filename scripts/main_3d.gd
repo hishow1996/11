@@ -59,6 +59,7 @@ var ui_speed: Label
 var ui_route: Label
 var ui_stats: Label
 var ui_toast: Label
+var ui_grade_flash: Label
 var engine_player: AudioStreamPlayer
 var bgm_player: AudioStreamPlayer
 var brake_player: AudioStreamPlayer
@@ -1322,6 +1323,17 @@ func _build_ui() -> void:
 	ui_toast = _label(layer, Vector2(470, 206), 20, CREAM)
 	ui_toast.size = Vector2(340, 44)
 	ui_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui_grade_flash = _label(layer, Vector2(430, 270), 30, CREAM)
+	ui_grade_flash.size = Vector2(420, 116)
+	ui_grade_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui_grade_flash.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ui_grade_flash.visible = false
+	var grade_style := StyleBoxFlat.new()
+	grade_style.bg_color = Color(INK, 0.94)
+	grade_style.border_color = Color("#ffd166")
+	grade_style.set_border_width_all(4)
+	grade_style.set_corner_radius_all(24)
+	ui_grade_flash.add_theme_stylebox_override("normal", grade_style)
 	task_button = Button.new()
 	task_button.position = Vector2(650, 24)
 	task_button.size = Vector2(150, 48)
@@ -2382,6 +2394,7 @@ func _complete_delivery() -> void:
 	money += payout
 	toast = "任务完成   %s级   +€%d" % [grade, payout]
 	toast_time = 4.0
+	_show_grade_flash(grade, payout, multiplier)
 	_play_sfx("delivery_complete", -5.0)
 	delivery_camera_boost = 1.0
 	if delivery_flash:
@@ -2405,6 +2418,23 @@ func _complete_delivery() -> void:
 	task_index = (task_index + 1) % 4
 	_setup_task(task_index)
 	_save_game()
+
+func _show_grade_flash(grade: String, payout: int, multiplier: float) -> void:
+	if not ui_grade_flash:
+		return
+	var grade_color: Color = {"S": Color("#ffd166"), "A": Color("#74d0ad"), "B": Color("#86d6e8"), "C": Color("#ef6f61")}.get(grade, CREAM)
+	ui_grade_flash.text = "%s 级运输完成\n奖励 ×%.2f   +€%d" % [grade, multiplier, payout]
+	ui_grade_flash.add_theme_color_override("font_color", grade_color)
+	ui_grade_flash.modulate = Color.WHITE
+	ui_grade_flash.scale = Vector2(0.72, 0.72)
+	ui_grade_flash.pivot_offset = ui_grade_flash.size * 0.5
+	ui_grade_flash.visible = true
+	var flash_tween: Tween = create_tween().set_parallel(true)
+	flash_tween.tween_property(ui_grade_flash, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	flash_tween.tween_property(ui_grade_flash, "modulate", Color.WHITE, 0.12)
+	flash_tween.chain().tween_interval(2.0)
+	flash_tween.chain().tween_property(ui_grade_flash, "modulate:a", 0.0, 0.5)
+	flash_tween.chain().tween_callback(func(): ui_grade_flash.visible = false)
 
 func _setup_task(index: int) -> void:
 	var tasks: Array = [

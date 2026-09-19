@@ -95,7 +95,6 @@ var toast_time := 3.0
 var ui_speed: Label
 var ui_route: Label
 var ui_contract_hint: Label
-var ui_speed: Label
 var ui_toast: Label
 var ui_grade_flash: Label
 var engine_player: AudioStreamPlayer
@@ -3679,14 +3678,22 @@ func _update_task(delta: float) -> void:
 	if not task_active:
 		return
 	task_time_remaining = max(0.0, task_time_remaining - delta)
-		if task_time_remaining <= 0.0:
-			task_active = false
-			distance = 0.0
-			toast = "合同失败：时间耗尽，返回货运市场"
-			toast_time = 3.0
-			_generate_freight_offers()
-			_save_game()
-			return
+	if task_time_remaining <= 0.0:
+		task_active = false
+		task_time_remaining = 0.0
+		distance = 0.0
+		route_goal = task_distance_goal
+		task_score = 0.0
+		task_combo = 0.0
+		toast = "合同失败：时间耗尽，返回货运市场"
+		toast_time = 3.0
+		_generate_freight_offers()
+		if freight_market_panel:
+			_hide_ui_overlays()
+			freight_market_panel.visible = true
+			paused = true
+		_save_game()
+		return
 	if distance >= task_distance_goal and _task_condition_met():
 		task_active = false
 		_complete_delivery()

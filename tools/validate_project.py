@@ -51,6 +51,21 @@ if script.exists():
             errors.append(f"mixed indentation at main_3d.gd:{line_no}")
         if "\t " in line or " \t" in line:
             errors.append(f"mixed tab/space indentation at main_3d.gd:{line_no}")
+    top_level_vars: dict[str, list[int]] = {}
+    top_level_funcs: dict[str, list[int]] = {}
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if line.startswith("var "):
+            name = line[4:].split(":", 1)[0].split("=", 1)[0].strip()
+            top_level_vars.setdefault(name, []).append(line_no)
+        elif line.startswith("func "):
+            name = line[5:].split("(", 1)[0].strip()
+            top_level_funcs.setdefault(name, []).append(line_no)
+    for name, locations in top_level_vars.items():
+        if len(locations) > 1:
+            errors.append(f"duplicate top-level variable {name}: lines {locations}")
+    for name, locations in top_level_funcs.items():
+        if len(locations) > 1:
+            errors.append(f"duplicate top-level function {name}: lines {locations}")
 
 try:
     import trimesh

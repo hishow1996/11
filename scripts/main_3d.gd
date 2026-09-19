@@ -109,6 +109,7 @@ var wet_skid_cooldown := 0.0
 var last_gear := 0
 var last_indicator_on := false
 var previous_wiper_active := false
+var wiper_audio_cooldown := 0.0
 var delivery_camera_boost := 0.0
 var exhaust_particles: GPUParticles3D
 var brake_lamps: Array[MeshInstance3D] = []
@@ -2146,6 +2147,9 @@ func _update_weather_audio(delta: float) -> void:
 	wind_player.volume_db = master_db + lerp(-30.0, -18.0, 0.35 + speed_factor * 0.65)
 	wet_tire_player.volume_db = master_db + (-38.0 if current_weather != "rain" else lerp(-34.0, -9.0, speed_factor * weather_intensity))
 	snow_tire_player.volume_db = master_db + (-38.0 if current_weather != "snow" else lerp(-34.0, -8.0, speed_factor * weather_intensity))
+	if spatial_tire_player:
+		spatial_tire_player.volume_db = master_db + lerp(-42.0, -13.0, speed_factor) + (weather_intensity * 3.0 if current_weather == "rain" else 0.0)
+		spatial_tire_player.pitch_scale = 0.86 + speed_factor * 0.28
 	if current_weather == "rain" and weather_intensity > 0.5 and thunder_cooldown <= 0.0 and not thunder_player.playing:
 		thunder_player.play()
 		thunder_cooldown = 24.0 + randf() * 20.0
@@ -2316,11 +2320,16 @@ func _update_cockpit_instruments(delta: float) -> void:
 			mirror_camera.global_position = truck.global_position + Vector3(side * 1.7, 2.25, -2.8)
 			mirror_camera.look_at(truck.global_position + Vector3(side * 3.0, 1.4, 18.0), Vector3.UP)
 	var wiper_active: Variant = current_weather == "rain" or current_weather == "snow"
+	wiper_audio_cooldown = max(0.0, wiper_audio_cooldown - delta)
 	if wiper_active and not previous_wiper_active:
 		_play_sfx("wiper_swipe", -14.0)
+		wiper_audio_cooldown = 0.42
 	previous_wiper_active = wiper_active
 	if wiper_active:
 		wiper_phase = fmod(wiper_phase + delta * (3.0 + weather_intensity * 3.0 + speed * 0.08), TAU)
+		if wiper_phase < 0.18 and wiper_audio_cooldown <= 0.0:
+			_play_sfx("wiper_swipe", -14.0)
+			wiper_audio_cooldown = 0.42
 		for i in interior_wipers.size():
 			interior_wipers[i].rotation_degrees.z = (18.0 if i == 1 else -18.0) + sin(wiper_phase) * (24.0 if i == 1 else -24.0)
 	else:

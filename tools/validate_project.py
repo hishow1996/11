@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline validation for the Anime Haul Godot project.
+"""Offline validation for the 漫漫货运 Godot project.
 
 This does not replace Godot's parser; it validates resource paths, JSON manifests,
 GLB readability and common indentation hazards before an engine/Android test run.

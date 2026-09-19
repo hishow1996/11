@@ -1,6 +1,6 @@
 extends Node3D
 
-# Anime Haul 3D — Android-friendly third-person truck driving prototype.
+# 漫漫货运 3D — Android-friendly third-person truck driving prototype.
 # Art: stylized low-poly 3D with warm cel-like colors and ink-dark outlines simulated by silhouettes.
 # Audio: realistic-style local diesel and air-brake WAV loops.
 
@@ -1531,7 +1531,7 @@ func _build_start_flow() -> void:
 	intro_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	start_flow_design.add_child(intro_panel)
 	intro_logo = Label.new()
-	intro_logo.text = "ANIME HAUL"
+	intro_logo.text = "漫漫货运"
 	intro_logo.position = Vector2(315, 238)
 	intro_logo.size = Vector2(650, 92)
 	intro_logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1542,7 +1542,7 @@ func _build_start_flow() -> void:
 	intro_logo.add_theme_constant_override("shadow_offset_y", 5)
 	intro_panel.add_child(intro_logo)
 	var subtitle := Label.new()
-	subtitle.text = "ALPINE RUN  •  3D TRUCK ADVENTURE"
+	subtitle.text = "动漫卡车运输冒险"
 	subtitle.position = Vector2(390, 338)
 	subtitle.size = Vector2(500, 34)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1586,7 +1586,7 @@ func _build_start_flow() -> void:
 	menu_card.add_theme_stylebox_override("panel", card_style)
 	main_menu_panel.add_child(menu_card)
 	var menu_title := Label.new()
-	menu_title.text = "ANIME HAUL"
+	menu_title.text = "漫漫货运"
 	menu_title.position = Vector2(38, 34)
 	menu_title.size = Vector2(334, 56)
 	menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1597,7 +1597,7 @@ func _build_start_flow() -> void:
 	menu_title.add_theme_constant_override("shadow_offset_y", 3)
 	menu_card.add_child(menu_title)
 	var menu_subtitle := Label.new()
-	menu_subtitle.text = "ALPINE RUN"
+	menu_subtitle.text = "公路运输冒险"
 	menu_subtitle.position = Vector2(38, 88)
 	menu_subtitle.size = Vector2(334, 28)
 	menu_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

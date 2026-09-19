@@ -1,4 +1,4 @@
-# Anime Haul: Alpine Run — 3D Android Prototype
+# 漫漫货运 — 3D Android Prototype
 
 这是一个面向 Android 的 Godot 4 3D 卡车驾驶原型。视觉采用统一的动漫低多边形 3D 风格：赛璐璐色块、温暖色盘、深色轮廓感，以及高山公路、雪山、森林、交通车辆和第三人称跟随镜头。听觉保持写实感，使用本地柴油机循环与气刹音效。
 

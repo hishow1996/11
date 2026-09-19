@@ -1,4 +1,4 @@
-# Anime Haul — Generated Art Asset Catalog
+# 漫漫货运 — Generated Art Asset Catalog
 
 本轮已直接生成一组与项目统一的动漫 3D 美术资产参考和材质图集。它们用于正式卡车、驾驶舱、交通车辆、五类地标和道路材质的制作校准；当前 Godot 运行时仍以轻量程序化网格和已收集 GLB 为主，以保证 Android 性能。
 

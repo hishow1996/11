@@ -1,4 +1,4 @@
-# Anime Haul Visual Assets
+# 漫漫货运 Visual Assets
 
 ## Art direction
 

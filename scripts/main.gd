@@ -1,6 +1,6 @@
 extends Node2D
 
-# Anime Haul: Alpine Run — a compact Android-friendly driving prototype.
+# 漫漫货运 — a compact Android-friendly driving prototype.
 # Visual language: thick ink outlines, warm cel shading, readable silhouettes.
 # Audio language: engine, tire, and air-brake loops are intentionally realistic.
 

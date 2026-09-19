@@ -1,5 +1,5 @@
 [application]
-config/name="Anime Haul: Alpine Run"
+config/name="漫漫货运"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.2", "GL Compatibility")
 
